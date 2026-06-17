@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* évite le flash blanc avant que le thème JS s'applique */
+  background-color: #16120e;
+}
+
+/* zone sûre pour la barre d'onglets sur mobile (encoches Android/iOS) */
+@supports (padding: max(0px)) {
+  .pb-24 {
+    padding-bottom: max(6rem, calc(env(safe-area-inset-bottom) + 5rem));
+  }
+}

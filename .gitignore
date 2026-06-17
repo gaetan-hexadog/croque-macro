@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+pnpm-lock.yaml.bak
+
+# PWA generated
+dev-dist
