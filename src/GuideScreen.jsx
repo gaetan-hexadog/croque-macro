@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Salad, UtensilsCrossed, Plus, Check, Search, Flame, Beef, Package, Dumbbell, Cookie, Scale, ExternalLink, ScanLine, Beer, Wine, IceCream2 } from "lucide-react";
+import { Salad, UtensilsCrossed, Plus, Check, Search, Flame, Beef, Package, Dumbbell, Cookie, Scale, ExternalLink, ScanLine, Beer, Wine, IceCream2, ChevronDown } from "lucide-react";
 import {
   store, C,
 } from "./core.js";
@@ -98,7 +98,7 @@ export function GuideScreen({ onAddExtra, dateLabel, settings }) {
 
       <SectionHead id="methode" label="Méthode" />
 
-      <GuideBlock icon={Salad} color={C.protein} title="Construire ta journée" desc={`Une trame protéinée à adapter. Ta cible : ${settings?.kcal ?? 1850} kcal / ${settings?.protein ?? 150} g.`}>
+      <GuideBlock icon={Salad} color={C.protein} title="Construire ta journée" desc={`Une trame protéinée à adapter. Ta cible : ${settings?.kcal ?? 1850} kcal / ${settings?.protein ?? 150} g.`} defaultOpen>
         <div className="space-y-2 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
           {ex.map(([slot, food, k, p]) => (
             <div key={slot} className="flex items-start justify-between gap-3">
@@ -226,12 +226,6 @@ export function GuideScreen({ onAddExtra, dateLabel, settings }) {
         <AppCard name="Yuka" role="Scanne aussi ; pratique mais orienté « score » plus que macros." url="https://play.google.com/store/apps/details?id=io.yuka.android" tint={C.protein} />
       </GuideBlock>
 
-      <GuideBlock icon={Search} color={C.weight} title="Plats & boissons sans étiquette" desc="« Boule de glace vanille », « mojito », « galette complète »… cherche une entrée moyenne.">
-        <AppCard name="MyFitnessPal" role="Énorme base de plats et boissons génériques." url="https://play.google.com/store/apps/details?id=com.myfitnesspal.android" tint={C.weight} />
-        <AppCard name="FatSecret" role="Alternative gratuite, base bien fournie en français." url="https://play.google.com/store/apps/details?id=com.fatsecret.android" tint={C.extra} />
-        <p className="px-1 pt-1 text-xs" style={{ color: C.muted }}>Astuce : si un lien n'ouvre rien, cherche simplement le nom dans le Play Store.</p>
-      </GuideBlock>
-
       <GuideBlock icon={Beer} color={C.protein} title="Estimer à la louche" desc="Aucune donnée sous la main ? Ces repères suffisent — et dans le doute, surestime un peu.">
         <RefRow icon={Beer} label="Bière" value="° × cl × 0,8" hint="demi 5° ≈ 100 · pinte ≈ 200 · IPA +15 %" />
         <RefRow icon={Wine} label="Cocktail" value="~90 kcal / dose" hint="+ le sucre : spritz ~150, mojito ~200, piña ~380" />
@@ -253,17 +247,19 @@ function SectionHead({ id, label }) {
 }
 
 
-function GuideBlock({ icon: Icon, color, title, desc, children }) {
+function GuideBlock({ icon: Icon, color, title, desc, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="mb-4 rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-      <div className="mb-3 flex items-start gap-3">
+    <div className="mb-2.5 overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-70">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}22`, color }}><Icon size={17} /></span>
-        <div>
-          <h3 className="text-sm font-bold" style={{ color: C.ink }}>{title}</h3>
-          <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{desc}</p>
-        </div>
-      </div>
-      <div className="space-y-2">{children}</div>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold" style={{ color: C.ink }}>{title}</span>
+          <span className="mt-0.5 block text-xs" style={{ color: C.muted }}>{desc}</span>
+        </span>
+        <ChevronDown size={18} style={{ color: C.muted, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+      </button>
+      {open && <div className="space-y-2 px-4 pb-4 pt-0.5">{children}</div>}
     </div>
   );
 }

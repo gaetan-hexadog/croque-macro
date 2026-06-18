@@ -16,6 +16,8 @@ export default function PiocheRepas() {
   const [weights, setWeights] = useState({});  // { iso: kg }
   const [templates, setTemplates] = useState([]); // [{id,name,picks,skipBreakfast}]
   const [customMeals, setCustomMeals] = useState([]); // produits enregistrés (Open Food Facts / manuels)
+  const [usage, setUsage] = useState({});      // { name: { count, last } } — fréquents/récents
+  const [combos, setCombos] = useState([]);    // [{ id, name, slot, items:[{name,kcal,p,qty}], created }]
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
@@ -32,12 +34,14 @@ export default function PiocheRepas() {
         if (d.weights) setWeights(d.weights);
         if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training })));
         if (Array.isArray(d.customMeals)) setCustomMeals(d.customMeals);
+        if (d.usage && typeof d.usage === "object") setUsage(d.usage);
+        if (Array.isArray(d.combos)) setCombos(d.combos);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       }
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals }); }, [settings, days, weights, theme, templates, customMeals, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, hydrated]);
 
   const switchTheme = (t) => { applyTheme(t); setTheme(t); };
 
@@ -98,6 +102,7 @@ export default function PiocheRepas() {
 
   // mutateurs (sur le jour actif) — chaque créneau est une liste
   const CAP = { pdj: 8, dej: 8, diner: 8, snack: 4 };
+  const bumpUsage = (name) => { if (!name) return; setUsage((u) => ({ ...u, [name]: { count: (u[name]?.count || 0) + 1, last: Date.now() } })); };
   const choose = (meal) => {
     if (!picker) return;
     const raw = picker.slot, key = picksKey(raw);
@@ -107,8 +112,25 @@ export default function PiocheRepas() {
       if (picker.index != null) arr[picker.index] = item; else arr.push(item);
       return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[raw] || 8) } };
     });
+    bumpUsage(meal.name);
     setPicker(null);
   };
+  const applyCombo = (combo) => {
+    if (!picker || !combo || !combo.items || !combo.items.length) return;
+    const raw = picker.slot, key = picksKey(raw);
+    setDay((d) => {
+      const arr = [...(d.picks[key] || []), ...combo.items.map((m) => ({ ...m, qty: m.qty || 1 }))];
+      return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[raw] || 8) } };
+    });
+    combo.items.forEach((m) => bumpUsage(m.name));
+    setPicker(null);
+  };
+  const saveCombo = (slot, items, name) => {
+    const clean = (items || []).map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, qty: m.qty || 1 }));
+    if (!clean.length || !name || !name.trim()) return;
+    setCombos((c) => [{ id: `combo-${Date.now()}`, name: name.trim(), slot, items: clean, created: Date.now() }, ...c].slice(0, 60));
+  };
+  const deleteCombo = (id) => setCombos((c) => c.filter((x) => x.id !== id));
   const setQty = (slot, index, value) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, qty: clampQty(value) } : m) } }; });
   const clearSlot = (slot, index) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((_, i) => i !== index) } }; });
   const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1 }] } }));
@@ -160,6 +182,8 @@ export default function PiocheRepas() {
     if (obj.days && typeof obj.days === "object") setDays((prev) => ({ ...prev, ...normDays(obj.days) }));
     if (obj.weights && typeof obj.weights === "object") setWeights((prev) => ({ ...prev, ...obj.weights }));
     if (Array.isArray(obj.customMeals)) setCustomMeals((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customMeals.filter((x) => !ids.has(x.id))]; });
+    if (Array.isArray(obj.combos)) setCombos((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.combos.filter((x) => !ids.has(x.id))]; });
+    if (obj.usage && typeof obj.usage === "object") setUsage((prev) => ({ ...prev, ...obj.usage }));
   };
 
   return (
@@ -177,7 +201,7 @@ export default function PiocheRepas() {
           <DayScreen
             activeDate={activeDate} setActiveDate={setActiveDate}
             settings={settings} totals={totals} remKcal={remKcal} remP={remP}
-            days={days} weights={weights} onOpenWeek={() => setView("progres")}
+            days={days} weights={weights} onOpenWeek={() => setView("progres")} onSaveCombo={saveCombo}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
@@ -203,10 +227,10 @@ export default function PiocheRepas() {
       <TabBar view={view} setView={setView} />
 
       {picker && (
-        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} onChoose={choose} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={() => setPicker(null)} />
+        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={() => setPicker(null)} />
       )}
       {showSettings && (
-        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={() => setShowSettings(false)} />
+        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={() => setShowSettings(false)} />
       )}
     </div>
   );

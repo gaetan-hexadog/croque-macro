@@ -5,7 +5,7 @@ import {
 } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, onChoose, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [budgetOnly, setBudgetOnly] = useState(false);
   const [feat, setFeat] = useState(0); const [showList, setShowList] = useState(false);
@@ -13,6 +13,16 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, onChoo
   const [source, setSource] = useState("base");
   const [cName, setCName] = useState(""); const [cKcal, setCKcal] = useState(""); const [cP, setCP] = useState("");
   const toggleTag = (t) => setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
+
+  const frequent = useMemo(() => pool
+    .filter((m) => m.slots.includes(slotKey) && usage[m.name] && usage[m.name].count >= 2)
+    .sort((a, b) => (usage[b.name].count - usage[a.name].count) || ((usage[b.name].last || 0) - (usage[a.name].last || 0)))
+    .slice(0, 6), [pool, slotKey, usage]);
+  const recent = useMemo(() => pool
+    .filter((m) => m.slots.includes(slotKey) && usage[m.name])
+    .sort((a, b) => (usage[b.name].last || 0) - (usage[a.name].last || 0))
+    .slice(0, 6), [pool, slotKey, usage]);
+  const slotCombos = useMemo(() => combos.filter((c) => c.slot === slotKey), [combos, slotKey]);
 
   const list = useMemo(() => {
     let l = pool.filter((m) => m.slots.includes(slotKey));
@@ -56,6 +66,45 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, onChoo
             <OffSearch C={C} accent={ui.color} onChoose={onChoose} onSave={onSave} />
           ) : (
           <>
+          {frequent.length > 0 && (
+            <div className="mb-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Fréquents</p>
+              <div className="flex flex-wrap gap-1.5">
+                {frequent.map((m) => (
+                  <button key={m.name} onClick={() => onChoose(m)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{m.name} <span style={{ color: C.muted }}>{m.kcal}</span></button>
+                ))}
+              </div>
+            </div>
+          )}
+          {recent.length > 0 && (
+            <div className="mb-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Récents</p>
+              <div className="flex flex-wrap gap-1.5">
+                {recent.map((m) => (
+                  <button key={m.name} onClick={() => onChoose(m)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{m.name} <span style={{ color: C.muted }}>{m.kcal}</span></button>
+                ))}
+              </div>
+            </div>
+          )}
+          {slotCombos.length > 0 && (
+            <div className="mb-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Mes repas</p>
+              <div className="space-y-1.5">
+                {slotCombos.map((c) => {
+                  const tot = c.items.reduce((a, m) => ({ k: a.k + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { k: 0, p: 0 });
+                  return (
+                    <div key={c.id} className="flex items-center gap-2 rounded-2xl px-3 py-2" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                      <button onClick={() => onApplyCombo(c)} className="min-w-0 flex-1 text-left active:scale-95">
+                        <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{c.name}</p>
+                        <p className="text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{c.items.length} aliment{c.items.length > 1 ? "s" : ""} · {Math.round(tot.k)} kcal · {Math.round(tot.p)} g</p>
+                      </button>
+                      <button onClick={() => onDeleteCombo(c.id)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ color: C.muted }}><Trash2 size={14} /></button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="mb-2 flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
             <Search size={16} style={{ color: C.muted }} />
             <input value={q} onChange={(e) => { setQ(e.target.value); setShowList(true); }} placeholder="Rechercher un plat, un ingrédient…" className="w-full bg-transparent text-sm outline-none" style={{ color: C.ink }} />
