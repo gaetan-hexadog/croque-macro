@@ -286,6 +286,66 @@ const EXTRA_PRESETS = [
   ] },
 ];
 
+// ── Moteur hebdomadaire « intelligent » ─────────────────────────────────────
+// Solde glissant sur la semaine + budget plaisir + pilotage doux.
+// Garde-fous : pas de dette, pas de calories « gagnées » au sport,
+// plancher de sécurité, et détection du sous-mange (ne jamais pousser à serrer plus).
+const KCAL_FLOOR = 1500;
+
+function weekStats(days, settings, refISO, span = 7) {
+  const target = settings.kcal;
+  let consumedSum = 0, protSum = 0, logged = 0, deltaSum = 0;
+  const perDay = [];
+  for (let i = span - 1; i >= 0; i--) {
+    const iso = addDays(refISO, -i);
+    const d = days[iso];
+    const has = d && hasData(d);
+    const t = has ? dayTotals(d) : null;
+    if (has) { consumedSum += t.kcal; protSum += t.p; logged++; deltaSum += target - t.kcal; }
+    perDay.push({ iso, kcal: has ? t.kcal : null, p: has ? t.p : null, delta: has ? target - t.kcal : null, logged: has });
+  }
+  return {
+    target, span, logged,
+    avgKcal: logged ? consumedSum / logged : 0,
+    avgProt: logged ? protSum / logged : 0,
+    balance: deltaSum, // + = avance sur le plan · − = retard
+    perDay,
+  };
+}
+
+function weightTrendOver(weights, refISO, span = 14) {
+  const ws = [];
+  for (let i = 0; i < span; i++) { const iso = addDays(refISO, -i); if (weights[iso] != null) ws.push(weights[iso]); }
+  if (ws.length < 2) return null;
+  const d = ws[0] - ws[ws.length - 1]; // récent − ancien
+  return d <= -0.2 ? "down" : d >= 0.3 ? "up" : "flat";
+}
+
+function weekCoach(stats, settings, weights, refISO) {
+  const { balance, avgKcal, target, span, logged } = stats;
+  const weightTrend = weightTrendOver(weights || {}, refISO);
+  const w = settings.profile && settings.profile.weight;
+  const protReco = w ? Math.round(1.6 * w) : null;
+  const proteinRoom = (protReco && settings.protein - protReco >= 15)
+    ? { reco: protReco, kcalBack: Math.round((settings.protein - protReco) * 4) }
+    : null;
+
+  if (logged < 2) {
+    return { tone: "start", headline: "Bilan en préparation", detail: "Logue 2-3 journées et le bilan hebdomadaire s'affiche : solde, marge plaisir et conseil du lendemain.", balance, suggestTomorrow: null, weightTrend, proteinRoom: null };
+  }
+  if (avgKcal > 0 && avgKcal < target - 350) {
+    return { tone: "low", headline: "Déficit déjà marqué", detail: `Tu manges en moyenne ${Math.round(target - avgKcal)} kcal sous ta cible. Pas besoin de serrer plus : vise au moins ta cible, c'est ce qui préserve le muscle et rend la sèche tenable.`, balance, suggestTomorrow: null, weightTrend, proteinRoom };
+  }
+  if (balance >= 300) {
+    return { tone: "ahead", headline: `Marge plaisir : +${Math.round(balance)} kcal`, detail: "Tu es en avance sur ton plan de la semaine. C'est ta marge pour un vrai plaisir — ou tu la gardes, au choix.", balance, suggestTomorrow: null, weightTrend, proteinRoom };
+  }
+  if (balance <= -400) {
+    const suggest = Math.max(KCAL_FLOOR, Math.round((target + balance / span) / 10) * 10);
+    return { tone: "behind", headline: `Semaine chargée : ${Math.round(balance)} kcal`, detail: `Pas de panique, ça se lisse sur 7 jours. Pour rester dans ton plan, tu peux viser ~${suggest} kcal demain — jamais sous ${KCAL_FLOOR}. Ce n'est pas une dette à rembourser, juste un cap.`, balance, suggestTomorrow: suggest, weightTrend, proteinRoom };
+  }
+  return { tone: "ontrack", headline: "Pile dans ton plan", detail: "Ta moyenne colle à ta cible. C'est la régularité qui fait avancer, pas la perfection sur quelques jours.", balance, suggestTomorrow: null, weightTrend, proteinRoom };
+}
+
 export {
-  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, EXTRA_PRESETS,
+  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, EXTRA_PRESETS, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver,
 };

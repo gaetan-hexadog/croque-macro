@@ -80,10 +80,17 @@ croque-macro/
 └─ src/
    ├─ main.jsx           # bootstrap React
    ├─ index.css          # @import "tailwindcss" + safe-area
-   ├─ core.js            # données + thème + helpers partagés (base de repas, presets, tokens C, dates, quantités)
+   ├─ core.js            # données + thème + helpers + moteur hebdo (weekStats/weekCoach)
    ├─ openfoodfacts.js   # accès API Open Food Facts (recherche texte + code-barres)
    ├─ OffSearch.jsx      # composant recherche/scan Open Food Facts
-   └─ App.jsx            # écrans, logique, pioche, graphiques
+   ├─ Week.jsx           # bilan hebdomadaire : WeekStrip (Jour) + WeekCard (Progrès)
+   ├─ DayScreen.jsx      # écran Jour : anneau, repas, extras, poids, templates
+   ├─ ProgressScreen.jsx # écran Progrès : KPI, graphiques kcal/poids, tendance
+   ├─ GuideScreen.jsx    # écran Guide : méthode, antisèches, outils
+   ├─ JournalScreen.jsx  # écran Journal : historique des jours
+   ├─ Deck.jsx           # pioche : suggestion, recherche base perso + Open Food Facts
+   ├─ Settings.jsx       # réglages : cibles, thème, base perso, import/export
+   └─ App.jsx            # racine : état, persistance, routing onglets, overlays
 ```
 
 ## Notes
