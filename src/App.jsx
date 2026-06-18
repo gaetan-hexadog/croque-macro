@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   Coffee, Salad, UtensilsCrossed, Apple, Plus, X, Shuffle, RotateCcw,
   Settings2, Check, Search, Flame, Beef, Clock, Snowflake, Package,
@@ -6,6 +6,7 @@ import {
   ChevronLeft, CalendarDays, TrendingUp, Scale, CalendarCheck, Sun, Moon,
   BookOpen, ExternalLink, ScanLine, Beer, Wine, IceCream2, Layers, Copy, Dumbbell,
 } from "lucide-react";
+import OffSearch from "./OffSearch.jsx";
 
 /* ──────────────────────────────────────────────────────────────────────────
    PiocheRepas — planificateur de repas végétarien sans produits laitiers
@@ -244,9 +245,14 @@ function dayTotals(day) {
   if (!day) return { kcal: 0, p: 0 };
   const pk = day.picks || {};
   const all = [...toList(pk.pdj), ...toList(pk.dej), ...toList(pk.diner), ...(pk.snacks || []), ...(pk.extras || [])].filter(Boolean);
-  return all.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p }), { kcal: 0, p: 0 });
+  return all.reduce((a, m) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 });
 }
 const hasData = (day) => day && dayTotals(day).kcal > 0;
+
+// portions : clé picks (snack→snacks), bornage et affichage des quantités
+const picksKey = (slot) => (slot === "snack" ? "snacks" : slot);
+const clampQty = (v) => { v = Number(v); if (!isFinite(v) || v <= 0) return 1; return Math.min(20, Math.round(v * 100) / 100); };
+const fmtQty = (v) => (Number.isInteger(v) ? String(v) : String(v).replace(".", ","));
 
 export default function PiocheRepas() {
   const [settings, setSettings] = useState({ kcal: 1850, protein: 150 });
@@ -336,16 +342,18 @@ export default function PiocheRepas() {
   const CAP = { pdj: 8, dej: 8, diner: 8, snack: 4 };
   const choose = (meal) => {
     if (!picker) return;
-    const slot = picker.slot;
+    const raw = picker.slot, key = picksKey(raw);
     setDay((d) => {
-      const arr = [...(d.picks[slot] || [])];
-      if (picker.index != null) arr[picker.index] = meal; else arr.push(meal);
-      return { ...d, picks: { ...d.picks, [slot]: arr.slice(0, CAP[slot] || 8) } };
+      const arr = [...(d.picks[key] || [])];
+      const item = { ...meal, qty: 1 };
+      if (picker.index != null) arr[picker.index] = item; else arr.push(item);
+      return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[raw] || 8) } };
     });
     setPicker(null);
   };
-  const clearSlot = (slot, index) => setDay((d) => ({ ...d, picks: { ...d.picks, [slot]: (d.picks[slot] || []).filter((_, i) => i !== index) } }));
-  const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), extra] } }));
+  const setQty = (slot, index, value) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, qty: clampQty(value) } : m) } }; });
+  const clearSlot = (slot, index) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((_, i) => i !== index) } }; });
+  const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1 }] } }));
   const removeExtra = (i) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: (d.picks.extras || []).filter((_, idx) => idx !== i) } }));
   const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: [] } }));
   const toggleTraining = () => setDay((d) => ({ ...d, training: !d.training }));
@@ -355,7 +363,8 @@ export default function PiocheRepas() {
     const from = (good.length ? good : pool).slice(0, 6);
     const pick = from[Math.floor(Math.random() * from.length)];
     if (!pick) return;
-    setDay((d) => ({ ...d, picks: { ...d.picks, [slotKey]: [...(d.picks[slotKey] || []), pick].slice(0, CAP[slotKey] || 8) } }));
+    const key = picksKey(slotKey);
+    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { ...pick, qty: 1 }].slice(0, CAP[slotKey] || 8) } }));
   };
   const resetDay = () => setDay((d) => ({ ...EMPTY_DAY() }));
 
@@ -406,7 +415,7 @@ export default function PiocheRepas() {
             training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={(slot, index) => setPicker({ slot, index })}
-            onSurprise={surprise} onClear={clearSlot} onSkip={toggleSkip}
+            onSurprise={surprise} onClear={clearSlot} onQty={setQty} onSkip={toggleSkip}
             onAddExtra={addExtra} onRemoveExtra={removeExtra} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
@@ -464,16 +473,17 @@ function TabBar({ view, setView }) {
 // ════════════════════════════════════════════════════════════════════════════
 //  ÉCRAN JOUR
 // ════════════════════════════════════════════════════════════════════════════
-function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onSkip, onAddExtra, onRemoveExtra, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
+function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onSkip, onAddExtra, onRemoveExtra, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
+  const seg = (m, color) => ({ ...m, kcal: m.kcal * (m.qty || 1), p: m.p * (m.qty || 1), color });
   const ribbon = [
-    ...picks.pdj.map((m) => ({ ...m, color: SLOT_UI.pdj.color })),
-    ...picks.dej.map((m) => ({ ...m, color: SLOT_UI.dej.color })),
-    ...picks.diner.map((m) => ({ ...m, color: SLOT_UI.diner.color })),
-    ...picks.snacks.map((s) => s && { ...s, color: SLOT_UI.snack.color }),
-    ...(picks.extras || []).map((e) => ({ ...e, color: C.extra })),
+    ...picks.pdj.map((m) => seg(m, SLOT_UI.pdj.color)),
+    ...picks.dej.map((m) => seg(m, SLOT_UI.dej.color)),
+    ...picks.diner.map((m) => seg(m, SLOT_UI.diner.color)),
+    ...picks.snacks.map((s) => s && seg(s, SLOT_UI.snack.color)),
+    ...(picks.extras || []).map((e) => seg(e, C.extra)),
   ].filter(Boolean);
 
   return (
@@ -532,15 +542,15 @@ function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP,
             {ribbon.length > 0 && <button onClick={onReset} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Vider</button>}
           </div>
         </div>
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onSkip={onSkip} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onSkip={onSkip} />
         <Divider />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} />
         <Divider />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} />
         <Divider />
-        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} empty="Un en-cas protéiné si un repas est juste." />
+        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} onQty={(i, nv) => onQty("snack", i, nv)} empty="Un en-cas protéiné si un repas est juste." />
         <Divider />
-        <ExtrasSection extras={picks.extras || []} onAdd={onAddExtra} onRemove={onRemoveExtra} />
+        <ExtrasSection extras={picks.extras || []} onAdd={onAddExtra} onRemove={onRemoveExtra} onQty={(i, nv) => onQty("extras", i, nv)} />
       </div>
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
@@ -1121,10 +1131,33 @@ function Arc({ consumed, target, children }) {
   );
 }
 
-function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurprise, onClear, onSkip }) {
+function QtyStepper({ value, onChange, accent = C.ink }) {
+  const v = value || 1;
+  const [txt, setTxt] = useState(null);
+  const shown = txt != null ? txt : fmtQty(v);
+  const commit = () => { const n = parseFloat((txt || "").replace(",", ".")); onChange(isFinite(n) && n > 0 ? n : v); setTxt(null); };
+  return (
+    <div className="flex items-center gap-1 rounded-lg px-1 py-0.5" style={{ border: `1px solid ${C.line}` }}>
+      <button onClick={() => onChange(Math.max(0.1, Math.round((v - 0.5) * 100) / 100))} className="flex h-6 w-6 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: v > 0.1 ? C.ink : C.line }}>−</button>
+      <input
+        value={shown}
+        inputMode="decimal"
+        onFocus={() => setTxt(fmtQty(v))}
+        onChange={(e) => setTxt(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+        className="bg-transparent text-center text-xs font-bold outline-none"
+        style={{ color: C.ink, width: "2.2rem", fontVariantNumeric: "tabular-nums" }}
+      />
+      <button onClick={() => onChange(Math.round((v + 0.5) * 100) / 100)} className="flex h-6 w-6 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: accent }}>+</button>
+    </div>
+  );
+}
+
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurprise, onClear, onQty, onSkip }) {
   const ui = SLOT_UI[slotKey];
   const Icon = SLOTS[slotKey].icon;
-  const sub = meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p }), { kcal: 0, p: 0 });
+  const sub = meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 });
   const has = meals.length > 0;
   return (
     <div className="px-5 py-4">
@@ -1150,21 +1183,27 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurp
         </div>
       ) : (
         <div className="space-y-2">
-          {meals.map((m, i) => (
-            <div key={i} className="flex items-start justify-between gap-3 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold" style={{ color: C.ink }}>{m.name}</p>
-                <p className="mt-0.5 text-xs font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
-                  <span style={{ color: C.ink }}>{m.kcal} kcal</span><span style={{ color: C.protein }}> · {m.p} g prot.</span>
-                  {m.c != null && <span style={{ color: C.muted }}> · {m.c} g gluc · {m.f} g lip</span>}
-                </p>
+          {meals.map((m, i) => {
+            const q = m.qty || 1;
+            return (
+              <div key={i} className="flex items-start justify-between gap-2 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold" style={{ color: C.ink }}>{m.name}{q !== 1 && <span style={{ color: ui.color }}> ×{fmtQty(q)}</span>}</p>
+                  <p className="mt-0.5 text-xs font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <span style={{ color: C.ink }}>{r0(m.kcal * q)} kcal</span><span style={{ color: C.protein }}> · {r0(m.p * q)} g prot.</span>
+                    {q !== 1 && <span style={{ color: C.muted }}> · {m.kcal}×{fmtQty(q)}</span>}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <QtyStepper value={q} onChange={(nv) => onQty(i, nv)} accent={ui.color} />
+                  <div className="flex gap-1.5">
+                    <button onClick={() => onReplace(i)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Shuffle size={14} /></button>
+                    <button onClick={() => onClear(i)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
+                  </div>
+                </div>
               </div>
-              <div className="flex shrink-0 gap-1.5">
-                <button onClick={() => onReplace(i)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Shuffle size={14} /></button>
-                <button onClick={() => onClear(i)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <div className="flex items-center gap-2 pt-0.5">
             <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Plus size={15} /> Ajouter</button>
             <button onClick={onSurprise} title="Au hasard" className="flex h-10 w-10 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><Sparkles size={16} /></button>
@@ -1175,7 +1214,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurp
   );
 }
 
-function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onRemove, empty }) {
+function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onRemove, onQty, empty }) {
   return (
     <div className="px-5 py-4">
       <div className="mb-2.5 flex items-center justify-between">
@@ -1192,15 +1231,21 @@ function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onR
         <p className="pl-1 text-sm" style={{ color: C.muted }}>{empty}</p>
       ) : (
         <div className="space-y-2">
-          {items.map((s, i) => (
-            <div key={i} className="flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold" style={{ color: C.ink }}>{s.name}</p>
-                <p className="text-xs" style={{ color: C.sub, fontVariantNumeric: "tabular-nums" }}>{s.kcal} kcal · {s.p} g prot.</p>
+          {items.map((s, i) => {
+            const q = s.qty || 1;
+            return (
+              <div key={i} className="flex items-center justify-between gap-2 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold" style={{ color: C.ink }}>{s.name}{q !== 1 && <span style={{ color }}> ×{fmtQty(q)}</span>}</p>
+                  <p className="text-xs font-semibold" style={{ color: C.sub, fontVariantNumeric: "tabular-nums" }}><span style={{ color: C.ink }}>{r0(s.kcal * q)} kcal</span> · <span style={{ color: C.protein }}>{r0(s.p * q)} g prot.</span></p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {onQty && <QtyStepper value={q} onChange={(nv) => onQty(i, nv)} accent={color} />}
+                  <button onClick={() => onRemove(i)} className="rounded-full p-1.5 active:scale-90" style={{ color: C.muted }}><X size={16} /></button>
+                </div>
               </div>
-              <button onClick={() => onRemove(i)} className="rounded-full p-1.5 active:scale-90" style={{ color: C.muted }}><X size={16} /></button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1245,7 +1290,7 @@ const EXTRA_PRESETS = [
     { name: "Piña colada", kcal: 380, p: 2 },
   ] },
 ];
-function ExtrasSection({ extras, onAdd, onRemove }) {
+function ExtrasSection({ extras, onAdd, onRemove, onQty }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(""); const [kcal, setKcal] = useState(""); const [p, setP] = useState("");
   const addCustom = () => { const k = parseInt(kcal, 10); if (!name.trim() || isNaN(k)) return; onAdd({ name: name.trim(), kcal: k, p: parseInt(p, 10) || 0 }); setName(""); setKcal(""); setP(""); setOpen(false); };
@@ -1264,12 +1309,21 @@ function ExtrasSection({ extras, onAdd, onRemove }) {
       {extras.length === 0 && !open && <p className="pl-1 text-sm" style={{ color: C.muted }}>Glace, barre, gâteau, cidre… le budget des repas s'ajuste tout seul.</p>}
       {extras.length > 0 && (
         <div className="mb-2 space-y-2">
-          {extras.map((e, i) => (
-            <div key={i} className="flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: `${C.extra}14` }}>
-              <div className="min-w-0"><p className="text-sm font-semibold" style={{ color: C.ink }}>{e.name}</p><p className="text-xs" style={{ color: C.sub, fontVariantNumeric: "tabular-nums" }}>{e.kcal} kcal · {e.p} g prot.</p></div>
-              <button onClick={() => onRemove(i)} className="rounded-full p-1.5 active:scale-90" style={{ color: C.muted }}><X size={16} /></button>
-            </div>
-          ))}
+          {extras.map((e, i) => {
+            const q = e.qty || 1;
+            return (
+              <div key={i} className="flex items-center justify-between gap-2 rounded-2xl p-3" style={{ backgroundColor: `${C.extra}14` }}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold" style={{ color: C.ink }}>{e.name}{q !== 1 && <span style={{ color: C.extra }}> ×{fmtQty(q)}</span>}</p>
+                  <p className="text-xs font-semibold" style={{ color: C.sub, fontVariantNumeric: "tabular-nums" }}><span style={{ color: C.ink }}>{r0(e.kcal * q)} kcal</span> · <span style={{ color: C.protein }}>{r0(e.p * q)} g prot.</span></p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {onQty && <QtyStepper value={q} onChange={(nv) => onQty(i, nv)} accent={C.extra} />}
+                  <button onClick={() => onRemove(i)} className="rounded-full p-1.5 active:scale-90" style={{ color: C.muted }}><X size={16} /></button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
       {open && (
@@ -1304,6 +1358,7 @@ function Deck({ slotKey, rankFor, fitOf, slotTarget, onChoose, onClose }) {
   const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [budgetOnly, setBudgetOnly] = useState(false);
   const [feat, setFeat] = useState(0); const [showList, setShowList] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
+  const [source, setSource] = useState("base");
   const [cName, setCName] = useState(""); const [cKcal, setCKcal] = useState(""); const [cP, setCP] = useState("");
   const toggleTag = (t) => setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
 
@@ -1340,6 +1395,15 @@ function Deck({ slotKey, rankFor, fitOf, slotTarget, onChoose, onClose }) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-5 pb-5">
+          <div className="mb-3 flex gap-1 rounded-full p-1" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+            {[{ v: "base", l: "Ma base" }, { v: "off", l: "Open Food Facts" }].map((o) => (
+              <button key={o.v} onClick={() => setSource(o.v)} className="flex-1 rounded-full py-1.5 text-xs font-semibold active:scale-95" style={source === o.v ? { backgroundColor: ui.color, color: "#fff" } : { color: C.sub }}>{o.l}</button>
+            ))}
+          </div>
+          {source === "off" ? (
+            <OffSearch C={C} accent={ui.color} onChoose={onChoose} />
+          ) : (
+          <>
           {featured && !showList && (
             <div className="mb-3 rounded-3xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, boxShadow: `0 10px 30px -18px ${C.shadow}` }}>
               {(() => { const m = fitMeta[fitOf(featured)]; return <span className="inline-block rounded-full px-2.5 py-1 text-xs font-semibold" style={{ backgroundColor: m.bg, color: m.fg }}>{m.label}</span>; })()}
@@ -1400,6 +1464,8 @@ function Deck({ slotKey, rankFor, fitOf, slotTarget, onChoose, onClose }) {
                 );
               })}
             </div>
+          )}
+          </>
           )}
         </div>
       </div>
