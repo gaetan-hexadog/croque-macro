@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Search, ScanLine, X, Check, Plus, Loader } from "lucide-react";
+import { Search, ScanLine, X, Check, Plus, Loader, Bookmark } from "lucide-react";
 import { searchProducts, fetchProductByBarcode } from "./openfoodfacts.js";
 
 // Recherche Open Food Facts : texte + scan code-barres, puis saisie au gramme.
 // Reçoit le thème `C` et `accent` en props pour éviter tout couplage avec App.
-export default function OffSearch({ C, accent, onChoose }) {
+export default function OffSearch({ C, accent, onChoose, onSave }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,6 +12,7 @@ export default function OffSearch({ C, accent, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [grams, setGrams] = useState("100");
   const [scanning, setScanning] = useState(false);
+  const [saved, setSaved] = useState(false);
   const videoRef = useRef(null);
   const rafRef = useRef(0);
   const abortRef = useRef(null);
@@ -106,6 +107,19 @@ export default function OffSearch({ C, accent, onChoose }) {
     });
   }
 
+  function save() {
+    if (!selected || !calc || g <= 0 || !onSave) return;
+    onSave({
+      id: `off-${selected.code}`,
+      name: `${selected.name}${selected.brand ? ` · ${selected.brand}` : ""} (${fmt(g)} g)`,
+      kcal: calc.kcal, p: calc.p, c: calc.c, f: calc.f,
+      slots: ["pdj", "dej", "diner", "snack"], tags: [],
+      desc: `${fmt(g)} g · Open Food Facts`, custom: true, off: true, code: selected.code,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  }
+
   // ── Vue scan ──
   if (scanning) {
     return (
@@ -145,6 +159,12 @@ export default function OffSearch({ C, accent, onChoose }) {
           </div>
           <button onClick={add} disabled={g <= 0} className="flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: g > 0 ? accent : C.line }}><Plus size={16} /> Ajouter</button>
         </div>
+
+        {onSave && (
+          <button onClick={save} disabled={g <= 0} className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: saved ? accent : C.sub }}>
+            {saved ? <><Check size={15} /> Enregistré dans ta base</> : <><Bookmark size={15} /> Enregistrer dans ma base</>}
+          </button>
+        )}
       </div>
     );
   }

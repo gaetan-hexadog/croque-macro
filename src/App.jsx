@@ -4,7 +4,7 @@ import {
   Settings2, Check, Search, Flame, Beef, Clock, Snowflake, Package,
   EggOff, Soup, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, Calculator, Pencil,
   ChevronLeft, CalendarDays, TrendingUp, Scale, CalendarCheck, Sun, Moon,
-  BookOpen, ExternalLink, ScanLine, Beer, Wine, IceCream2, Layers, Copy,
+  BookOpen, ExternalLink, ScanLine, Beer, Wine, IceCream2, Layers, Copy, Bookmark,
 } from "lucide-react";
 import OffSearch from "./OffSearch.jsx";
 import {
@@ -23,6 +23,7 @@ export default function PiocheRepas() {
   const [days, setDays] = useState({});       // { iso: {picks, skipBreakfast} }
   const [weights, setWeights] = useState({});  // { iso: kg }
   const [templates, setTemplates] = useState([]); // [{id,name,picks,skipBreakfast}]
+  const [customMeals, setCustomMeals] = useState([]); // produits enregistrés (Open Food Facts / manuels)
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
@@ -38,12 +39,13 @@ export default function PiocheRepas() {
         if (d.days) setDays(normDays(d.days));
         if (d.weights) setWeights(d.weights);
         if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training })));
+        if (Array.isArray(d.customMeals)) setCustomMeals(d.customMeals);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       }
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates }); }, [settings, days, weights, theme, templates, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals }); }, [settings, days, weights, theme, templates, customMeals, hydrated]);
 
   const switchTheme = (t) => { applyTheme(t); setTheme(t); };
 
@@ -146,6 +148,13 @@ export default function PiocheRepas() {
     if (t) setDay(() => ({ picks: clone(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training }));
   };
   const deleteTemplate = (id) => setTemplates((t) => t.filter((x) => x.id !== id));
+  const saveCustomMeal = (meal) => setCustomMeals((cur) => {
+    const m = { ...meal, slots: meal.slots || ["pdj", "dej", "diner", "snack"], tags: meal.tags || [], desc: meal.desc || "Enregistré", custom: true };
+    const others = cur.filter((x) => x.id !== m.id);
+    return [m, ...others].slice(0, 200);
+  });
+  const deleteCustomMeal = (id) => setCustomMeals((cur) => cur.filter((x) => x.id !== id));
+  const updateCustomMeal = (id, patch) => setCustomMeals((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   const setWeight = (iso, kg) => setWeights((w) => {
     const n = { ...w };
     if (kg == null || isNaN(kg)) delete n[iso]; else n[iso] = kg;
@@ -158,6 +167,7 @@ export default function PiocheRepas() {
     if (obj.settings && typeof obj.settings === "object") setSettings(obj.settings);
     if (obj.days && typeof obj.days === "object") setDays((prev) => ({ ...prev, ...normDays(obj.days) }));
     if (obj.weights && typeof obj.weights === "object") setWeights((prev) => ({ ...prev, ...obj.weights }));
+    if (Array.isArray(obj.customMeals)) setCustomMeals((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customMeals.filter((x) => !ids.has(x.id))]; });
   };
 
   return (
@@ -200,10 +210,10 @@ export default function PiocheRepas() {
       <TabBar view={view} setView={setView} />
 
       {picker && (
-        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} onChoose={choose} onClose={() => setPicker(null)} />
+        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} onChoose={choose} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={() => setPicker(null)} />
       )}
       {showSettings && (
-        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme }} onImport={importData} onClose={() => setShowSettings(false)} />
+        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={() => setShowSettings(false)} />
       )}
     </div>
   );
@@ -1079,7 +1089,7 @@ function ExtrasSection({ extras, onAdd, onRemove, onQty }) {
 }
 
 // ── DECK : la pioche ────────────────────────────────────────────────────────
-function Deck({ slotKey, rankFor, fitOf, slotTarget, onChoose, onClose }) {
+function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, onChoose, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [budgetOnly, setBudgetOnly] = useState(false);
   const [feat, setFeat] = useState(0); const [showList, setShowList] = useState(false);
@@ -1089,13 +1099,13 @@ function Deck({ slotKey, rankFor, fitOf, slotTarget, onChoose, onClose }) {
   const toggleTag = (t) => setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
 
   const list = useMemo(() => {
-    let l = MEALS.filter((m) => m.slots.includes(slotKey));
-    if (q.trim()) { const s = q.toLowerCase(); l = l.filter((m) => m.name.toLowerCase().includes(s) || m.desc.toLowerCase().includes(s)); }
+    let l = pool.filter((m) => m.slots.includes(slotKey));
+    if (q.trim()) { const s = q.toLowerCase(); l = l.filter((m) => m.name.toLowerCase().includes(s) || (m.desc || "").toLowerCase().includes(s)); }
     if (tags.length) l = l.filter((m) => tags.every((t) => m.tags.includes(t)));
     l = rankFor(slotKey, l);
     if (budgetOnly) l = l.filter((m) => fitOf(m) !== "over");
     return l;
-  }, [slotKey, q, tags, budgetOnly, rankFor, fitOf]);
+  }, [slotKey, q, tags, budgetOnly, rankFor, fitOf, pool]);
   useEffect(() => { setFeat(0); }, [q, tags, budgetOnly, slotKey]);
 
   const addCustom = () => { const k = parseInt(cKcal, 10); if (!cName.trim() || isNaN(k)) return; onChoose({ id: `custom-${Date.now()}`, name: cName.trim(), kcal: k, p: parseInt(cP, 10) || 0, c: null, f: null, desc: "Mon repas", tags: [], slots: [slotKey], custom: true }); };
@@ -1127,7 +1137,7 @@ function Deck({ slotKey, rankFor, fitOf, slotTarget, onChoose, onClose }) {
             ))}
           </div>
           {source === "off" ? (
-            <OffSearch C={C} accent={ui.color} onChoose={onChoose} />
+            <OffSearch C={C} accent={ui.color} onChoose={onChoose} onSave={onSave} />
           ) : (
           <>
           {featured && !showList && (
@@ -1179,14 +1189,18 @@ function Deck({ slotKey, rankFor, fitOf, slotTarget, onChoose, onClose }) {
               {list.map((m) => {
                 const meta = fitMeta[fitOf(m)];
                 return (
-                  <button key={m.id} onClick={() => onChoose(m)} className="flex w-full items-center gap-3 rounded-2xl p-3 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-                    <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.fg }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}</p>
-                      <p className="text-xs font-medium" style={{ fontVariantNumeric: "tabular-nums" }}><span style={{ color: C.sub }}>{m.kcal} kcal</span> · <span style={{ color: C.protein }}>{m.p} g prot.</span></p>
-                    </div>
-                    <ChevronRight size={18} style={{ color: C.line }} />
-                  </button>
+                  <div key={m.id} className="flex items-center gap-2 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                    <button onClick={() => onChoose(m)} className="flex min-w-0 flex-1 items-center gap-3 text-left active:scale-95">
+                      <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.fg }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}{m.custom && <span style={{ color: ui.color }}> ·perso</span>}</p>
+                        <p className="text-xs font-medium" style={{ fontVariantNumeric: "tabular-nums" }}><span style={{ color: C.sub }}>{m.kcal} kcal</span> · <span style={{ color: C.protein }}>{m.p} g prot.</span></p>
+                      </div>
+                    </button>
+                    {m.custom && onDeleteCustom
+                      ? <button onClick={() => onDeleteCustom(m.id)} className="shrink-0 rounded-lg p-1.5 active:scale-90" style={{ color: C.muted }}><Trash2 size={15} /></button>
+                      : <ChevronRight size={18} style={{ color: C.line }} />}
+                  </div>
                 );
               })}
             </div>
@@ -1206,11 +1220,51 @@ function FilterChip({ active, onClick, icon, children }) {
 }
 
 // ── Réglages + calculateur ──────────────────────────────────────────────────
-function SettingsSheet({ settings, setSettings, theme, onTheme, allData, onImport, onClose }) {
+function CustomBaseManager({ items, onUpdate, onDelete }) {
+  const [editId, setEditId] = useState(null);
+  const [f, setF] = useState({ name: "", kcal: "", p: "" });
+  const startEdit = (m) => { setEditId(m.id); setF({ name: m.name, kcal: String(m.kcal), p: String(m.p) }); };
+  const commit = () => {
+    if (!f.name.trim()) { setEditId(null); return; }
+    const kcal = parseInt(f.kcal, 10), p = parseInt(f.p, 10);
+    onUpdate(editId, { name: f.name.trim(), kcal: isNaN(kcal) ? 0 : kcal, p: isNaN(p) ? 0 : p });
+    setEditId(null);
+  };
+  if (!items.length) {
+    return <p className="px-1 py-2 text-sm" style={{ color: C.muted }}>Aucun produit enregistré. Depuis la pioche → <span style={{ color: C.sub }}>Open Food Facts</span> → « Enregistrer dans ma base ».</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {items.map((m) => editId === m.id ? (
+        <div key={m.id} className="space-y-2 rounded-xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+          <input value={f.name} onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.ink }} />
+          <div className="flex gap-2">
+            <input value={f.kcal} onChange={(e) => setF((s) => ({ ...s, kcal: e.target.value }))} inputMode="numeric" placeholder="kcal" className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.ink }} />
+            <input value={f.p} onChange={(e) => setF((s) => ({ ...s, p: e.target.value }))} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.ink }} />
+            <button onClick={commit} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={15} /></button>
+            <button onClick={() => setEditId(null)} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.sub }}><X size={15} /></button>
+          </div>
+        </div>
+      ) : (
+        <div key={m.id} className="flex items-center justify-between gap-2 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}</p>
+            <p className="text-xs font-medium" style={{ fontVariantNumeric: "tabular-nums" }}><span style={{ color: C.sub }}>{m.kcal} kcal</span> · <span style={{ color: C.protein }}>{m.p} g prot.</span></p>
+          </div>
+          <button onClick={() => startEdit(m)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Pencil size={14} /></button>
+          <button onClick={() => onDelete(m.id)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onClose }) {
   const [kcal, setKcal] = useState(settings.kcal);
   const [protein, setProtein] = useState(settings.protein);
   const [showCalc, setShowCalc] = useState(false);
   const [showData, setShowData] = useState(false);
+  const [showBase, setShowBase] = useState(false);
   const [jsonOut, setJsonOut] = useState("");
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState(null);
@@ -1294,6 +1348,15 @@ function SettingsSheet({ settings, setSettings, theme, onTheme, allData, onImpor
             </div>
             <button onClick={() => { setKcal(calc.target); setProtein(calc.proteinReco); }} className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={16} /> Appliquer la reco</button>
             <p className="text-xs" style={{ color: C.muted }}>Mifflin-St Jeor · protéines ≈ 1,9 g/kg. Plancher de sécurité à 1500 kcal.</p>
+          </div>
+        )}
+        <button onClick={() => setShowBase((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+          <span className="flex items-center gap-2"><Bookmark size={16} /> Ma base perso{customMeals.length > 0 && <span style={{ color: C.muted, fontWeight: 500 }}> · {customMeals.length}</span>}</span>
+          <ChevronRight size={16} style={{ transform: showBase ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
+        </button>
+        {showBase && (
+          <div className="mb-3 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+            <CustomBaseManager items={customMeals} onUpdate={onUpdateCustom} onDelete={onDeleteCustom} />
           </div>
         )}
         <button onClick={() => setShowData((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
