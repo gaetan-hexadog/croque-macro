@@ -4,7 +4,7 @@ import {
   Settings2, Check, Search, Flame, Beef, Clock, Snowflake, Package,
   EggOff, Soup, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, Calculator, Pencil,
   ChevronLeft, CalendarDays, TrendingUp, Scale, CalendarCheck, Sun, Moon,
-  BookOpen, ExternalLink, ScanLine, Beer, Wine, IceCream2, Layers, Copy,
+  BookOpen, ExternalLink, ScanLine, Beer, Wine, IceCream2, Layers, Copy, Dumbbell,
 } from "lucide-react";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -232,12 +232,12 @@ const fmtShort = (iso) => parseISO(iso).toLocaleDateString("fr-FR", { weekday: "
 const fmtFull = (iso) => iso === TODAY ? "Aujourd'hui" : parseISO(iso).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 const r0 = (x) => Math.round(x);
 
-const EMPTY_DAY = () => ({ picks: { pdj: [], dej: [], diner: [], snacks: [], extras: [] }, skipBreakfast: false });
+const EMPTY_DAY = () => ({ picks: { pdj: [], dej: [], diner: [], snacks: [], extras: [] }, skipBreakfast: false, training: false });
 
 // normalise un repas (ancien format = objet unique) vers une liste
 const toList = (x) => [].concat(x || []).filter(Boolean);
 const normPicks = (p = {}) => ({ pdj: toList(p.pdj), dej: toList(p.dej), diner: toList(p.diner), snacks: p.snacks || [], extras: p.extras || [] });
-const normDay = (d = {}) => ({ picks: normPicks(d.picks), skipBreakfast: !!d.skipBreakfast });
+const normDay = (d = {}) => ({ picks: normPicks(d.picks), skipBreakfast: !!d.skipBreakfast, training: !!d.training });
 const normDays = (obj = {}) => { const o = {}; for (const k in obj) o[k] = normDay(obj[k]); return o; };
 
 function dayTotals(day) {
@@ -267,7 +267,7 @@ export default function PiocheRepas() {
         if (d.settings) setSettings(d.settings);
         if (d.days) setDays(normDays(d.days));
         if (d.weights) setWeights(d.weights);
-        if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast })));
+        if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training })));
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       }
       setHydrated(true);
@@ -290,6 +290,7 @@ export default function PiocheRepas() {
   const day = days[activeDate] || EMPTY_DAY();
   const picks = day.picks;
   const skipBreakfast = day.skipBreakfast;
+  const training = day.training;
 
   const setDay = useCallback((updater) => {
     setDays((prev) => {
@@ -347,6 +348,7 @@ export default function PiocheRepas() {
   const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), extra] } }));
   const removeExtra = (i) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: (d.picks.extras || []).filter((_, idx) => idx !== i) } }));
   const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: [] } }));
+  const toggleTraining = () => setDay((d) => ({ ...d, training: !d.training }));
   const surprise = (slotKey) => {
     const pool = rankFor(slotKey, MEALS.filter((m) => m.slots.includes(slotKey)));
     const good = pool.filter((m) => fitOf(m) === "ok");
@@ -364,11 +366,11 @@ export default function PiocheRepas() {
   };
   const saveTemplate = (name) => {
     const cur = days[activeDate] || EMPTY_DAY();
-    setTemplates((t) => [...t, { id: `tpl-${Date.now()}`, name: name.trim() || "Modèle", picks: clone(cur.picks), skipBreakfast: !!cur.skipBreakfast }]);
+    setTemplates((t) => [...t, { id: `tpl-${Date.now()}`, name: name.trim() || "Modèle", picks: clone(cur.picks), skipBreakfast: !!cur.skipBreakfast, training: !!cur.training }]);
   };
   const loadTemplate = (id) => {
     const t = templates.find((x) => x.id === id);
-    if (t) setDay(() => ({ picks: clone(t.picks), skipBreakfast: !!t.skipBreakfast }));
+    if (t) setDay(() => ({ picks: clone(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training }));
   };
   const deleteTemplate = (id) => setTemplates((t) => t.filter((x) => x.id !== id));
   const setWeight = (iso, kg) => setWeights((w) => {
@@ -401,6 +403,7 @@ export default function PiocheRepas() {
             activeDate={activeDate} setActiveDate={setActiveDate}
             settings={settings} totals={totals} remKcal={remKcal} remP={remP}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
+            training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={(slot, index) => setPicker({ slot, index })}
             onSurprise={surprise} onClear={clearSlot} onSkip={toggleSkip}
@@ -461,7 +464,7 @@ function TabBar({ view, setView }) {
 // ════════════════════════════════════════════════════════════════════════════
 //  ÉCRAN JOUR
 // ════════════════════════════════════════════════════════════════════════════
-function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, picks, skipBreakfast, slotTarget, weight, onWeight, onPick, onSurprise, onClear, onSkip, onAddExtra, onRemoveExtra, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
+function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onSkip, onAddExtra, onRemoveExtra, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -485,6 +488,13 @@ function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP,
         <button onClick={() => !isToday && setActiveDate(addDays(activeDate, 1))} disabled={isToday} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: isToday ? C.line : C.sub }}><ChevronRight size={20} /></button>
       </div>
 
+      {/* Marqueur jour d'entraînement */}
+      <button onClick={onToggleTraining} className="mb-4 flex w-full items-center gap-2.5 rounded-2xl px-4 py-2.5 active:scale-95" style={training ? { backgroundColor: `${C.weight}1f`, border: `1px solid ${C.weight}55` } : { backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: training ? C.weight : C.paper, color: training ? "#fff" : C.muted }}><Dumbbell size={15} /></span>
+        <span className="flex-1 text-left text-sm font-semibold" style={{ color: training ? C.ink : C.sub }}>Jour d'entraînement</span>
+        <span className="text-xs font-semibold" style={{ color: training ? C.weight : C.muted }}>{training ? "Activé" : "Off"}</span>
+      </button>
+
       {/* Jauge du jour — cadran */}
       <section className="mb-4 rounded-3xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: `0 20px 50px -28px ${C.shadow}` }}>
         <Arc consumed={totals.kcal} target={settings.kcal}>
@@ -501,7 +511,7 @@ function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP,
             <span className="text-sm font-semibold" style={{ fontVariantNumeric: "tabular-nums", color: C.ink }}>{r0(totals.p)}<span style={{ color: C.muted }}> / {settings.protein} g</span></span>
           </div>
           <Gauge value={totals.p} target={settings.protein} color={C.protein} />
-          <p className="mt-1 text-xs" style={{ color: C.muted }}>{remP > 0 ? `Encore ${r0(remP)} g à viser` : "Objectif protéines atteint."}</p>
+          <p className="mt-1 text-xs" style={{ color: C.muted }}>{remP > 0 ? `Encore ${r0(remP)} g à viser` : "Objectif protéines atteint."}{training && remP > 0 ? " · jour d'entraînement : priorité aux protéines." : ""}</p>
         </div>
 
         <div className="mt-4">
@@ -653,6 +663,7 @@ function JournalScreen({ days, weights, settings, onOpen, activeDate }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold capitalize" style={{ color: C.ink }}>{iso === TODAY ? "Aujourd'hui" : fmtShort(iso)}</p>
+                  {days[iso]?.training && <span className="flex h-5 w-5 items-center justify-center rounded-md" style={{ backgroundColor: `${C.weight}22`, color: C.weight }}><Dumbbell size={11} /></span>}
                   {w != null && <span className="flex items-center gap-0.5 text-xs font-semibold" style={{ color: C.weight }}><Scale size={11} />{w} kg</span>}
                 </div>
                 {t.kcal > 0 ? (
