@@ -4,7 +4,7 @@ import {
   Settings2, Check, Search, Flame, Beef, Clock, Snowflake, Package,
   EggOff, Soup, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, Calculator, Pencil,
   ChevronLeft, CalendarDays, TrendingUp, Scale, CalendarCheck, Sun, Moon,
-  BookOpen, ExternalLink, ScanLine, Beer, Wine, IceCream2, Layers, Copy, Dumbbell,
+  BookOpen, ExternalLink, ScanLine, Beer, Wine, IceCream2, Layers, Copy,
 } from "lucide-react";
 import OffSearch from "./OffSearch.jsx";
 
