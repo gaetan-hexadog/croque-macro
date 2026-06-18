@@ -202,7 +202,7 @@ export default function PiocheRepas() {
           <ProgressScreen days={days} weights={weights} settings={settings} />
         )}
         {view === "guide" && (
-          <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} />
+          <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
       </div>
 
@@ -617,13 +617,57 @@ function buildWeightSeries(weights, period) {
 // ════════════════════════════════════════════════════════════════════════════
 //  ÉCRAN GUIDE — où trouver les calories
 // ════════════════════════════════════════════════════════════════════════════
-function GuideScreen({ onAddExtra, dateLabel }) {
+function GuideScreen({ onAddExtra, dateLabel, settings }) {
+  const ex = [
+    ["Petit-déj", "3 œufs entiers + 250 ml lait de soja", 300, 26],
+    ["Déjeuner", "Tofu ou seitan + légumes + 50 g (cru) de riz/quinoa", 450, 35],
+    ["Collation", "2 doses de protéine (clear / vegan)", 150, 36],
+    ["Dîner", "Carré végétal + grosse portion de légumes + un peu de fromage", 500, 25],
+  ];
+  const exK = ex.reduce((a, r) => a + r[2], 0);
+  const exP = ex.reduce((a, r) => a + r[3], 0);
+  const principes = [
+    ["Protéine d'abord", "Verrouille tes protéines à chaque repas ; les glucides et lipides remplissent le reste du budget."],
+    ["Volume malin", "Une grosse portion de légumes rassasie pour presque rien — l'arme anti-faim en déficit."],
+    ["Étale la protéine", "~25–35 g par repas s'utilisent mieux qu'un gros bloc d'un coup."],
+    ["Garde une marge", "Laisse ~200–250 kcal libres le soir pour un imprévu (fruit, carré de chocolat, un verre)."],
+  ];
   return (
     <div>
       <div className="mb-4">
         <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Guide</h1>
         <p className="text-sm" style={{ color: C.sub }}>Trouver les calories de ce que tu manges et bois, surtout en vacances.</p>
       </div>
+
+      <GuideBlock icon={Salad} color={C.protein} title="Construire ta journée" desc={`Une trame protéinée à adapter. Ta cible : ${settings?.kcal ?? 1850} kcal / ${settings?.protein ?? 150} g.`}>
+        <div className="space-y-2 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
+          {ex.map(([slot, food, k, p]) => (
+            <div key={slot} className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.protein }}>{slot}</p>
+                <p className="text-sm" style={{ color: C.ink }}>{food}</p>
+              </div>
+              <p className="shrink-0 text-right text-xs font-semibold" style={{ fontVariantNumeric: "tabular-nums", color: C.sub }}>{k} kcal<br />{p} g</p>
+            </div>
+          ))}
+          <div className="flex justify-between border-t pt-2 text-sm" style={{ borderColor: C.line }}>
+            <span style={{ color: C.sub }}>Total repas</span>
+            <span className="font-bold" style={{ color: C.ink, fontVariantNumeric: "tabular-nums" }}>~{exK} kcal · {exP} g</span>
+          </div>
+        </div>
+        <p className="px-1 pt-2 text-xs" style={{ color: C.muted }}>+ ~250 kcal de marge (un fruit, un filet d'huile, une dose de plus). Pour viser {settings?.protein ?? 150} g, monte les portions de protéine au déj/dîner ou ajoute une dose — l'écart se comble surtout côté protéines, pas calories.</p>
+      </GuideBlock>
+
+      <GuideBlock icon={Flame} color={C.green} title="Réflexes perte de gras" desc="Quatre principes qui font le plus gros du résultat.">
+        <div className="space-y-2.5">
+          {principes.map(([t, d]) => (
+            <div key={t} className="flex gap-2.5">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.green }} />
+              <p className="text-sm" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{t}.</span> {d}</p>
+            </div>
+          ))}
+        </div>
+      </GuideBlock>
 
       <DrinkCalc onAddExtra={onAddExtra} dateLabel={dateLabel} />
 
