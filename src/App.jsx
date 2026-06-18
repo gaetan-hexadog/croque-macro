@@ -617,6 +617,10 @@ function buildWeightSeries(weights, period) {
 // ════════════════════════════════════════════════════════════════════════════
 //  ÉCRAN GUIDE — où trouver les calories
 // ════════════════════════════════════════════════════════════════════════════
+function SectionHead({ id, label }) {
+  return <h2 id={`guide-${id}`} className="mb-2 mt-6 text-xs font-bold uppercase tracking-widest" style={{ color: C.muted, scrollMarginTop: "12px" }}>{label}</h2>;
+}
+
 function GuideScreen({ onAddExtra, dateLabel, settings }) {
   const ex = [
     ["Petit-déj", "3 œufs entiers + 250 ml lait de soja", 300, 26],
@@ -632,12 +636,84 @@ function GuideScreen({ onAddExtra, dateLabel, settings }) {
     ["Étale la protéine", "~25–35 g par repas s'utilisent mieux qu'un gros bloc d'un coup."],
     ["Garde une marge", "Laisse ~200–250 kcal libres le soir pour un imprévu (fruit, carré de chocolat, un verre)."],
   ];
+  const training = [
+    ["Avant (1–2 h)", "Glucides + un peu de protéine pour l'énergie. Ex : banane + skyr soja, flocons d'avoine + lait de soja. Optionnel si ton dernier repas date de moins de 3 h."],
+    ["Après (dans l'heure)", "20–40 g de protéine + glucides pour récupérer. Ex : ton shake Bulk + un fruit, ou tofu/seitan + riz."],
+    ["À retenir", "En perte de gras, le total de la journée prime sur le timing. Créatine 3–5 g/j, peu importe l'heure. Et bois."],
+  ];
+  const dehors = [
+    ["Vise la protéine", "Prends le plat avec une vraie source (œufs, tofu, halloumi, légumineuses) ; complète si c'est juste."],
+    ["Sauces à part", "Sauce et fritures à côté, privilégie grillé/vapeur — c'est là que les calories cachées explosent."],
+    ["Bois de l'eau", "Plutôt que soda ou jus : les calories liquides ne rassasient pas et s'additionnent vite."],
+    ["La semaine compte, pas le repas", "Un resto qui dépasse ne casse rien si la moyenne de la semaine tient. Pas de culpabilité, on lisse."],
+  ];
+  const prot = [
+    ["Protéine de soja texturée (sèche)", "50 g"],
+    ["Fromage à pâte dure (comté, emmental)", "26 g"],
+    ["Seitan", "25 g"],
+    ["Tempeh", "19 g"],
+    ["Tofu lactofermenté (Sojami)", "19 g"],
+    ["Tofu ferme", "15 g"],
+    ["Steak / escalope végétale", "15–18 g"],
+    ["Edamame écossés (cuits)", "11 g"],
+    ["Lentilles / pois chiches (cuits)", "9 g"],
+    ["Skyr végétal soja", "6 g"],
+    ["Yaourt de soja nature", "4 g"],
+    ["Lait de soja", "3,5 g"],
+  ];
+  const portions = [
+    ["Paume", "1 portion de protéine (~100–120 g de tofu, seitan, végétal)"],
+    ["Poing", "1 portion de féculents cuits (riz, quinoa, pâtes)"],
+    ["2 poings", "légumes — à volonté, quasi gratuit en calories"],
+    ["Pouce", "1 portion de matière grasse (huile, beurre végétal)"],
+    ["Poignée", "oléagineux ou fromage (~30 g)"],
+  ];
+  const condiments = [
+    ["Quasi gratuits", C.green, "Moutarde, vinaigre, sauce soja, cornichons, épices, herbes, citron"],
+    ["À surveiller", C.protein, "Ketchup (~15 kcal/c. à s., sucré), sauce tomate, sauces asiatiques sucrées"],
+    ["Pièges caloriques", C.over, "Huile (~90/c. à s.), mayo (~90/c. à s.), vinaigrettes prêtes, beurre, pesto"],
+  ];
+  const pieges = [
+    ["Calories liquides", "Jus, sodas, smoothies, lait végétal sucré, alcool : ça ne rassasie pas et ça s'additionne vite."],
+    ["Le « healthy » dense", "Granola, oléagineux, avocat, houmous, beurre de cacahuète : sains mais très caloriques. Une poignée d'amandes (~30 g) ≈ 180 kcal."],
+    ["Végétal ≠ light", "Un burger ou des nuggets végé ne sont pas hypocaloriques pour autant — regarde les kcal/100 g."],
+    ["Féculents cuits qui gonflent", "Riz et pâtes pèsent ~2,5× plus une fois cuits. 50 g cru, c'est une vraie portion, pas une petite."],
+    ["Les extras invisibles", "Ce qu'on picore en cuisinant, le pain avant le plat, la sauce du resto : ça ne se voit pas mais ça compte."],
+    ["Boissons chaudes", "Latte, cappuccino, chocolat chaud = lait + sucre. Un grand latte peut faire 150–200 kcal."],
+  ];
+  const courses = [
+    ["Protéines fraîches", "Tofu (ferme, fumé, lactofermenté), tempeh, seitan, œufs, edamame surgelés, alternatives (La Vie, HappyVore, Garden Gourmet)"],
+    ["Légumineuses", "Lentilles, pois chiches, haricots rouges (secs ou en boîte)"],
+    ["Végé « laitages »", "Yaourt & skyr de soja, lait de soja non sucré, fromage"],
+    ["Féculents", "Riz, quinoa, flocons d'avoine, pain complet, pâtes"],
+    ["Légumes", "Surgelés (épinards, brocoli, haricots verts) + frais de saison"],
+    ["Extras utiles", "Protéine en poudre vegan, beurre de cacahuète, oléagineux, huile d'olive, houmous, galettes de riz"],
+  ];
+  const equiv = [
+    ["Demi (25 cl)", "~100 kcal", "22 min"],
+    ["Verre de vin", "~125 kcal", "28 min"],
+    ["Poignée de chips", "~150 kcal", "33 min"],
+    ["Pinte blonde", "~200 kcal", "45 min"],
+    ["Cornet 2 boules", "~320 kcal", "1 h 10"],
+    ["Part de gâteau", "~350 kcal", "1 h 18"],
+  ];
+  const go = (id) => { const el = typeof document !== "undefined" ? document.getElementById(`guide-${id}`) : null; if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  const SECTIONS = [["methode", "Méthode"], ["antiseches", "Antisèches"], ["outils", "Trouver les calories"]];
+
   return (
     <div>
       <div className="mb-4">
         <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Guide</h1>
-        <p className="text-sm" style={{ color: C.sub }}>Trouver les calories de ce que tu manges et bois, surtout en vacances.</p>
+        <p className="text-sm" style={{ color: C.sub }}>Méthode, antisèches et outils pour s'y retrouver — surtout en vacances.</p>
       </div>
+
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {SECTIONS.map(([id, label]) => (
+          <button key={id} onClick={() => go(id)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{label}</button>
+        ))}
+      </div>
+
+      <SectionHead id="methode" label="Méthode" />
 
       <GuideBlock icon={Salad} color={C.protein} title="Construire ta journée" desc={`Une trame protéinée à adapter. Ta cible : ${settings?.kcal ?? 1850} kcal / ${settings?.protein ?? 150} g.`}>
         <div className="space-y-2 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
@@ -669,150 +745,110 @@ function GuideScreen({ onAddExtra, dateLabel, settings }) {
         </div>
       </GuideBlock>
 
-      {(() => {
-        const prot = [
-          ["Protéine de soja texturée (sèche)", "50 g"],
-          ["Fromage à pâte dure (comté, emmental)", "26 g"],
-          ["Seitan", "25 g"],
-          ["Tempeh", "19 g"],
-          ["Tofu lactofermenté (Sojami)", "19 g"],
-          ["Tofu ferme", "15 g"],
-          ["Steak / escalope végétale", "15–18 g"],
-          ["Edamame écossés (cuits)", "11 g"],
-          ["Lentilles / pois chiches (cuits)", "9 g"],
-          ["Skyr végétal soja", "6 g"],
-          ["Yaourt de soja nature", "4 g"],
-          ["Lait de soja", "3,5 g"],
-        ];
-        const portions = [
-          ["Paume", "1 portion de protéine (~100–120 g de tofu, seitan, végétal)"],
-          ["Poing", "1 portion de féculents cuits (riz, quinoa, pâtes)"],
-          ["2 poings", "légumes — à volonté, quasi gratuit en calories"],
-          ["Pouce", "1 portion de matière grasse (huile, beurre végétal)"],
-          ["Poignée", "oléagineux ou fromage (~30 g)"],
-        ];
-        const dehors = [
-          ["Vise la protéine", "Prends le plat avec une vraie source (œufs, tofu, halloumi, légumineuses) ; complète si c'est juste."],
-          ["Sauces à part", "Sauce et fritures à côté, privilégie grillé/vapeur — c'est là que les calories cachées explosent."],
-          ["Bois de l'eau", "Plutôt que soda ou jus : les calories liquides ne rassasient pas et s'additionnent vite."],
-          ["La semaine compte, pas le repas", "Un resto qui dépasse ne casse rien si la moyenne de la semaine tient. Pas de culpabilité, on lisse."],
-        ];
-        return (
-          <>
-            <GuideBlock icon={Beef} color={C.weight} title="Antisèche protéines végé" desc="Teneur en protéines pour 100 g (ou 100 ml). De quoi composer sans peser.">
-              <div className="space-y-1.5 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
-                {prot.map(([name, val]) => (
-                  <div key={name} className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm" style={{ color: C.ink }}>{name}</span>
-                    <span className="shrink-0 text-sm font-bold" style={{ color: C.protein, fontVariantNumeric: "tabular-nums" }}>{val}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="px-1 pt-2 text-xs" style={{ color: C.muted }}>À part : 1 œuf ≈ 6–7 g · 1 dose de protéine en poudre (~30 g) ≈ 23 g.</p>
-            </GuideBlock>
+      <GuideBlock icon={Dumbbell} color={C.weight} title="Autour de ta séance" desc="Muscu : quoi manger avant et après pour performer et récupérer.">
+        <div className="space-y-2.5">
+          {training.map(([t, d]) => (
+            <div key={t} className="flex gap-2.5">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.weight }} />
+              <p className="text-sm" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{t} :</span> {d}</p>
+            </div>
+          ))}
+        </div>
+      </GuideBlock>
 
-            <GuideBlock icon={Scale} color={C.green} title="Portions à l'œil" desc="Pas de balance ? Ta main donne des repères fiables.">
-              <div className="space-y-2.5">
-                {portions.map(([hand, d]) => (
-                  <div key={hand} className="flex items-start gap-3">
-                    <span className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>{hand}</span>
-                    <p className="text-sm" style={{ color: C.sub }}>{d}</p>
-                  </div>
-                ))}
-              </div>
-            </GuideBlock>
+      <GuideBlock icon={UtensilsCrossed} color={C.protein} title="Manger dehors" desc="Resto, brunch, vacances — quelques réflexes pour ne pas dérailler.">
+        <div className="space-y-2.5">
+          {dehors.map(([t, d]) => (
+            <div key={t} className="flex gap-2.5">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.protein }} />
+              <p className="text-sm" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{t}.</span> {d}</p>
+            </div>
+          ))}
+        </div>
+      </GuideBlock>
 
-            <GuideBlock icon={UtensilsCrossed} color={C.protein} title="Manger dehors" desc="Resto, brunch, vacances — quelques réflexes pour ne pas dérailler.">
-              <div className="space-y-2.5">
-                {dehors.map(([t, d]) => (
-                  <div key={t} className="flex gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.protein }} />
-                    <p className="text-sm" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{t}.</span> {d}</p>
-                  </div>
-                ))}
-              </div>
-            </GuideBlock>
-          </>
-        );
-      })()}
+      <SectionHead id="antiseches" label="Antisèches" />
 
-      {(() => {
-        const training = [
-          ["Avant (1–2 h)", "Glucides + un peu de protéine pour l'énergie. Ex : banane + skyr soja, flocons d'avoine + lait de soja. Optionnel si ton dernier repas date de moins de 3 h."],
-          ["Après (dans l'heure)", "20–40 g de protéine + glucides pour récupérer. Ex : ton shake Bulk + un fruit, ou tofu/seitan + riz."],
-          ["À retenir", "En perte de gras, le total de la journée prime sur le timing. Créatine 3–5 g/j, peu importe l'heure. Et bois."],
-        ];
-        const equiv = [
-          ["Demi (25 cl)", "~100 kcal", "22 min"],
-          ["Verre de vin", "~125 kcal", "28 min"],
-          ["Poignée de chips", "~150 kcal", "33 min"],
-          ["Pinte blonde", "~200 kcal", "45 min"],
-          ["Cornet 2 boules", "~320 kcal", "1 h 10"],
-          ["Part de gâteau", "~350 kcal", "1 h 18"],
-        ];
-        const courses = [
-          ["Protéines fraîches", "Tofu (ferme, fumé, lactofermenté), tempeh, seitan, œufs, edamame surgelés, alternatives (La Vie, HappyVore, Garden Gourmet)"],
-          ["Légumineuses", "Lentilles, pois chiches, haricots rouges (secs ou en boîte)"],
-          ["Végé « laitages »", "Yaourt & skyr de soja, lait de soja non sucré, fromage"],
-          ["Féculents", "Riz, quinoa, flocons d'avoine, pain complet, pâtes"],
-          ["Légumes", "Surgelés (épinards, brocoli, haricots verts) + frais de saison"],
-          ["Extras utiles", "Protéine en poudre vegan, beurre de cacahuète, oléagineux, huile d'olive, houmous, galettes de riz"],
-        ];
-        return (
-          <>
-            <GuideBlock icon={Dumbbell} color={C.weight} title="Autour de ta séance" desc="Muscu : quoi manger avant et après pour performer et récupérer.">
-              <div className="space-y-2.5">
-                {training.map(([t, d]) => (
-                  <div key={t} className="flex gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.weight }} />
-                    <p className="text-sm" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{t} :</span> {d}</p>
-                  </div>
-                ))}
-              </div>
-            </GuideBlock>
+      <GuideBlock icon={Beef} color={C.weight} title="Antisèche protéines végé" desc="Teneur en protéines pour 100 g (ou 100 ml). De quoi composer sans peser.">
+        <div className="space-y-1.5 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
+          {prot.map(([name, val]) => (
+            <div key={name} className="flex items-baseline justify-between gap-3">
+              <span className="text-sm" style={{ color: C.ink }}>{name}</span>
+              <span className="shrink-0 text-sm font-bold" style={{ color: C.protein, fontVariantNumeric: "tabular-nums" }}>{val}</span>
+            </div>
+          ))}
+        </div>
+        <p className="px-1 pt-2 text-xs" style={{ color: C.muted }}>À part : 1 œuf ≈ 6–7 g · 1 dose de protéine en poudre (~30 g) ≈ 23 g.</p>
+      </GuideBlock>
 
-            <GuideBlock icon={Flame} color={C.protein} title="Équivalences plaisir" desc="Pour visualiser l'énergie d'un écart — pas pour le « rembourser ». L'exercice n'est pas une punition.">
-              <div className="space-y-1.5 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
-                {equiv.map(([name, kcal, walk]) => (
-                  <div key={name} className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 flex-1 truncate text-sm" style={{ color: C.ink }}>{name} <span style={{ color: C.muted }}>{kcal}</span></span>
-                    <span className="shrink-0 text-sm font-bold" style={{ color: C.green, fontVariantNumeric: "tabular-nums" }}>≈ {walk}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="px-1 pt-2 text-xs" style={{ color: C.muted }}>Base : marche soutenue (~4,5 kcal/min). Repère indicatif, ton métabolisme varie.</p>
-            </GuideBlock>
+      <GuideBlock icon={Scale} color={C.green} title="Portions à l'œil" desc="Pas de balance ? Ta main donne des repères fiables.">
+        <div className="space-y-2.5">
+          {portions.map(([hand, d]) => (
+            <div key={hand} className="flex items-start gap-3">
+              <span className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>{hand}</span>
+              <p className="text-sm" style={{ color: C.sub }}>{d}</p>
+            </div>
+          ))}
+        </div>
+      </GuideBlock>
 
-            <GuideBlock icon={Package} color={C.green} title="Liste de courses type" desc="Les basiques végé-protéinés à toujours avoir sous la main.">
-              <div className="space-y-2.5">
-                {courses.map(([cat, items]) => (
-                  <div key={cat}>
-                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.green }}>{cat}</p>
-                    <p className="text-sm" style={{ color: C.sub }}>{items}</p>
-                  </div>
-                ))}
-              </div>
-            </GuideBlock>
-          </>
-        );
-      })()}
+      <GuideBlock icon={Cookie} color={C.over} title="Pièges classiques" desc="Là où les calories se cachent sans prévenir. À commencer par les condiments.">
+        <div className="space-y-2 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
+          {condiments.map(([tier, color, items]) => (
+            <div key={tier}>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>{tier}</p>
+              <p className="text-sm" style={{ color: C.sub }}>{items}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 space-y-2.5">
+          {pieges.map(([t, d]) => (
+            <div key={t} className="flex gap-2.5">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.over }} />
+              <p className="text-sm" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{t}.</span> {d}</p>
+            </div>
+          ))}
+        </div>
+      </GuideBlock>
+
+      <GuideBlock icon={Package} color={C.green} title="Liste de courses type" desc="Les basiques végé-protéinés à toujours avoir sous la main.">
+        <div className="space-y-2.5">
+          {courses.map(([cat, items]) => (
+            <div key={cat}>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.green }}>{cat}</p>
+              <p className="text-sm" style={{ color: C.sub }}>{items}</p>
+            </div>
+          ))}
+        </div>
+      </GuideBlock>
+
+      <GuideBlock icon={Flame} color={C.protein} title="Équivalences plaisir" desc="Pour visualiser l'énergie d'un écart — pas pour le « rembourser ». L'exercice n'est pas une punition.">
+        <div className="space-y-1.5 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
+          {equiv.map(([name, kcal, walk]) => (
+            <div key={name} className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 flex-1 truncate text-sm" style={{ color: C.ink }}>{name} <span style={{ color: C.muted }}>{kcal}</span></span>
+              <span className="shrink-0 text-sm font-bold" style={{ color: C.green, fontVariantNumeric: "tabular-nums" }}>≈ {walk}</span>
+            </div>
+          ))}
+        </div>
+        <p className="px-1 pt-2 text-xs" style={{ color: C.muted }}>Base : marche soutenue (~4,5 kcal/min). Repère indicatif, ton métabolisme varie.</p>
+      </GuideBlock>
+
+      <SectionHead id="outils" label="Trouver les calories" />
 
       <DrinkCalc onAddExtra={onAddExtra} dateLabel={dateLabel} />
 
-      {/* Scanner */}
       <GuideBlock icon={ScanLine} color={C.green} title="Scanner un produit emballé" desc="Pot de glace, bière en canette, barre… le code-barres donne les valeurs exactes.">
         <AppCard name="Open Food Facts" role="Gratuit, sans pub. Scanne et lit kcal + protéines." url="https://play.google.com/store/apps/details?id=org.openfoodfacts.scanner" tint={C.green} />
         <AppCard name="Yuka" role="Scanne aussi ; pratique mais orienté « score » plus que macros." url="https://play.google.com/store/apps/details?id=io.yuka.android" tint={C.protein} />
       </GuideBlock>
 
-      {/* Rechercher */}
       <GuideBlock icon={Search} color={C.weight} title="Plats & boissons sans étiquette" desc="« Boule de glace vanille », « mojito », « galette complète »… cherche une entrée moyenne.">
         <AppCard name="MyFitnessPal" role="Énorme base de plats et boissons génériques." url="https://play.google.com/store/apps/details?id=com.myfitnesspal.android" tint={C.weight} />
         <AppCard name="FatSecret" role="Alternative gratuite, base bien fournie en français." url="https://play.google.com/store/apps/details?id=com.fatsecret.android" tint={C.extra} />
         <p className="px-1 pt-1 text-xs" style={{ color: C.muted }}>Astuce : si un lien n'ouvre rien, cherche simplement le nom dans le Play Store.</p>
       </GuideBlock>
 
-      {/* Estimer */}
       <GuideBlock icon={Beer} color={C.protein} title="Estimer à la louche" desc="Aucune donnée sous la main ? Ces repères suffisent — et dans le doute, surestime un peu.">
         <RefRow icon={Beer} label="Bière" value="° × cl × 0,8" hint="demi 5° ≈ 100 · pinte ≈ 200 · IPA +15 %" />
         <RefRow icon={Wine} label="Cocktail" value="~90 kcal / dose" hint="+ le sucre : spritz ~150, mojito ~200, piña ~380" />
@@ -827,6 +863,7 @@ function GuideScreen({ onAddExtra, dateLabel, settings }) {
     </div>
   );
 }
+
 
 function DrinkCalc({ onAddExtra, dateLabel }) {
   const [mode, setMode] = useState("biere");
