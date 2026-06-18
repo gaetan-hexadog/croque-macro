@@ -207,12 +207,18 @@ const fmtShort = (iso) => parseISO(iso).toLocaleDateString("fr-FR", { weekday: "
 const fmtFull = (iso) => iso === TODAY ? "Aujourd'hui" : parseISO(iso).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 const r0 = (x) => Math.round(x);
 
-const EMPTY_DAY = () => ({ picks: { pdj: null, dej: null, diner: null, snacks: [], extras: [] }, skipBreakfast: false });
+const EMPTY_DAY = () => ({ picks: { pdj: [], dej: [], diner: [], snacks: [], extras: [] }, skipBreakfast: false });
+
+// normalise un repas (ancien format = objet unique) vers une liste
+const toList = (x) => [].concat(x || []).filter(Boolean);
+const normPicks = (p = {}) => ({ pdj: toList(p.pdj), dej: toList(p.dej), diner: toList(p.diner), snacks: p.snacks || [], extras: p.extras || [] });
+const normDay = (d = {}) => ({ picks: normPicks(d.picks), skipBreakfast: !!d.skipBreakfast });
+const normDays = (obj = {}) => { const o = {}; for (const k in obj) o[k] = normDay(obj[k]); return o; };
 
 function dayTotals(day) {
   if (!day) return { kcal: 0, p: 0 };
   const pk = day.picks || {};
-  const all = [pk.pdj, pk.dej, pk.diner, ...(pk.snacks || []), ...(pk.extras || [])].filter(Boolean);
+  const all = [...toList(pk.pdj), ...toList(pk.dej), ...toList(pk.diner), ...(pk.snacks || []), ...(pk.extras || [])].filter(Boolean);
   return all.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p }), { kcal: 0, p: 0 });
 }
 const hasData = (day) => day && dayTotals(day).kcal > 0;
@@ -234,9 +240,9 @@ export default function PiocheRepas() {
       const d = await store.get(STORE_KEY) || await store.get(LEGACY_KEY);
       if (d) {
         if (d.settings) setSettings(d.settings);
-        if (d.days) setDays(d.days);
+        if (d.days) setDays(normDays(d.days));
         if (d.weights) setWeights(d.weights);
-        if (Array.isArray(d.templates)) setTemplates(d.templates);
+        if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast })));
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       }
       setHydrated(true);
@@ -274,9 +280,9 @@ export default function PiocheRepas() {
 
   const emptyPlanned = useMemo(() => {
     const list = [];
-    if (!skipBreakfast && !picks.pdj) list.push("pdj");
-    if (!picks.dej) list.push("dej");
-    if (!picks.diner) list.push("diner");
+    if (!skipBreakfast && picks.pdj.length === 0) list.push("pdj");
+    if (picks.dej.length === 0) list.push("dej");
+    if (picks.diner.length === 0) list.push("diner");
     if (picks.snacks.length === 0) list.push("snack");
     return list;
   }, [skipBreakfast, picks]);
@@ -300,35 +306,29 @@ export default function PiocheRepas() {
     return [...list].sort((a, b) => score(b) - score(a));
   }, [slotTarget]);
 
-  // mutateurs (sur le jour actif)
+  // mutateurs (sur le jour actif) — chaque créneau est une liste
+  const CAP = { pdj: 8, dej: 8, diner: 8, snack: 4 };
   const choose = (meal) => {
     if (!picker) return;
-    if (picker.slot === "snack") {
-      setDay((d) => {
-        const snacks = [...d.picks.snacks];
-        if (picker.snackIndex != null) snacks[picker.snackIndex] = meal; else snacks.push(meal);
-        return { ...d, picks: { ...d.picks, snacks: snacks.slice(0, 3) } };
-      });
-    } else {
-      setDay((d) => ({ ...d, picks: { ...d.picks, [picker.slot]: meal } }));
-    }
+    const slot = picker.slot;
+    setDay((d) => {
+      const arr = [...(d.picks[slot] || [])];
+      if (picker.index != null) arr[picker.index] = meal; else arr.push(meal);
+      return { ...d, picks: { ...d.picks, [slot]: arr.slice(0, CAP[slot] || 8) } };
+    });
     setPicker(null);
   };
-  const clearSlot = (slot, snackIndex) => {
-    if (slot === "snack") setDay((d) => ({ ...d, picks: { ...d.picks, snacks: d.picks.snacks.filter((_, i) => i !== snackIndex) } }));
-    else setDay((d) => ({ ...d, picks: { ...d.picks, [slot]: null } }));
-  };
+  const clearSlot = (slot, index) => setDay((d) => ({ ...d, picks: { ...d.picks, [slot]: (d.picks[slot] || []).filter((_, i) => i !== index) } }));
   const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), extra] } }));
   const removeExtra = (i) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: (d.picks.extras || []).filter((_, idx) => idx !== i) } }));
-  const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: null } }));
+  const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: [] } }));
   const surprise = (slotKey) => {
     const pool = rankFor(slotKey, MEALS.filter((m) => m.slots.includes(slotKey)));
     const good = pool.filter((m) => fitOf(m) === "ok");
     const from = (good.length ? good : pool).slice(0, 6);
     const pick = from[Math.floor(Math.random() * from.length)];
     if (!pick) return;
-    if (slotKey === "snack") setDay((d) => ({ ...d, picks: { ...d.picks, snacks: [...d.picks.snacks, pick].slice(0, 3) } }));
-    else setDay((d) => ({ ...d, picks: { ...d.picks, [slotKey]: pick } }));
+    setDay((d) => ({ ...d, picks: { ...d.picks, [slotKey]: [...(d.picks[slotKey] || []), pick].slice(0, CAP[slotKey] || 8) } }));
   };
   const resetDay = () => setDay((d) => ({ ...EMPTY_DAY() }));
 
@@ -356,7 +356,7 @@ export default function PiocheRepas() {
 
   const importData = (obj) => {
     if (obj.settings && typeof obj.settings === "object") setSettings(obj.settings);
-    if (obj.days && typeof obj.days === "object") setDays((prev) => ({ ...prev, ...obj.days }));
+    if (obj.days && typeof obj.days === "object") setDays((prev) => ({ ...prev, ...normDays(obj.days) }));
     if (obj.weights && typeof obj.weights === "object") setWeights((prev) => ({ ...prev, ...obj.weights }));
   };
 
@@ -377,7 +377,7 @@ export default function PiocheRepas() {
             settings={settings} totals={totals} remKcal={remKcal} remP={remP}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
-            onPick={(slot, snackIndex) => setPicker({ slot, snackIndex })}
+            onPick={(slot, index) => setPicker({ slot, index })}
             onSurprise={surprise} onClear={clearSlot} onSkip={toggleSkip}
             onAddExtra={addExtra} onRemoveExtra={removeExtra} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
@@ -441,9 +441,9 @@ function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP,
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
   const ribbon = [
-    picks.pdj && { ...picks.pdj, color: SLOT_UI.pdj.color },
-    picks.dej && { ...picks.dej, color: SLOT_UI.dej.color },
-    picks.diner && { ...picks.diner, color: SLOT_UI.diner.color },
+    ...picks.pdj.map((m) => ({ ...m, color: SLOT_UI.pdj.color })),
+    ...picks.dej.map((m) => ({ ...m, color: SLOT_UI.dej.color })),
+    ...picks.diner.map((m) => ({ ...m, color: SLOT_UI.diner.color })),
     ...picks.snacks.map((s) => s && { ...s, color: SLOT_UI.snack.color }),
     ...(picks.extras || []).map((e) => ({ ...e, color: C.extra })),
   ].filter(Boolean);
@@ -497,13 +497,13 @@ function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP,
             {ribbon.length > 0 && <button onClick={onReset} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Vider</button>}
           </div>
         </div>
-        <DayRow slotKey="pdj" meal={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onPick={() => onPick("pdj")} onSurprise={() => onSurprise("pdj")} onClear={() => onClear("pdj")} onSkip={onSkip} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onSkip={onSkip} />
         <Divider />
-        <DayRow slotKey="dej" meal={picks.dej} target={slotTarget("dej")} onPick={() => onPick("dej")} onSurprise={() => onSurprise("dej")} onClear={() => onClear("dej")} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} />
         <Divider />
-        <DayRow slotKey="diner" meal={picks.diner} target={slotTarget("diner")} onPick={() => onPick("diner")} onSurprise={() => onSurprise("diner")} onClear={() => onClear("diner")} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} />
         <Divider />
-        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 3} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} empty="Un en-cas protéiné si un repas est juste." />
+        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} empty="Un en-cas protéiné si un repas est juste." />
         <Divider />
         <ExtrasSection extras={picks.extras || []} onAdd={onAddExtra} onRemove={onRemoveExtra} />
       </div>
@@ -1085,9 +1085,11 @@ function Arc({ consumed, target, children }) {
   );
 }
 
-function DayRow({ slotKey, meal, skipped, target, onPick, onSurprise, onClear, onSkip }) {
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurprise, onClear, onSkip }) {
   const ui = SLOT_UI[slotKey];
   const Icon = SLOTS[slotKey].icon;
+  const sub = meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p }), { kcal: 0, p: 0 });
+  const has = meals.length > 0;
   return (
     <div className="px-5 py-4">
       <div className="mb-2.5 flex items-center justify-between">
@@ -1095,35 +1097,42 @@ function DayRow({ slotKey, meal, skipped, target, onPick, onSurprise, onClear, o
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Icon size={16} /></span>
           <div className="leading-tight">
             <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ui.color }}>{ui.time}</p>
-            <p className="text-sm font-semibold" style={{ color: C.ink }}>{SLOTS[slotKey].label}</p>
+            <p className="text-sm font-semibold" style={{ color: C.ink }}>{SLOTS[slotKey].label}{has && <span style={{ color: C.muted, fontWeight: 500 }}> · {sub.kcal} kcal · {sub.p} g</span>}</p>
           </div>
         </div>
         {onSkip && (
           <button onClick={onSkip} className="rounded-full px-2.5 py-1 text-xs font-medium active:scale-95" style={skipped ? { backgroundColor: C.ink, color: C.paper } : { color: C.muted, border: `1px solid ${C.line}` }}>{skipped ? "Sauté" : "Sauter"}</button>
         )}
       </div>
+
       {skipped ? (
         <p className="pl-1 text-sm" style={{ color: C.muted }}>Protéines reportées sur le déjeuner et le dîner.</p>
-      ) : meal ? (
-        <div className="flex items-start justify-between gap-3 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
-          <div className="min-w-0">
-            <p className="font-semibold" style={{ color: C.ink }}>{meal.name}</p>
-            {meal.desc && <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{meal.desc}</p>}
-            <p className="mt-1 text-xs font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
-              <span style={{ color: C.ink }}>{meal.kcal} kcal</span>
-              <span style={{ color: C.protein }}> · {meal.p} g prot.</span>
-              {meal.c != null && <span style={{ color: C.muted }}> · {meal.c} g gluc · {meal.f} g lip</span>}
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-1.5">
-            <button onClick={onPick} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Shuffle size={14} /></button>
-            <button onClick={onClear} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
-          </div>
+      ) : !has ? (
+        <div className="flex items-center gap-2">
+          <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}><Search size={15} /> Piocher · ~{r0(target.kcal)} kcal</button>
+          <button onClick={onSurprise} title="Au hasard" className="flex h-11 w-11 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Sparkles size={17} /></button>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <button onClick={onPick} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}><Search size={15} /> Piocher · ~{r0(target.kcal)} kcal</button>
-          <button onClick={onSurprise} title="Au hasard" className="flex h-11 w-11 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Sparkles size={17} /></button>
+        <div className="space-y-2">
+          {meals.map((m, i) => (
+            <div key={i} className="flex items-start justify-between gap-3 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold" style={{ color: C.ink }}>{m.name}</p>
+                <p className="mt-0.5 text-xs font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  <span style={{ color: C.ink }}>{m.kcal} kcal</span><span style={{ color: C.protein }}> · {m.p} g prot.</span>
+                  {m.c != null && <span style={{ color: C.muted }}> · {m.c} g gluc · {m.f} g lip</span>}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <button onClick={() => onReplace(i)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Shuffle size={14} /></button>
+                <button onClick={() => onClear(i)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center gap-2 pt-0.5">
+            <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Plus size={15} /> Ajouter</button>
+            <button onClick={onSurprise} title="Au hasard" className="flex h-10 w-10 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><Sparkles size={16} /></button>
+          </div>
         </div>
       )}
     </div>
