@@ -80,7 +80,10 @@ croque-macro/
 └─ src/
    ├─ main.jsx           # bootstrap React
    ├─ index.css          # @import "tailwindcss" + safe-area
-   └─ App.jsx            # toute l'app (logique, base de plats, écrans, graphiques)
+   ├─ core.js            # données + thème + helpers partagés (base de repas, presets, tokens C, dates, quantités)
+   ├─ openfoodfacts.js   # accès API Open Food Facts (recherche texte + code-barres)
+   ├─ OffSearch.jsx      # composant recherche/scan Open Food Facts
+   └─ App.jsx            # écrans, logique, pioche, graphiques
 ```
 
 ## Notes
