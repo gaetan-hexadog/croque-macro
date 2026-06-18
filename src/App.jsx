@@ -81,6 +81,29 @@ const MEALS = [
 
   // ── Post-workout & options fromage ──
   { id: "pw1", name: "Shake post-training Bulk + lait d'amande", slots: ["snack"], kcal: 250, p: 30, c: 22, f: 4, tags: ["rapide", "transportable", "sans-oeuf", "post-workout"], desc: "Bulk Vegan All-in-One (60 g) + lait d'amande. Créatine, BCAA, HMB inclus." },
+  { id: "pw2", name: "Shake post-training Bulk + lait de soja", slots: ["snack"], kcal: 310, p: 37, c: 24, f: 6, tags: ["rapide", "transportable", "sans-oeuf", "post-workout"], desc: "Bulk Vegan All-in-One (60 g) + lait de soja (~250 ml). Le soja ajoute ~8 g de protéines." },
+  { id: "lv1", name: "La Vie — Tofu teriyaki (½ boîte)", slots: ["dej", "diner", "snack"], kcal: 165, p: 14, c: 7, f: 8, tags: ["rapide", "sans-oeuf", "chaud"], desc: "Tofu fumé La Vie + sauce teriyaki. ~100 g tofu + sauce. Bonne base protéinée." },
+  { id: "lv2", name: "La Vie — Jambon végétal (2 tranches)", slots: ["pdj", "dej", "snack"], kcal: 46, p: 8, c: 1, f: 1, tags: ["rapide", "froid", "transportable", "sans-oeuf"], desc: "Jambon végétal nature La Vie (pois + soja). À glisser dans un sandwich, un croque, une salade." },
+  { id: "lv3", name: "La Vie — Lardons végétaux (~50 g)", slots: ["dej", "diner"], kcal: 125, p: 9, c: 0, f: 10, tags: ["chaud", "sans-oeuf"], desc: "½ barquette de lardons fumés La Vie (soja). Pour carbonara, quiche, poêlée — riche en lipides, à doser." },
+  // ── Garden Gourmet ──
+  { id: "gg1", name: "Garden Gourmet — Sensational burger", slots: ["dej", "diner"], kcal: 250, p: 19, c: 8, f: 16, tags: ["chaud", "sans-oeuf"], desc: "1 steak végétal (~113 g), soja. Valeurs approchées." },
+  { id: "gg2", name: "Garden Gourmet — Sensational saucisse", slots: ["dej", "diner"], kcal: 155, p: 10, c: 4, f: 11, tags: ["chaud", "sans-oeuf"], desc: "1 saucisse végétale (~67 g). Valeurs approchées." },
+  { id: "gg3", name: "Garden Gourmet — Haché végétal (100 g)", slots: ["dej", "diner"], kcal: 180, p: 17, c: 6, f: 9, tags: ["chaud", "sans-oeuf"], desc: "Sensational haché (soja). Bolo, chili, tacos." },
+  { id: "gg4", name: "Garden Gourmet — Nuggets (100 g)", slots: ["dej", "diner", "snack"], kcal: 216, p: 14, c: 15, f: 10, tags: ["chaud", "sans-oeuf"], desc: "~5 nuggets soja & blé." },
+  { id: "gg5", name: "Garden Gourmet — Filets / émincés (100 g)", slots: ["dej", "diner"], kcal: 170, p: 20, c: 4, f: 7, tags: ["chaud", "sans-oeuf"], desc: "Émincés végétaux riches en protéines. Valeurs approchées." },
+  // ── HappyVore ──
+  { id: "hv1", name: "HappyVore — Le Steak (100 g)", slots: ["dej", "diner"], kcal: 219, p: 18, c: 6, f: 13, tags: ["chaud", "sans-oeuf"], desc: "Steak végétal gourmand (soja)." },
+  { id: "hv2", name: "HappyVore — Nuggets (100 g)", slots: ["dej", "diner", "snack"], kcal: 241, p: 15, c: 16, f: 13, tags: ["chaud", "sans-oeuf"], desc: "~5 nuggets végétaux." },
+  { id: "hv3", name: "HappyVore — Aiguillettes (100 g)", slots: ["dej", "diner"], kcal: 170, p: 20, c: 4, f: 6, tags: ["chaud", "sans-oeuf"], desc: "Aiguillettes végétales, riches en protéines (>18 g). Valeurs approchées." },
+  { id: "hv4", name: "HappyVore — Saucisse / chipo", slots: ["dej", "diner"], kcal: 125, p: 7, c: 2, f: 10, tags: ["chaud", "sans-oeuf"], desc: "1 saucisse (~50 g). Valeurs approchées." },
+  { id: "hv5", name: "HappyVore — Lardons fumés (~50 g)", slots: ["dej", "diner"], kcal: 125, p: 9, c: 1, f: 9, tags: ["chaud", "sans-oeuf"], desc: "½ barquette. Poêlée, quiche, carbonara." },
+  // ── La Vie (suite) ──
+  { id: "lv4", name: "La Vie — Jambon fumé (2 tranches)", slots: ["pdj", "dej", "snack"], kcal: 46, p: 8, c: 1, f: 1, tags: ["rapide", "froid", "transportable", "sans-oeuf"], desc: "Jambon végétal fumé (~40 g)." },
+  { id: "lv5", name: "La Vie — Tofu fumé (bloc, 100 g)", slots: ["dej", "diner", "snack"], kcal: 140, p: 14, c: 2, f: 8, tags: ["sans-oeuf"], desc: "Tofu fumé La Vie, soja français. Salades, bowls, poêlées." },
+  { id: "lv6", name: "La Vie — Boulettes (100 g)", slots: ["dej", "diner"], kcal: 230, p: 16, c: 8, f: 14, tags: ["chaud", "sans-oeuf"], desc: "Boulettes végétales. Valeurs approchées." },
+  // ── Sojami (tofu lactofermenté) ──
+  { id: "soj1", name: "Sojami — Tofu lactofermenté pesto (100 g)", slots: ["dej", "diner", "snack"], kcal: 220, p: 19, c: 1, f: 16, tags: ["froid", "sans-oeuf"], desc: "Tofu lactofermenté façon feta, pesto. Riche en protéines, source d'oméga 3." },
+  { id: "soj2", name: "Sojami — Tofu lactofermenté ail des ours (100 g)", slots: ["dej", "diner", "snack"], kcal: 225, p: 20, c: 1, f: 16, tags: ["froid", "sans-oeuf"], desc: "Tofu lactofermenté façon feta, ail des ours. Riche en protéines." },
   { id: "pdj13", name: "Tacos œufs · fromage · avocat", slots: ["pdj"], kcal: 680, p: 32, c: 42, f: 40, tags: ["chaud"], desc: "Tortillas de blé, œufs brouillés, cheddar/emmental, avocat, tomates cerises." },
   { id: "dej16", name: "Salade lentilles · fromage · noix", slots: ["dej"], kcal: 490, p: 28, c: 36, f: 24, tags: ["froid", "transportable"], desc: "Lentilles, dés de fromage, noix, crudités." },
   { id: "din15", name: "Galette complète œuf · fromage · champignons", slots: ["diner"], kcal: 470, p: 26, c: 44, f: 22, tags: ["chaud"], desc: "Galette de sarrasin, œuf, fromage, champignons — option crêperie." },
@@ -1183,6 +1206,9 @@ const EXTRA_PRESETS = [
     { name: "Carré de chocolat", kcal: 55, p: 1 },
     { name: "Barre protéinée", kcal: 200, p: 20 },
     { name: "Poignée de chips", kcal: 150, p: 2 },
+  ] },
+  { cat: "Protéiné", items: [
+    { name: "Clear Protein Bulk", kcal: 75, p: 18 },
   ] },
   { cat: "Sans alcool", items: [
     { name: "Jus / smoothie detox", kcal: 150, p: 2 },
