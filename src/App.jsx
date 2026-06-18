@@ -1222,6 +1222,8 @@ const EXTRA_PRESETS = [
   ] },
   { cat: "Protéiné", items: [
     { name: "Clear Protein Bulk", kcal: 75, p: 18 },
+    { name: "Shake vegan Bulk (eau)", kcal: 115, p: 23 },
+    { name: "Barre gourmet vegane Bulk", kcal: 200, p: 17 },
   ] },
   { cat: "Sans alcool", items: [
     { name: "Jus / smoothie detox", kcal: 150, p: 2 },
