@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { ChevronDown, Plus, Bookmark, Check, ChefHat } from "lucide-react";
+import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X } from "lucide-react";
 import { C } from "./core.js";
+
+const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 const CATS = [
   { k: "pdj", l: "Petit-déj" },
@@ -75,24 +77,73 @@ function IdeaCard({ idea, onUse, onSave }) {
 }
 
 export function IdeasScreen({ ideas = [], onUse, onSave }) {
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("all");
+  const [protOnly, setProtOnly] = useState(false);
+
+  const nq = deburr(q);
+  const filtered = ideas.filter((i) =>
+    (cat === "all" || i.cat === cat) &&
+    (!protOnly || i.p >= 20) &&
+    (!nq || deburr(i.name + " " + (i.ingredients || []).join(" ")).includes(nq))
+  );
+
+  const chip = (active) => ({
+    backgroundColor: active ? C.ink : C.card,
+    color: active ? C.bg : C.sub,
+    border: `1px solid ${active ? C.ink : C.line}`,
+  });
+
   return (
     <div className="px-1">
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-2">
         <ChefHat size={22} style={{ color: C.ink }} />
         <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Idées</h1>
+        <span className="ml-auto text-xs font-semibold" style={{ color: C.muted }}>{filtered.length} recette{filtered.length > 1 ? "s" : ""}</span>
       </div>
-      <p className="mb-5 text-sm" style={{ color: C.sub }}>Des plats et recettes par moment de la journée. « Ajouter aujourd'hui » l'ajoute à ton repas, « Enregistrer » le garde en repas réutilisable.</p>
 
-      {CATS.map((cat) => {
-        const list = ideas.filter((i) => i.cat === cat.k);
+      {/* Recherche */}
+      <div className="relative mb-3">
+        <Search size={16} style={{ color: C.muted, position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Rechercher une recette, un ingrédient…"
+          className="w-full rounded-2xl py-2.5 pl-9 pr-9 text-sm outline-none"
+          style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}
+        />
+        {q && (
+          <button onClick={() => setQ("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: C.muted }}>
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Filtres */}
+      <div className="mb-5 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        <button onClick={() => setCat("all")} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "all")}>Tout</button>
+        {CATS.map((c) => (
+          <button key={c.k} onClick={() => setCat(c.k)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === c.k)}>{c.l}</button>
+        ))}
+        <button onClick={() => setProtOnly((v) => !v)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(protOnly)}>💪 Protéiné</button>
+      </div>
+
+      {filtered.length === 0 && (
+        <p className="py-10 text-center text-sm" style={{ color: C.muted }}>Aucune recette ne correspond.</p>
+      )}
+
+      {CATS.map((c) => {
+        const list = filtered.filter((i) => i.cat === c.k);
         if (!list.length) return null;
         return (
-          <div key={cat.k} className="mb-5">
-            <h2 className="mb-2 px-1 text-sm font-bold uppercase tracking-widest" style={{ color: C.sub }}>{cat.l}</h2>
+          <div key={c.k} className="mb-5">
+            <h2 className="mb-2 px-1 text-sm font-bold uppercase tracking-widest" style={{ color: C.sub }}>{c.l}</h2>
             {list.map((idea) => <IdeaCard key={idea.id} idea={idea} onUse={onUse} onSave={onSave} />)}
           </div>
         );
       })}
+
+      <div style={{ height: "0.5rem" }} />
     </div>
   );
 }

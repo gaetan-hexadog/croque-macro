@@ -232,7 +232,7 @@ export default function PiocheRepas() {
 
   return (
     <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
-      <div className="mx-auto w-full max-w-md px-4 pb-24 pt-6">
+      <div className="mx-auto w-full max-w-md px-4 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}>
         {/* Marque */}
         <header className="mb-5 flex items-center justify-between">
           <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
