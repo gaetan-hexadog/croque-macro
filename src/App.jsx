@@ -231,7 +231,7 @@ export default function PiocheRepas() {
   };
 
   return (
-    <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif", backgroundColor: C.bg, backgroundImage: C.bgImage, backgroundAttachment: "fixed" }}>
+    <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
       <div className="mx-auto w-full max-w-md px-4 pb-24 pt-6">
         {/* Marque */}
         <header className="mb-5 flex items-center justify-between">
@@ -295,7 +295,7 @@ function TabBar({ view, setView }) {
     { k: "idees", l: "Idées", icon: ChefHat },
   ];
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}` }}>
+    <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div className="mx-auto flex max-w-md">
         {tabs.map((t) => {
           const Icon = t.icon, active = view === t.k;

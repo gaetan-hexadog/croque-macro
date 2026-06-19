@@ -267,6 +267,13 @@ const SLOT_UI = {
 function applyTheme(t) {
   Object.assign(C, THEMES[t]);
   for (const k in SLOT_THEMES[t]) SLOT_UI[k].color = SLOT_THEMES[t][k];
+  if (typeof document !== "undefined") {
+    const root = document.documentElement, body = document.body;
+    if (body) { body.style.backgroundColor = C.bg; body.style.backgroundImage = C.bgImage; body.style.backgroundAttachment = "fixed"; }
+    if (root) root.style.backgroundColor = C.bg;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", C.bg);
+  }
 }
 const STORE_KEY = "croque-macro:v1";
 const LEGACY_KEY = "pioche-repas:v2";
