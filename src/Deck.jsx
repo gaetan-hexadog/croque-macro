@@ -25,7 +25,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
   const slotCombos = useMemo(() => combos.filter((c) => c.slot === slotKey), [combos, slotKey]);
 
   const list = useMemo(() => {
-    let l = pool.filter((m) => m.slots.includes(slotKey));
+    let l = q.trim() ? pool.slice() : pool.filter((m) => m.slots.includes(slotKey));
     if (q.trim()) { const s = q.toLowerCase(); l = l.filter((m) => m.name.toLowerCase().includes(s) || (m.desc || "").toLowerCase().includes(s)); }
     if (tags.length) l = l.filter((m) => tags.every((t) => m.tags.includes(t)));
     l = rankFor(slotKey, l);
