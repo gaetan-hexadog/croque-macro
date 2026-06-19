@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat } from "lucide-react";
 import {
-  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION,
+  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, MEAL_IDEAS,
 } from "./core.js";
 import { DayScreen } from "./DayScreen.jsx";
 import { JournalScreen } from "./JournalScreen.jsx";
 import { ProgressScreen } from "./ProgressScreen.jsx";
 import { GuideScreen } from "./GuideScreen.jsx";
 import { Deck } from "./Deck.jsx";
+import { IdeasScreen } from "./IdeasScreen.jsx";
 import { SettingsSheet } from "./Settings.jsx";
 
 export default function PiocheRepas() {
@@ -162,6 +163,12 @@ export default function PiocheRepas() {
     setCombos((c) => [{ id: `combo-${Date.now()}`, name: name.trim(), slot, items: clean, created: Date.now() }, ...c].slice(0, 60));
   };
   const deleteCombo = (id) => setCombos((c) => c.filter((x) => x.id !== id));
+  const useIdea = (idea) => {
+    const slot = idea.cat, key = picksKey(slot);
+    const item = { name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 };
+    setDay((d) => { const arr = [...(d.picks[key] || []), item]; return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[slot] || 8) } }; });
+    bumpUsage(idea.name);
+  };
   const addShakeBase = (it) => setShakeBases((a) => [...a, { id: `sb-${Date.now()}`, name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
   const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: `sl-${Date.now()}`, name: it.name, kcal: it.kcal, p: it.p }]);
@@ -261,6 +268,9 @@ export default function PiocheRepas() {
       </div>
 
       {/* Navigation */}
+        {view === "idees" && (
+          <IdeasScreen ideas={MEAL_IDEAS} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)} />
+        )}
       <TabBar view={view} setView={go} />
 
       {picker && (
@@ -282,6 +292,7 @@ function TabBar({ view, setView }) {
     { k: "journal", l: "Journal", icon: CalendarDays },
     { k: "progres", l: "Progrès", icon: TrendingUp },
     { k: "guide", l: "Guide", icon: BookOpen },
+    { k: "idees", l: "Idées", icon: ChefHat },
   ];
   return (
     <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}` }}>
