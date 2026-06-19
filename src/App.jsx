@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen } from "lucide-react";
 import {
-  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty,
+  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION,
 } from "./core.js";
 import { DayScreen } from "./DayScreen.jsx";
 import { JournalScreen } from "./JournalScreen.jsx";
@@ -18,6 +18,9 @@ export default function PiocheRepas() {
   const [customMeals, setCustomMeals] = useState([]); // produits enregistrés (Open Food Facts / manuels)
   const [usage, setUsage] = useState({});      // { name: { count, last } } — fréquents/récents
   const [combos, setCombos] = useState([]);    // [{ id, name, slot, items:[{name,kcal,p,qty}], created }]
+  const [shakeBases, setShakeBases] = useState([]);     // bases shake perso
+  const [shakeLiquids, setShakeLiquids] = useState([]); // liquides shake perso
+  const [comboSeed, setComboSeed] = useState(0);        // version des presets installés
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
@@ -35,13 +38,26 @@ export default function PiocheRepas() {
         if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training })));
         if (Array.isArray(d.customMeals)) setCustomMeals(d.customMeals);
         if (d.usage && typeof d.usage === "object") setUsage(d.usage);
-        if (Array.isArray(d.combos)) setCombos(d.combos);
+        if (Array.isArray(d.combos)) {
+          let cs = d.combos;
+          if ((d.comboSeed || 0) < COMBOS_SEED_VERSION) {
+            cs = cs.filter((c) => !String(c.id).startsWith("combo-def-")); // retire les anciens presets
+            const have = new Set(cs.map((c) => c.id));
+            cs = [...DEFAULT_COMBOS.filter((c) => !have.has(c.id)), ...cs]; // ajoute les nouveaux
+          }
+          setCombos(cs);
+        } else { setCombos(DEFAULT_COMBOS); }
+        if (Array.isArray(d.shakeBases)) setShakeBases(d.shakeBases);
+        if (Array.isArray(d.shakeLiquids)) setShakeLiquids(d.shakeLiquids);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
+      } else {
+        setCombos(DEFAULT_COMBOS);
       }
+      setComboSeed(COMBOS_SEED_VERSION);
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, hydrated]);
 
   const switchTheme = (t) => { applyTheme(t); setTheme(t); };
 
@@ -131,6 +147,10 @@ export default function PiocheRepas() {
     setCombos((c) => [{ id: `combo-${Date.now()}`, name: name.trim(), slot, items: clean, created: Date.now() }, ...c].slice(0, 60));
   };
   const deleteCombo = (id) => setCombos((c) => c.filter((x) => x.id !== id));
+  const addShakeBase = (it) => setShakeBases((a) => [...a, { id: `sb-${Date.now()}`, name: it.name, kcal: it.kcal, p: it.p }]);
+  const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
+  const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: `sl-${Date.now()}`, name: it.name, kcal: it.kcal, p: it.p }]);
+  const delShakeLiquid = (id) => setShakeLiquids((a) => a.filter((x) => x.id !== id));
   const setQty = (slot, index, value) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, qty: clampQty(value) } : m) } }; });
   const clearSlot = (slot, index) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((_, i) => i !== index) } }; });
   const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1 }] } }));
@@ -183,6 +203,8 @@ export default function PiocheRepas() {
     if (obj.weights && typeof obj.weights === "object") setWeights((prev) => ({ ...prev, ...obj.weights }));
     if (Array.isArray(obj.customMeals)) setCustomMeals((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customMeals.filter((x) => !ids.has(x.id))]; });
     if (Array.isArray(obj.combos)) setCombos((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.combos.filter((x) => !ids.has(x.id))]; });
+    if (Array.isArray(obj.shakeBases)) setShakeBases((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.shakeBases.filter((x) => !ids.has(x.id))]; });
+    if (Array.isArray(obj.shakeLiquids)) setShakeLiquids((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.shakeLiquids.filter((x) => !ids.has(x.id))]; });
     if (obj.usage && typeof obj.usage === "object") setUsage((prev) => ({ ...prev, ...obj.usage }));
   };
 
@@ -227,10 +249,10 @@ export default function PiocheRepas() {
       <TabBar view={view} setView={setView} />
 
       {picker && (
-        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={() => setPicker(null)} />
+        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={() => setPicker(null)} />
       )}
       {showSettings && (
-        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={() => setShowSettings(false)} />
+        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={() => setShowSettings(false)} />
       )}
     </div>
   );

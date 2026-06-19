@@ -76,8 +76,12 @@ const MEALS = [
   // ── Post-workout & options fromage ──
   { id: "pw1", name: "Shake post-training Bulk + lait d'amande", slots: ["snack"], kcal: 250, p: 30, c: 22, f: 4, tags: ["rapide", "transportable", "sans-oeuf", "post-workout"], desc: "Bulk Vegan All-in-One (60 g) + lait d'amande. Créatine, BCAA, HMB inclus." },
   { id: "pw2", name: "Shake post-training Bulk + lait de soja", slots: ["snack"], kcal: 310, p: 37, c: 24, f: 6, tags: ["rapide", "transportable", "sans-oeuf", "post-workout"], desc: "Bulk Vegan All-in-One (60 g) + lait de soja (~250 ml). Le soja ajoute ~8 g de protéines." },
-  { id: "vp1", name: "Shake protéine vegan Bulk + eau", slots: ["snack"], kcal: 115, p: 23, c: 2, f: 3, tags: ["rapide", "transportable", "sans-oeuf"], desc: "Vegan Protein Powder Bulk (30 g) à l'eau. Léger : ~115 kcal pour 23 g. Idéal perte de gras / jours de repos. Toutes saveurs ≈ mêmes macros." },
-  { id: "vp2", name: "Shake protéine vegan Bulk + lait d'amande", slots: ["snack"], kcal: 150, p: 23, c: 4, f: 5, tags: ["rapide", "transportable", "sans-oeuf"], desc: "Vegan Protein Powder Bulk (30 g) + lait d'amande. Toutes saveurs ≈ mêmes macros." },
+  { id: "vp1", name: "Shake protéine vegan Bulk + eau", slots: ["snack"], kcal: 127, p: 24, c: 4, f: 1, tags: ["rapide", "transportable", "sans-oeuf"], desc: "Vegan Protein Powder Bulk (35 g) à l'eau. Léger : 127 kcal pour 24 g. Idéal perte de gras / jours de repos. Toutes saveurs ≈ mêmes macros." },
+  { id: "vp2", name: "Shake protéine vegan Bulk + lait d'amande", slots: ["snack"], kcal: 152, p: 25, c: 5, f: 2, tags: ["rapide", "transportable", "sans-oeuf"], desc: "Vegan Protein Powder Bulk (35 g) + lait d'amande. Toutes saveurs ≈ mêmes macros." },
+  { id: "bv1", name: "Clear Vegan Bulk + eau", slots: ["snack"], kcal: 67, p: 15, c: 2, f: 1, tags: ["rapide", "transportable", "sans-oeuf", "bulk"], desc: "Clear Vegan Bulk (20 g, protéine de pois) à l'eau. Ultra léger : 67 kcal pour 15 g. Texture jus, pas crémeuse." },
+  { id: "bv2", name: "Barre gourmet vegane Bulk", slots: ["snack"], kcal: 206, p: 17, c: 18, f: 7, tags: ["rapide", "transportable", "sans-oeuf", "bulk"], desc: "Barre gourmet vegane Bulk (~55 g). 17 g de protéines, 3 couches moelleuses." },
+  { id: "bv3", name: "Brownie vegan Bulk", slots: ["snack"], kcal: 227, p: 15, c: 25, f: 7, tags: ["rapide", "transportable", "sans-oeuf", "bulk", "plaisir"], desc: "Brownie protéiné vegan Bulk (60 g). 15 g de protéines, vrai chocolat noir. Plaisir compté." },
+  { id: "bv4", name: "Blondie vegan Bulk", slots: ["snack"], kcal: 230, p: 14, c: 26, f: 7, tags: ["rapide", "transportable", "sans-oeuf", "bulk", "plaisir"], desc: "Blondie protéiné vegan Bulk (60 g). ~14 g de protéines. Valeurs approchées (proche du brownie)." },
   { id: "lv1", name: "La Vie — Tofu teriyaki (½ boîte)", slots: ["dej", "diner", "snack"], kcal: 165, p: 14, c: 7, f: 8, tags: ["rapide", "sans-oeuf", "chaud"], desc: "Tofu fumé La Vie + sauce teriyaki. ~100 g tofu + sauce. Bonne base protéinée." },
   { id: "lv2", name: "La Vie — Jambon végétal (2 tranches)", slots: ["pdj", "dej", "snack"], kcal: 46, p: 8, c: 1, f: 1, tags: ["rapide", "froid", "transportable", "sans-oeuf"], desc: "Jambon végétal nature La Vie (pois + soja). À glisser dans un sandwich, un croque, une salade." },
   { id: "lv3", name: "La Vie — Lardons végétaux (~50 g)", slots: ["dej", "diner"], kcal: 125, p: 9, c: 0, f: 10, tags: ["chaud", "sans-oeuf"], desc: "½ barquette de lardons fumés La Vie (soja). Pour carbonara, quiche, poêlée — riche en lipides, à doser." },
@@ -262,8 +266,11 @@ const EXTRA_PRESETS = [
   ] },
   { cat: "Protéiné", items: [
     { name: "Clear Protein Bulk", kcal: 75, p: 18 },
-    { name: "Shake vegan Bulk (eau)", kcal: 115, p: 23 },
-    { name: "Barre gourmet vegane Bulk", kcal: 200, p: 17 },
+    { name: "Clear Vegan Bulk (eau)", kcal: 67, p: 15 },
+    { name: "Shake Vegan Bulk (eau, 35 g)", kcal: 127, p: 24 },
+    { name: "Barre gourmet vegane Bulk", kcal: 206, p: 17 },
+    { name: "Brownie vegan Bulk", kcal: 227, p: 15 },
+    { name: "Blondie vegan Bulk", kcal: 230, p: 14 },
   ] },
   { cat: "Sans alcool", items: [
     { name: "Jus / smoothie detox", kcal: 150, p: 2 },
@@ -346,6 +353,62 @@ function weekCoach(stats, settings, weights, refISO) {
   return { tone: "ontrack", headline: "Pile dans ton plan", detail: "Ta moyenne colle à ta cible. C'est la régularité qui fait avancer, pas la perfection sur quelques jours.", balance, suggestTomorrow: null, weightTrend, proteinRoom };
 }
 
+// Compositeur de shake : base (poudre) + liquide, additionnés.
+const SHAKE_BASES = [
+  { name: "Vegan All-in-One", kcal: 216, p: 29 },
+  { name: "Vegan Protein", kcal: 127, p: 24 },
+  { name: "Clear Vegan", kcal: 67, p: 15 },
+  { name: "Clear Protein", kcal: 75, p: 18 },
+];
+const SHAKE_LIQUIDS = [
+  { name: "eau", kcal: 0, p: 0 },
+  { name: "lait amande", kcal: 25, p: 1 },
+  { name: "lait soja", kcal: 90, p: 9 },
+];
+
+// Repas réutilisables de départ. Bump COMBOS_SEED_VERSION pour pousser une mise à jour.
+const COMBOS_SEED_VERSION = 2;
+const DEFAULT_COMBOS = [
+  // Petit-déj express à emporter — lait amande, protéines = poudre/yaourt
+  { id: "cdef-pdj-shaker", slot: "pdj", name: "Express · shaker amande", created: 1, items: [
+    { name: "Shake All-in-One + lait amande", kcal: 240, p: 30, qty: 1 },
+  ] },
+  { id: "cdef-pdj-barre", slot: "pdj", name: "Express · shake & barre vegane", created: 2, items: [
+    { name: "Shake All-in-One + lait amande", kcal: 240, p: 30, qty: 1 },
+    { name: "Barre gourmet vegane Bulk", kcal: 200, p: 17, qty: 1 },
+  ] },
+  { id: "cdef-pdj-oats", slot: "pdj", name: "Express · overnight oats amande", created: 3, items: [
+    { name: "Flocons d'avoine (40 g)", kcal: 150, p: 5, qty: 1 },
+    { name: "Lait amande (250 ml)", kcal: 25, p: 1, qty: 1 },
+    { name: "All-in-One (1 dose)", kcal: 216, p: 29, qty: 1 },
+  ] },
+  { id: "cdef-pdj-smoothie", slot: "pdj", name: "Express · smoothie amande", created: 4, items: [
+    { name: "Lait amande (250 ml)", kcal: 25, p: 1, qty: 1 },
+    { name: "Banane", kcal: 90, p: 1, qty: 1 },
+    { name: "Shake All-in-One (1 dose)", kcal: 216, p: 29, qty: 1 },
+    { name: "Purée de cacahuète (1 c.à.s)", kcal: 90, p: 3, qty: 1 },
+  ] },
+  { id: "cdef-pdj-yaourt", slot: "pdj", name: "Express · yaourt soja protéiné & flocons", created: 5, items: [
+    { name: "Yaourt soja protéiné", kcal: 160, p: 18, qty: 1 },
+    { name: "Flocons d'avoine (30 g)", kcal: 115, p: 4, qty: 1 },
+  ] },
+  { id: "cdef-pdj-leger", slot: "pdj", name: "Express léger · Clear & banane", created: 6, items: [
+    { name: "Clear Protein (eau)", kcal: 75, p: 18, qty: 1 },
+    { name: "Banane", kcal: 90, p: 1, qty: 1 },
+  ] },
+  // Déj protéinés — adaptés au stock
+  { id: "cdef-dej-jambon", slot: "dej", name: "Déj protéiné · jambon La Vie & lentilles", created: 7, items: [
+    { name: "Jambon La Vie (≈120 g)", kcal: 145, p: 19, qty: 1 },
+    { name: "Lentilles cuites (150 g)", kcal: 175, p: 12, qty: 1 },
+    { name: "Légumes citron & épices", kcal: 55, p: 4, qty: 1 },
+  ] },
+  { id: "cdef-dej-teriyaki", slot: "dej", name: "Déj protéiné · jambon & tofu teriyaki", created: 8, items: [
+    { name: "Jambon La Vie (≈80 g)", kcal: 95, p: 13, qty: 1 },
+    { name: "Tofu teriyaki La Vie", kcal: 230, p: 18, qty: 1 },
+    { name: "Crudités sans huile", kcal: 50, p: 3, qty: 1 },
+  ] },
+];
+
 export {
-  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, EXTRA_PRESETS, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver,
+  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, EXTRA_PRESETS, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS,
 };

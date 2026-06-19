@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Shuffle, Check, Search, Flame, ChevronRight, Trash2, Pencil } from "lucide-react";
+import { X, Shuffle, Check, Search, Flame, ChevronRight, ChevronDown, Trash2, Pencil, GlassWater } from "lucide-react";
 import {
-  MEALS, SLOTS, TAGS, C, SLOT_UI,
+  MEALS, SLOTS, TAGS, C, SLOT_UI, SHAKE_BASES, SHAKE_LIQUIDS,
 } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [budgetOnly, setBudgetOnly] = useState(false);
   const [feat, setFeat] = useState(0); const [showList, setShowList] = useState(false);
@@ -66,6 +66,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
             <OffSearch C={C} accent={ui.color} onChoose={onChoose} onSave={onSave} />
           ) : (
           <>
+          <ShakeBuilder onAdd={onChoose} customBases={shakeBases} customLiquids={shakeLiquids} onAddBase={onAddShakeBase} onDelBase={onDelShakeBase} onAddLiquid={onAddShakeLiquid} onDelLiquid={onDelShakeLiquid} />
           {frequent.length > 0 && (
             <div className="mb-3">
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Fréquents</p>
@@ -195,4 +196,64 @@ function FilterChip({ active, onClick, icon, children }) {
 
 function Stat({ label, value, color }) {
   return <div><p className="text-lg font-extrabold leading-none" style={{ color }}>{value}</p><p className="mt-0.5 text-xs uppercase tracking-wide" style={{ color: C.muted }}>{label}</p></div>;
+}
+
+function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {
+  const [adding, setAdding] = useState(false);
+  const [n, setN] = useState(""); const [k, setK] = useState(""); const [p, setP] = useState("");
+  const save = () => { const kc = parseInt(k, 10); if (!n.trim() || isNaN(kc)) return; onAdd({ name: n.trim(), kcal: kc, p: parseInt(p, 10) || 0 }); setN(""); setK(""); setP(""); setAdding(false); };
+  return (
+    <div>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o, i) => {
+          const on = i === sel;
+          return (
+            <span key={o.id || o.name} className="inline-flex items-center rounded-full" style={{ backgroundColor: on ? C.protein : C.paper, border: `1px solid ${on ? C.protein : C.line}` }}>
+              <button onClick={() => onSel(i)} className={`py-1.5 text-xs font-semibold active:scale-95 ${o.id ? "pl-3 pr-1" : "px-3"}`} style={{ color: on ? "#fff" : C.sub }}>{o.name}</button>
+              {o.id && onDel && <button onClick={() => onDel(o.id)} className="py-1.5 pl-0.5 pr-2 active:scale-90" style={{ color: on ? "#fff" : C.muted }}><X size={11} /></button>}
+            </span>
+          );
+        })}
+        {onAdd && <button onClick={() => setAdding((a) => !a)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}`, color: C.muted }}>+ Autre</button>}
+      </div>
+      {adding && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <input value={n} onChange={(e) => setN(e.target.value)} placeholder="Nom" autoFocus className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          <input value={k} onChange={(e) => setK(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-14 rounded-lg px-2 py-1.5 text-xs outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="prot" className="w-14 rounded-lg px-2 py-1.5 text-xs outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          <button onClick={save} className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>OK</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShakeBuilder({ onAdd, customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid }) {
+  const [open, setOpen] = useState(false);
+  const [bi, setBi] = useState(0); const [li, setLi] = useState(1);
+  const bases = [...SHAKE_BASES, ...customBases];
+  const liquids = [...SHAKE_LIQUIDS, ...customLiquids];
+  const sb = Math.min(bi, bases.length - 1), sl = Math.min(li, liquids.length - 1);
+  const base = bases[sb] || bases[0], liq = liquids[sl] || liquids[0];
+  const kcal = base.kcal + liq.kcal, p = base.p + liq.p;
+  return (
+    <div className="mb-3 overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left active:opacity-70">
+        <GlassWater size={16} style={{ color: C.protein }} />
+        <span className="flex-1 text-sm font-semibold" style={{ color: C.ink }}>Composer un shake</span>
+        <ChevronDown size={16} style={{ color: C.muted, transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+      </button>
+      {open && (
+        <div className="space-y-2.5 px-3 pb-3">
+          <ShakeRow label="Base" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
+          <ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} />
+          <div className="flex items-center justify-between pt-0.5">
+            <span className="text-sm font-bold" style={{ color: C.ink, fontVariantNumeric: "tabular-nums" }}>{kcal} kcal · {p} g</span>
+            <button onClick={() => onAdd({ name: `${base.name} + ${liq.name}`, kcal, p })} className="rounded-xl px-4 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>Ajouter</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
