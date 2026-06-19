@@ -22,6 +22,7 @@ export default function PiocheRepas() {
   const [shakeBases, setShakeBases] = useState([]);     // bases shake perso
   const [shakeLiquids, setShakeLiquids] = useState([]); // liquides shake perso
   const [comboSeed, setComboSeed] = useState(0);        // version des presets installés
+  const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
@@ -65,6 +66,7 @@ export default function PiocheRepas() {
         } else { setCombos(DEFAULT_COMBOS); }
         if (Array.isArray(d.shakeBases)) setShakeBases(d.shakeBases);
         if (Array.isArray(d.shakeLiquids)) setShakeLiquids(d.shakeLiquids);
+        if (Array.isArray(d.favs)) setFavs(d.favs);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       } else {
         setCombos(DEFAULT_COMBOS);
@@ -73,7 +75,7 @@ export default function PiocheRepas() {
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, hydrated]);
 
   const switchTheme = (t) => { applyTheme(t); setTheme(t); };
 
@@ -163,6 +165,7 @@ export default function PiocheRepas() {
     setCombos((c) => [{ id: `combo-${Date.now()}`, name: name.trim(), slot, items: clean, created: Date.now() }, ...c].slice(0, 60));
   };
   const deleteCombo = (id) => setCombos((c) => c.filter((x) => x.id !== id));
+  const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
   const useIdea = (idea) => {
     const slot = idea.cat, key = picksKey(slot);
     const item = { name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 };
@@ -228,6 +231,7 @@ export default function PiocheRepas() {
     if (Array.isArray(obj.shakeBases)) setShakeBases((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.shakeBases.filter((x) => !ids.has(x.id))]; });
     if (Array.isArray(obj.shakeLiquids)) setShakeLiquids((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.shakeLiquids.filter((x) => !ids.has(x.id))]; });
     if (obj.usage && typeof obj.usage === "object") setUsage((prev) => ({ ...prev, ...obj.usage }));
+    if (Array.isArray(obj.favs)) setFavs((prev) => Array.from(new Set([...prev, ...obj.favs])));
   };
 
   return (
@@ -265,19 +269,19 @@ export default function PiocheRepas() {
         {view === "guide" && (
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
+        {view === "idees" && (
+          <IdeasScreen ideas={MEAL_IDEAS} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)} />
+        )}
       </div>
 
       {/* Navigation */}
-        {view === "idees" && (
-          <IdeasScreen ideas={MEAL_IDEAS} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)} />
-        )}
       <TabBar view={view} setView={go} />
 
       {picker && (
         <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
       )}
       {showSettings && (
-        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={navBack} />
+        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={navBack} />
       )}
     </div>
   );

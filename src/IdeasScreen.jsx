@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X } from "lucide-react";
+import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X, Star } from "lucide-react";
 import { C } from "./core.js";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
@@ -11,7 +11,7 @@ const CATS = [
   { k: "snack", l: "Snack" },
 ];
 
-function IdeaCard({ idea, onUse, onSave }) {
+function IdeaCard({ idea, isFav, onToggleFav, onUse, onSave }) {
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -31,6 +31,9 @@ function IdeaCard({ idea, onUse, onSave }) {
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-bold" style={{ color: C.ink }}>{idea.name}</span>
           <span className="mt-0.5 block text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{idea.kcal} kcal · {idea.p} g de protéines</span>
+        </span>
+        <span onClick={(e) => { e.stopPropagation(); onToggleFav(idea.id); }} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ color: isFav ? C.protein : C.muted }} role="button" aria-label="Favori">
+          <Star size={17} fill={isFav ? C.protein : "none"} />
         </span>
         <ChevronDown size={18} style={{ color: C.muted, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
       </button>
@@ -76,15 +79,20 @@ function IdeaCard({ idea, onUse, onSave }) {
   );
 }
 
-export function IdeasScreen({ ideas = [], onUse, onSave }) {
+export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
   const [protOnly, setProtOnly] = useState(false);
+  const [quickOnly, setQuickOnly] = useState(false);
+  const [favOnly, setFavOnly] = useState(false);
 
+  const favSet = new Set(favs);
   const nq = deburr(q);
   const filtered = ideas.filter((i) =>
     (cat === "all" || i.cat === cat) &&
     (!protOnly || i.p >= 20) &&
+    (!quickOnly || i.quick) &&
+    (!favOnly || favSet.has(i.id)) &&
     (!nq || deburr(i.name + " " + (i.ingredients || []).join(" ")).includes(nq))
   );
 
@@ -121,15 +129,17 @@ export function IdeasScreen({ ideas = [], onUse, onSave }) {
 
       {/* Filtres */}
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        <button onClick={() => setFavOnly((v) => !v)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(favOnly)}>⭐ Favoris</button>
         <button onClick={() => setCat("all")} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "all")}>Tout</button>
         {CATS.map((c) => (
           <button key={c.k} onClick={() => setCat(c.k)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === c.k)}>{c.l}</button>
         ))}
         <button onClick={() => setProtOnly((v) => !v)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(protOnly)}>💪 Protéiné</button>
+        <button onClick={() => setQuickOnly((v) => !v)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(quickOnly)}>⚡ Rapide</button>
       </div>
 
       {filtered.length === 0 && (
-        <p className="py-10 text-center text-sm" style={{ color: C.muted }}>Aucune recette ne correspond.</p>
+        <p className="py-10 text-center text-sm" style={{ color: C.muted }}>{favOnly ? "Aucun favori pour l'instant — touche l'étoile sur une recette." : "Aucune recette ne correspond."}</p>
       )}
 
       {CATS.map((c) => {
@@ -138,7 +148,7 @@ export function IdeasScreen({ ideas = [], onUse, onSave }) {
         return (
           <div key={c.k} className="mb-5">
             <h2 className="mb-2 px-1 text-sm font-bold uppercase tracking-widest" style={{ color: C.sub }}>{c.l}</h2>
-            {list.map((idea) => <IdeaCard key={idea.id} idea={idea} onUse={onUse} onSave={onSave} />)}
+            {list.map((idea) => <IdeaCard key={idea.id} idea={idea} isFav={favSet.has(idea.id)} onToggleFav={onToggleFav} onUse={onUse} onSave={onSave} />)}
           </div>
         );
       })}
