@@ -13,10 +13,19 @@ function IdeaCard({ idea, onUse, onSave }) {
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
   const flash = (set) => { set(true); setTimeout(() => set(false), 1500); };
+  const catEmoji = { pdj: "🥣", dej: "🥗", diner: "🍲", snack: "🍎" }[idea.cat] || "🍽️";
+  const accent = { pdj: C.weight, dej: C.green, diner: C.protein, snack: C.extra }[idea.cat] || C.protein;
+  const hasImg = idea.image && !imgErr;
   return (
     <div className="mb-2.5 overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-70">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-3 py-3 text-left active:opacity-70">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, border: `1px solid ${C.line}` }}>
+          {hasImg
+            ? <img src={idea.image} alt="" className="h-full w-full object-cover" onError={() => setImgErr(true)} />
+            : <span className="text-2xl" aria-hidden="true">{idea.emoji || catEmoji}</span>}
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-bold" style={{ color: C.ink }}>{idea.name}</span>
           <span className="mt-0.5 block text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{idea.kcal} kcal · {idea.p} g de protéines</span>
@@ -25,6 +34,7 @@ function IdeaCard({ idea, onUse, onSave }) {
       </button>
       {open && (
         <div className="px-4 pb-4 pt-0.5">
+          {hasImg && <img src={idea.image} alt="" className="mb-3 h-40 w-full rounded-xl object-cover" style={{ border: `1px solid ${C.line}` }} onError={() => setImgErr(true)} />}
           {idea.desc && <p className="mb-3 text-sm" style={{ color: C.sub }}>{idea.desc}</p>}
 
           <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
