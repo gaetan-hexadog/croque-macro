@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Apple, Plus, Shuffle, Check, Search, Beef, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, EXTRA_PRESETS,
@@ -18,8 +18,21 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
     ...(picks.extras || []).map((e) => seg(e, C.extra)),
   ].filter(Boolean);
 
+  const touchRef = useRef(null);
+  const onTouchStart = (e) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e) => {
+    const s0 = touchRef.current; touchRef.current = null;
+    if (!s0) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) {
+      if (dx < 0) { if (activeDate !== TODAY) setActiveDate(addDays(activeDate, 1)); } // swipe gauche → jour suivant
+      else { setActiveDate(addDays(activeDate, -1)); }                                  // swipe droite → jour précédent
+    }
+  };
+
   return (
-    <>
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: "pan-y" }}>
       {/* Sélecteur de date */}
       <div className="mb-4 flex items-center justify-between rounded-2xl px-2 py-2" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
         <button onClick={() => setActiveDate(addDays(activeDate, -1))} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: C.sub }}><ChevronLeft size={20} /></button>
@@ -95,7 +108,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
           onClose={() => setShowTpl(false)}
         />
       )}
-    </>
+    </div>
   );
 }
 

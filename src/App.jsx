@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen } from "lucide-react";
 import {
   MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION,
@@ -25,6 +25,21 @@ export default function PiocheRepas() {
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Navigation par historique : le geste retour de l'OS remonte dans l'app au lieu de quitter.
+  const undoStack = useRef([]);
+  const viewRef = useRef("jour");
+  useEffect(() => { viewRef.current = view; }, [view]);
+  const pushNav = useCallback((undo) => { undoStack.current.push(undo); try { window.history.pushState({ cm: undoStack.current.length }, ""); } catch (e) {} }, []);
+  const navBack = useCallback(() => { if (undoStack.current.length) window.history.back(); }, []);
+  useEffect(() => {
+    const onPop = () => { const u = undoStack.current.pop(); if (u) u(); };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const go = useCallback((v) => { if (v === viewRef.current) return; const prev = viewRef.current; pushNav(() => setView(prev)); setView(v); }, [pushNav]);
+  const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
+  const openSettings = useCallback(() => { pushNav(() => setShowSettings(false)); setShowSettings(true); }, [pushNav]);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -129,7 +144,7 @@ export default function PiocheRepas() {
       return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[raw] || 8) } };
     });
     bumpUsage(meal.name);
-    setPicker(null);
+    navBack();
   };
   const applyCombo = (combo) => {
     if (!picker || !combo || !combo.items || !combo.items.length) return;
@@ -139,7 +154,7 @@ export default function PiocheRepas() {
       return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[raw] || 8) } };
     });
     combo.items.forEach((m) => bumpUsage(m.name));
-    setPicker(null);
+    navBack();
   };
   const saveCombo = (slot, items, name) => {
     const clean = (items || []).map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, qty: m.qty || 1 }));
@@ -195,7 +210,7 @@ export default function PiocheRepas() {
     return n;
   });
 
-  const goToDay = (iso) => { setActiveDate(iso); setView("jour"); };
+  const goToDay = (iso) => { setActiveDate(iso); go("jour"); };
 
   const importData = (obj) => {
     if (obj.settings && typeof obj.settings === "object") setSettings(obj.settings);
@@ -214,7 +229,7 @@ export default function PiocheRepas() {
         {/* Marque */}
         <header className="mb-5 flex items-center justify-between">
           <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-          <button onClick={() => setShowSettings(true)} className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+          <button onClick={openSettings} className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
             <Settings2 size={18} />
           </button>
         </header>
@@ -223,11 +238,11 @@ export default function PiocheRepas() {
           <DayScreen
             activeDate={activeDate} setActiveDate={setActiveDate}
             settings={settings} totals={totals} remKcal={remKcal} remP={remP}
-            days={days} weights={weights} onOpenWeek={() => setView("progres")} onSaveCombo={saveCombo}
+            days={days} weights={weights} onOpenWeek={() => go("progres")} onSaveCombo={saveCombo}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
-            onPick={(slot, index) => setPicker({ slot, index })}
+            onPick={openPicker}
             onSurprise={surprise} onClear={clearSlot} onQty={setQty} onSkip={toggleSkip}
             onAddExtra={addExtra} onRemoveExtra={removeExtra} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
@@ -246,13 +261,13 @@ export default function PiocheRepas() {
       </div>
 
       {/* Navigation */}
-      <TabBar view={view} setView={setView} />
+      <TabBar view={view} setView={go} />
 
       {picker && (
-        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={() => setPicker(null)} />
+        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
       )}
       {showSettings && (
-        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={() => setShowSettings(false)} />
+        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={navBack} />
       )}
     </div>
   );
