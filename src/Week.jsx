@@ -23,8 +23,8 @@ export function WeekStrip({ days, weights, settings, refISO, freeTonight, onOpen
       <p className="text-sm font-bold" style={{ color: tc }}>{coach.headline}</p>
       <div className="mt-2 flex gap-5" style={{ fontVariantNumeric: "tabular-nums" }}>
         <div>
-          <p className="text-xs" style={{ color: C.muted }}>Solde 7 j</p>
-          <p className="text-base font-bold" style={{ color: bal >= 0 ? C.green : C.protein }}>{bal >= 0 ? "+" : ""}{bal} kcal</p>
+          <p className="text-xs" style={{ color: C.muted }}>{bal >= 0 ? "Marge 7 j" : "Au-dessus 7 j"}</p>
+          <p className="text-base font-bold" style={{ color: bal >= 0 ? C.green : C.protein }}>{Math.abs(bal)} kcal</p>
         </div>
         <div>
           <p className="text-xs" style={{ color: C.muted }}>{freeTonight >= 0 ? "Libre ce soir" : "Dépassé"}</p>
@@ -51,8 +51,8 @@ export function WeekCard({ days, weights, settings, refISO }) {
       </div>
 
       <p className="mt-1 leading-none" style={{ fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>
-        <span className="text-4xl font-bold" style={{ color: bal >= 0 ? C.green : C.protein }}>{bal >= 0 ? "+" : ""}{bal}</span>
-        <span className="ml-1 text-sm font-medium" style={{ color: C.sub }}>kcal {bal >= 0 ? "d'avance" : "au-dessus du plan"}</span>
+        <span className="text-4xl font-bold" style={{ color: bal >= 0 ? C.green : C.protein }}>{Math.abs(bal)}</span>
+        <span className="ml-1 text-sm font-medium" style={{ color: C.sub }}>kcal {bal >= 0 ? "de marge cette semaine" : "au-dessus du plan"}</span>
       </p>
 
       <div className="relative mt-4" style={{ height: 64 }}>
