@@ -5,6 +5,9 @@ import {
 } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 
+// normalise pour la recherche : minuscules, sans accents, œ→oe, æ→ae
+const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
+
 export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState(""); const [tags, setTags] = useState([]); const [budgetOnly, setBudgetOnly] = useState(false);
@@ -26,7 +29,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
 
   const list = useMemo(() => {
     let l = q.trim() ? pool.slice() : pool.filter((m) => m.slots.includes(slotKey));
-    if (q.trim()) { const s = q.toLowerCase(); l = l.filter((m) => m.name.toLowerCase().includes(s) || (m.desc || "").toLowerCase().includes(s)); }
+    if (q.trim()) { const s = deburr(q); l = l.filter((m) => deburr(m.name).includes(s) || deburr(m.desc).includes(s)); }
     if (tags.length) l = l.filter((m) => tags.every((t) => m.tags.includes(t)));
     l = rankFor(slotKey, l);
     if (budgetOnly) l = l.filter((m) => fitOf(m) !== "over");
