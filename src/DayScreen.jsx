@@ -227,14 +227,12 @@ export function ExtrasSheet({ onAdd, onClose }) {
   const [cat, setCat] = useState(EXTRA_PRESETS[0].cat);
   const [q, setQ] = useState("");
   const [name, setName] = useState(""); const [kcal, setKcal] = useState(""); const [p, setP] = useState("");
-  const [justAdded, setJustAdded] = useState("");
   const group = EXTRA_PRESETS.find((g) => g.cat === cat);
   const allItems = EXTRA_PRESETS.flatMap((g) => g.items);
   const nq = deburr(q);
   const found = nq ? allItems.filter((it) => deburr(it.name).includes(nq)) : [];
-  const flash = (label) => { setJustAdded(label); setTimeout(() => setJustAdded(""), 1400); };
-  const addPreset = (pr) => { onAdd(pr); flash(pr.name); };
-  const addCustom = () => { const k = parseInt(kcal, 10); if (!name.trim() || isNaN(k)) return; onAdd({ name: name.trim(), kcal: k, p: parseInt(p, 10) || 0 }); flash(name.trim()); setName(""); setKcal(""); setP(""); };
+  const addPreset = (pr) => { onAdd(pr); onClose(); };
+  const addCustom = () => { const k = parseInt(kcal, 10); if (!name.trim() || isNaN(k)) return; onAdd({ name: name.trim(), kcal: k, p: parseInt(p, 10) || 0 }); onClose(); };
   const chip = (active, color) => active ? { backgroundColor: color, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub };
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center" style={{ backgroundColor: C.overlay, backdropFilter: "blur(3px)" }} onClick={onClose}>
@@ -294,7 +292,7 @@ export function ExtrasSheet({ onAdd, onClose }) {
             </>
           )}
 
-          <p className="mt-4 text-center text-xs" style={{ color: justAdded ? C.green : C.muted }}>{justAdded ? `« ${justAdded} » ajouté ✓` : "Touche un extra pour l'ajouter. Tu peux en mettre plusieurs, puis fermer. La quantité s'ajuste ensuite sur la carte du jour."}</p>
+          <p className="mt-4 text-center text-xs" style={{ color: C.muted }}>Touche un extra : il s'ajoute à la journée et la modale se ferme. La quantité s'ajuste ensuite sur la carte du jour.</p>
         </div>
       </div>
     </div>
