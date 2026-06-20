@@ -48,6 +48,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
   const [panel, setPanel] = useState("main");          // main | shake | combos | off
   const [budgetOnly, setBudgetOnly] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
+  const [browseAll, setBrowseAll] = useState(false);
   const [cName, setCName] = useState(""); const [cKcal, setCKcal] = useState(""); const [cP, setCP] = useState("");
 
   const frequent = useMemo(() => pool
@@ -61,6 +62,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
   const slotCombos = useMemo(() => combos.filter((c) => c.slot === slotKey), [combos, slotKey]);
 
   const suggestions = useMemo(() => rankFor(slotKey, pool.filter((m) => m.slots.includes(slotKey))).slice(0, 4), [pool, slotKey, rankFor]);
+  const allForSlot = useMemo(() => rankFor(slotKey, pool.filter((m) => m.slots.includes(slotKey))), [pool, slotKey, rankFor]);
 
   const results = useMemo(() => {
     if (!q.trim()) return [];
@@ -143,6 +145,15 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
                     <div className="mb-4">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Fréquents</p>
                       <div className="flex flex-wrap gap-1.5">{frequent.map((m) => <ChipBtn key={m.name} m={m} onChoose={onChoose} />)}</div>
+                    </div>
+                  )}
+                  <button onClick={() => setBrowseAll((v) => !v)} className="mb-3 flex w-full items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider active:scale-95" style={{ color: C.muted }}>
+                    {browseAll ? "Réduire" : `Parcourir toute ma base (${allForSlot.length})`}
+                    <ChevronDown size={13} style={{ transform: browseAll ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  </button>
+                  {browseAll && (
+                    <div className="mb-2 space-y-2">
+                      {allForSlot.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={onChoose} onDelete={onDeleteCustom} />)}
                     </div>
                   )}
                 </>
@@ -244,18 +255,29 @@ function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {
 function ShakeBuilder({ onAdd, customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid, embedded = false }) {
   const [open, setOpen] = useState(embedded);
   const [bi, setBi] = useState(0); const [li, setLi] = useState(1);
+  const [qty, setQty] = useState(1);
   const bases = [...SHAKE_BASES, ...customBases];
   const liquids = [...SHAKE_LIQUIDS, ...customLiquids];
   const sb = Math.min(bi, bases.length - 1), sl = Math.min(li, liquids.length - 1);
   const base = bases[sb] || bases[0], liq = liquids[sl] || liquids[0];
-  const kcal = base.kcal + liq.kcal, p = base.p + liq.p;
+  const QOPTS = [0.5, 1, 1.5, 2];
+  const qLabel = (o) => (o === 0.5 ? "½" : o === 1.5 ? "1½" : String(o));
+  const kcal = Math.round((base.kcal + liq.kcal) * qty), p = Math.round((base.p + liq.p) * qty);
   const body = (
     <div className="space-y-2.5 p-3">
       <ShakeRow label="Base" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
       <ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} />
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Quantité</p>
+        <div className="flex gap-1.5">
+          {QOPTS.map((o) => (
+            <button key={o} onClick={() => setQty(o)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={o === qty ? { backgroundColor: C.protein, color: "#fff" } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{qLabel(o)} shake</button>
+          ))}
+        </div>
+      </div>
       <div className="flex items-center justify-between pt-0.5">
         <Stat label={`${p} g prot.`} value={`${kcal} kcal`} color={C.ink} />
-        <button onClick={() => onAdd({ name: `${base.name} + ${liq.name}`, kcal, p })} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>Ajouter</button>
+        <button onClick={() => onAdd({ name: `${base.name} + ${liq.name}${qty !== 1 ? ` (×${qLabel(qty)})` : ""}`, kcal, p })} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>Ajouter</button>
       </div>
     </div>
   );

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy, X, Pencil } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, EXTRA_PRESETS,
 } from "./core.js";
 import { WeekStrip } from "./Week.jsx";
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onSkip, onAddExtra, onRemoveExtra, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -88,7 +88,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
         <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onSaveCombo={onSaveCombo} />
         <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onSaveCombo={onSaveCombo} />
         <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} onQty={(i, nv) => onQty("snack", i, nv)} empty="Un en-cas protéiné si un repas est juste." />
-        <ExtrasSection extras={picks.extras || []} onAdd={onAddExtra} onRemove={onRemoveExtra} onQty={(i, nv) => onQty("extras", i, nv)} />
+        <ExtrasSection extras={picks.extras || []} onOpen={onOpenExtras} onRemove={onRemoveExtra} onQty={(i, nv) => onQty("extras", i, nv)} />
       </div>
 
       {/* Poids du jour */}
@@ -194,10 +194,7 @@ function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onR
 }
 
 
-function ExtrasSection({ extras, onAdd, onRemove, onQty }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(""); const [kcal, setKcal] = useState(""); const [p, setP] = useState("");
-  const addCustom = () => { const k = parseInt(kcal, 10); if (!name.trim() || isNaN(k)) return; onAdd({ name: name.trim(), kcal: k, p: parseInt(p, 10) || 0 }); setName(""); setKcal(""); setP(""); setOpen(false); };
+function ExtrasSection({ extras, onOpen, onRemove, onQty }) {
   return (
     <div className="rounded-3xl px-5 py-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
       <div className="mb-2.5 flex items-center justify-between">
@@ -208,38 +205,71 @@ function ExtrasSection({ extras, onAdd, onRemove, onQty }) {
             <p className="text-sm font-semibold" style={{ color: C.ink }}>Extras</p>
           </div>
         </div>
-        <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>
+        <button onClick={onOpen} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>
       </div>
-      {extras.length === 0 && !open && <p className="pl-1 text-sm" style={{ color: C.muted }}>Glace, barre, gâteau, cidre… le budget des repas s'ajuste tout seul.</p>}
-      {extras.length > 0 && (
-        <div className="mb-2 space-y-2">
+      {extras.length === 0 ? (
+        <p className="pl-1 text-sm" style={{ color: C.muted }}>Glace, barre, gâteau, cidre… le budget des repas s'ajuste tout seul.</p>
+      ) : (
+        <div className="space-y-2">
           {extras.map((e, i) => (
             <MealItemRow key={i} m={e} accent={C.extra} onQty={onQty ? (nv) => onQty(i, nv) : undefined} onRemove={() => onRemove(i)} bg={`${C.extra}14`} />
           ))}
         </div>
       )}
-      {open && (
-        <div className="space-y-3 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
-          <div className="space-y-2.5">
-            {EXTRA_PRESETS.map((g) => (
-              <div key={g.cat}>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider" style={{ color: C.muted }}>{g.cat}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {g.items.map((pr) => (
-                    <button key={pr.name} onClick={() => onAdd(pr)} className="rounded-full px-2.5 py-1 text-xs font-medium active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>+ {pr.name} <span style={{ color: C.muted }}>{pr.kcal}</span></button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. glace vanille)" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }} />
-          <div className="flex gap-2">
-            <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }} />
-            <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }} />
-            <button onClick={addCustom} className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.extra }}>OK</button>
+    </div>
+  );
+}
+
+export function ExtrasSheet({ onAdd, onClose }) {
+  const [cat, setCat] = useState(EXTRA_PRESETS[0].cat);
+  const [name, setName] = useState(""); const [kcal, setKcal] = useState(""); const [p, setP] = useState("");
+  const [justAdded, setJustAdded] = useState("");
+  const group = EXTRA_PRESETS.find((g) => g.cat === cat);
+  const flash = (label) => { setJustAdded(label); setTimeout(() => setJustAdded(""), 1400); };
+  const addPreset = (pr) => { onAdd(pr); flash(pr.name); };
+  const addCustom = () => { const k = parseInt(kcal, 10); if (!name.trim() || isNaN(k)) return; onAdd({ name: name.trim(), kcal: k, p: parseInt(p, 10) || 0 }); flash(name.trim()); setName(""); setKcal(""); setP(""); };
+  const chip = (active, color) => active ? { backgroundColor: color, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub };
+  return (
+    <div className="fixed inset-0 z-30 flex items-end justify-center" style={{ backgroundColor: C.overlay, backdropFilter: "blur(3px)" }} onClick={onClose}>
+      <div className="flex w-full max-w-md flex-col rounded-t-3xl" style={{ maxHeight: "92vh", backgroundColor: C.sheet }} onClick={(e) => e.stopPropagation()}>
+        <div className="shrink-0 px-5 pb-3 pt-4">
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ backgroundColor: C.line }} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.extra}1a`, color: C.extra }}><Cookie size={17} /></span>
+              <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.extra }}>Hors base</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter un extra</p></div>
+            </div>
+            <button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>
           </div>
         </div>
-      )}
+        <div className="flex-1 overflow-y-auto px-5 pb-5">
+          <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {EXTRA_PRESETS.map((g) => (
+              <button key={g.cat} onClick={() => setCat(g.cat)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === g.cat, C.extra)}>{g.cat}</button>
+            ))}
+            <button onClick={() => setCat("__manuel")} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "__manuel", C.ink)}><Pencil size={12} /> Manuel</button>
+          </div>
+
+          {cat === "__manuel" ? (
+            <div className="space-y-2.5">
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. glace vanille)" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+              <div className="flex gap-2">
+                <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+                <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+                <button onClick={addCustom} className="shrink-0 rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.extra }}>OK</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {group.items.map((pr) => (
+                <button key={pr.name} onClick={() => addPreset(pr)} className="rounded-full px-3 py-2 text-sm font-medium active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>+ {pr.name} <span style={{ color: C.muted }}>{pr.kcal}</span></button>
+              ))}
+            </div>
+          )}
+
+          <p className="mt-4 text-center text-xs" style={{ color: justAdded ? C.green : C.muted }}>{justAdded ? `« ${justAdded} » ajouté ✓` : "Touche un extra pour l'ajouter. Tu peux en mettre plusieurs, puis fermer. La quantité s'ajuste ensuite sur la carte du jour."}</p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat } from "luc
 import {
   MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, MEAL_IDEAS,
 } from "./core.js";
-import { DayScreen } from "./DayScreen.jsx";
+import { DayScreen, ExtrasSheet } from "./DayScreen.jsx";
 import { JournalScreen } from "./JournalScreen.jsx";
 import { ProgressScreen } from "./ProgressScreen.jsx";
 import { GuideScreen } from "./GuideScreen.jsx";
@@ -27,6 +27,7 @@ export default function PiocheRepas() {
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
 
   // Navigation par historique : le geste retour de l'OS remonte dans l'app au lieu de quitter.
   const undoStack = useRef([]);
@@ -42,6 +43,7 @@ export default function PiocheRepas() {
   const go = useCallback((v) => { if (v === viewRef.current) return; const prev = viewRef.current; pushNav(() => setView(prev)); setView(v); }, [pushNav]);
   const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
   const openSettings = useCallback(() => { pushNav(() => setShowSettings(false)); setShowSettings(true); }, [pushNav]);
+  const openExtras = useCallback(() => { pushNav(() => setExtrasOpen(false)); setExtrasOpen(true); }, [pushNav]);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -255,7 +257,7 @@ export default function PiocheRepas() {
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker}
             onSurprise={surprise} onClear={clearSlot} onQty={setQty} onSkip={toggleSkip}
-            onAddExtra={addExtra} onRemoveExtra={removeExtra} onReset={resetDay}
+            onAddExtra={addExtra} onRemoveExtra={removeExtra} onOpenExtras={openExtras} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
           />
@@ -279,6 +281,9 @@ export default function PiocheRepas() {
 
       {picker && (
         <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
+      )}
+      {extrasOpen && (
+        <ExtrasSheet onAdd={addExtra} onClose={navBack} />
       )}
       {showSettings && (
         <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={navBack} />
