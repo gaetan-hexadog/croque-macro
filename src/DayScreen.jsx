@@ -5,6 +5,9 @@ import {
 } from "./core.js";
 import { WeekStrip } from "./Week.jsx";
 
+const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
+
+
 export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
@@ -222,9 +225,13 @@ function ExtrasSection({ extras, onOpen, onRemove, onQty }) {
 
 export function ExtrasSheet({ onAdd, onClose }) {
   const [cat, setCat] = useState(EXTRA_PRESETS[0].cat);
+  const [q, setQ] = useState("");
   const [name, setName] = useState(""); const [kcal, setKcal] = useState(""); const [p, setP] = useState("");
   const [justAdded, setJustAdded] = useState("");
   const group = EXTRA_PRESETS.find((g) => g.cat === cat);
+  const allItems = EXTRA_PRESETS.flatMap((g) => g.items);
+  const nq = deburr(q);
+  const found = nq ? allItems.filter((it) => deburr(it.name).includes(nq)) : [];
   const flash = (label) => { setJustAdded(label); setTimeout(() => setJustAdded(""), 1400); };
   const addPreset = (pr) => { onAdd(pr); flash(pr.name); };
   const addCustom = () => { const k = parseInt(kcal, 10); if (!name.trim() || isNaN(k)) return; onAdd({ name: name.trim(), kcal: k, p: parseInt(p, 10) || 0 }); flash(name.trim()); setName(""); setKcal(""); setP(""); };
@@ -243,28 +250,48 @@ export function ExtrasSheet({ onAdd, onClose }) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-5 pb-5">
-          <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-            {EXTRA_PRESETS.map((g) => (
-              <button key={g.cat} onClick={() => setCat(g.cat)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === g.cat, C.extra)}>{g.cat}</button>
-            ))}
-            <button onClick={() => setCat("__manuel")} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "__manuel", C.ink)}><Pencil size={12} /> Manuel</button>
+          <div className="mb-3 flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+            <Search size={16} style={{ color: C.muted }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un extra…" className="w-full bg-transparent text-sm outline-none" style={{ color: C.ink }} />
+            {q && <button onClick={() => setQ("")} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Effacer"><X size={15} /></button>}
           </div>
 
-          {cat === "__manuel" ? (
-            <div className="space-y-2.5">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. glace vanille)" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
-              <div className="flex gap-2">
-                <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
-                <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
-                <button onClick={addCustom} className="shrink-0 rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.extra }}>OK</button>
+          {q.trim() ? (
+            found.length === 0 ? (
+              <p className="py-6 text-center text-sm" style={{ color: C.muted }}>Aucun extra trouvé. Efface la recherche et utilise « ✏️ Manuel » pour le saisir.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {found.map((pr) => (
+                  <button key={pr.name} onClick={() => addPreset(pr)} className="rounded-full px-3 py-2 text-sm font-medium active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>+ {pr.name} <span style={{ color: C.muted }}>{pr.kcal}</span></button>
+                ))}
               </div>
-            </div>
+            )
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {group.items.map((pr) => (
-                <button key={pr.name} onClick={() => addPreset(pr)} className="rounded-full px-3 py-2 text-sm font-medium active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>+ {pr.name} <span style={{ color: C.muted }}>{pr.kcal}</span></button>
-              ))}
-            </div>
+            <>
+              <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                {EXTRA_PRESETS.map((g) => (
+                  <button key={g.cat} onClick={() => setCat(g.cat)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === g.cat, C.extra)}>{g.cat}</button>
+                ))}
+                <button onClick={() => setCat("__manuel")} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "__manuel", C.ink)}><Pencil size={12} /> Manuel</button>
+              </div>
+
+              {cat === "__manuel" ? (
+                <div className="space-y-2.5">
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. glace vanille)" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+                  <div className="flex gap-2">
+                    <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+                    <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+                    <button onClick={addCustom} className="shrink-0 rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.extra }}>OK</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {group.items.map((pr) => (
+                    <button key={pr.name} onClick={() => addPreset(pr)} className="rounded-full px-3 py-2 text-sm font-medium active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>+ {pr.name} <span style={{ color: C.muted }}>{pr.kcal}</span></button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           <p className="mt-4 text-center text-xs" style={{ color: justAdded ? C.green : C.muted }}>{justAdded ? `« ${justAdded} » ajouté ✓` : "Touche un extra pour l'ajouter. Tu peux en mettre plusieurs, puis fermer. La quantité s'ajuste ensuite sur la carte du jour."}</p>

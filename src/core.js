@@ -7,6 +7,16 @@ import {
   Coffee, Salad, UtensilsCrossed, Apple, Clock, Package, Soup, EggOff, Snowflake, Dumbbell,
 } from "lucide-react";
 
+// ── Source unique de vérité — produits réutilisés à plusieurs endroits ───────
+// Une seule définition par produit. Tout le reste (pioche, extras, compositeur,
+// combos) référence ces constantes, donc une correction se fait ICI et nulle part ailleurs.
+const CLEAR_PROTEIN_DOSE = { kcal: 86, p: 20 }; // 1 dose officielle Bulk (Clear Whey Isolate)
+const CLEAR_VEGAN_DOSE   = { kcal: 67, p: 15 }; // 1 dose officielle Bulk (Clear Vegan, ~20 g de poudre)
+// Un « verre 150 ml » = 150 g d'un mélange [1 dose + 350 ml d'eau] (~375 g total) → 40 % de la dose.
+const GLASS_FRACTION = 150 / 375;
+const glassOf = (dose) => ({ kcal: Math.round(dose.kcal * GLASS_FRACTION), p: Math.round(dose.p * GLASS_FRACTION) });
+const CLEAR_PROTEIN_VERRE = glassOf(CLEAR_PROTEIN_DOSE); // → 34 / 8
+
 // ── Base de repas (macros réalistes, par portion) ───────────────────────────
 // slots : où le plat a du sens — 'pdj' | 'dej' | 'diner' | 'snack'
 // tags  : 'rapide' | 'veille' | 'transportable' | 'batch' | 'sans-oeuf' |
@@ -78,8 +88,8 @@ const MEALS = [
   { id: "pw2", name: "Shake post-training Bulk + lait de soja", slots: ["pdj", "dej", "snack"], kcal: 310, p: 37, c: 24, f: 6, tags: ["rapide", "transportable", "sans-oeuf", "post-workout"], desc: "Bulk Vegan All-in-One (60 g) + lait de soja (~250 ml). Le soja ajoute ~8 g de protéines." },
   { id: "vp1", name: "Shake protéine vegan Bulk + eau", slots: ["pdj", "dej", "snack"], kcal: 127, p: 24, c: 4, f: 1, tags: ["rapide", "transportable", "sans-oeuf"], desc: "Vegan Protein Powder Bulk (35 g) à l'eau. Léger : 127 kcal pour 24 g. Idéal perte de gras / jours de repos. Toutes saveurs ≈ mêmes macros." },
   { id: "vp2", name: "Shake protéine vegan Bulk + lait d'amande", slots: ["pdj", "dej", "snack"], kcal: 152, p: 25, c: 5, f: 2, tags: ["rapide", "transportable", "sans-oeuf"], desc: "Vegan Protein Powder Bulk (35 g) + lait d'amande. Toutes saveurs ≈ mêmes macros." },
-  { id: "bv1", name: "Clear Vegan Bulk (1 verre)", slots: ["pdj", "dej", "snack"], kcal: 67, p: 15, c: 2, f: 1, tags: ["rapide", "transportable", "sans-oeuf", "bulk"], desc: "Un verre de Clear Vegan Bulk (1 dose ~20 g de poudre, à l'eau glacée) : 67 kcal / 15 g. Qté = nombre de doses. Le volume d'eau ne change pas les macros." },
-  { id: "bv5", name: "Clear Protein Bulk (1 verre)", slots: ["pdj", "dej", "snack"], kcal: 75, p: 18, c: 2, f: 1, tags: ["rapide", "transportable", "sans-oeuf", "bulk"], desc: "Un verre de Clear Protein Bulk (whey clarifiée, 1 dose, à l'eau glacée) : 75 kcal / 18 g. Qté = nombre de doses. Pas vegan (lait), mais sans œuf." },
+  { id: "bv1", name: "Clear Vegan Bulk (1 dose)", slots: ["pdj", "dej", "snack"], kcal: CLEAR_VEGAN_DOSE.kcal, p: CLEAR_VEGAN_DOSE.p, c: 2, f: 1, tags: ["rapide", "transportable", "sans-oeuf", "bulk"], desc: "Un verre de Clear Vegan Bulk (1 dose ~20 g de poudre, à l'eau glacée) : 67 kcal / 15 g. Qté = nombre de doses. Le volume d'eau ne change pas les macros." },
+  { id: "bv5", name: "Clear Protein Bulk (verre 150 ml)", slots: ["pdj", "dej", "snack"], kcal: CLEAR_PROTEIN_VERRE.kcal, p: CLEAR_PROTEIN_VERRE.p, c: 0, f: 0, tags: ["rapide", "transportable", "sans-oeuf", "bulk"], desc: "Un verre de 150 ml préparé à 1 dose + 350 ml d'eau (whey clarifiée) : ~34 kcal / 8 g. Qté = nombre de verres. Pas vegan (lait), mais sans œuf. Pour 1 dose entière, prends le compositeur." },
   { id: "bv2", name: "Barre gourmet vegane Bulk", slots: ["snack"], kcal: 206, p: 17, c: 18, f: 7, tags: ["rapide", "transportable", "sans-oeuf", "bulk"], desc: "Barre gourmet vegane Bulk (~55 g). 17 g de protéines, 3 couches moelleuses." },
   { id: "bv3", name: "Brownie vegan Bulk", slots: ["snack"], kcal: 227, p: 15, c: 25, f: 7, tags: ["rapide", "transportable", "sans-oeuf", "bulk", "plaisir"], desc: "Brownie protéiné vegan Bulk (60 g). 15 g de protéines, vrai chocolat noir. Plaisir compté." },
   { id: "bv4", name: "Blondie vegan Bulk", slots: ["snack"], kcal: 230, p: 14, c: 26, f: 7, tags: ["rapide", "transportable", "sans-oeuf", "bulk", "plaisir"], desc: "Blondie protéiné vegan Bulk (60 g). ~14 g de protéines. Valeurs approchées (proche du brownie)." },
@@ -316,7 +326,10 @@ const EXTRA_PRESETS = [
   { cat: "Sucré", items: [
     { name: "Boule de glace", kcal: 130, p: 2 },
     { name: "Boule de sorbet", kcal: 95, p: 0 },
+    { name: "Cornet 1 boule", kcal: 160, p: 2 },
     { name: "Cornet 2 boules", kcal: 320, p: 4 },
+    { name: "Mini cône sorbet (39 g)", kcal: 94, p: 1 },
+    { name: "Snickers glacé (1 barre)", kcal: 171, p: 3 },
     { name: "Glace italienne", kcal: 220, p: 4 },
     { name: "Part de gâteau", kcal: 350, p: 5 },
     { name: "Crêpe sucre", kcal: 150, p: 3 },
@@ -326,8 +339,8 @@ const EXTRA_PRESETS = [
     { name: "Poignée de chips", kcal: 150, p: 2 },
   ] },
   { cat: "Protéiné", items: [
-    { name: "Clear Protein Bulk", kcal: 75, p: 18 },
-    { name: "Clear Vegan Bulk (eau)", kcal: 67, p: 15 },
+    { name: "Clear Protein Bulk (verre 150 ml)", kcal: CLEAR_PROTEIN_VERRE.kcal, p: CLEAR_PROTEIN_VERRE.p },
+    { name: "Clear Vegan Bulk (1 dose)", kcal: CLEAR_VEGAN_DOSE.kcal, p: CLEAR_VEGAN_DOSE.p },
     { name: "Shake Vegan Bulk (eau, 35 g)", kcal: 127, p: 24 },
     { name: "Barre gourmet vegane Bulk", kcal: 206, p: 17 },
     { name: "Brownie vegan Bulk", kcal: 227, p: 15 },
@@ -421,8 +434,8 @@ function weekCoach(stats, settings, weights, refISO) {
 const SHAKE_BASES = [
   { name: "Vegan All-in-One", kcal: 216, p: 29 },
   { name: "Vegan Protein", kcal: 127, p: 24 },
-  { name: "Clear Vegan", kcal: 67, p: 15 },
-  { name: "Clear Protein", kcal: 75, p: 18 },
+  { name: "Clear Vegan", kcal: CLEAR_VEGAN_DOSE.kcal, p: CLEAR_VEGAN_DOSE.p },
+  { name: "Clear Protein", kcal: CLEAR_PROTEIN_DOSE.kcal, p: CLEAR_PROTEIN_DOSE.p },
 ];
 const SHAKE_LIQUIDS = [
   { name: "eau", kcal: 0, p: 0 },
@@ -457,7 +470,7 @@ const DEFAULT_COMBOS = [
     { name: "Flocons d'avoine (30 g)", kcal: 115, p: 4, qty: 1 },
   ] },
   { id: "cdef-pdj-leger", slot: "pdj", name: "Express léger · Clear & banane", created: 6, items: [
-    { name: "Clear Protein (eau)", kcal: 75, p: 18, qty: 1 },
+    { name: "Clear Protein (verre 150 ml)", kcal: CLEAR_PROTEIN_VERRE.kcal, p: CLEAR_PROTEIN_VERRE.p, qty: 1 },
     { name: "Banane", kcal: 90, p: 1, qty: 1 },
   ] },
   // Déj protéinés — adaptés au stock
