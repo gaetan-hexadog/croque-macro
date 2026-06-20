@@ -4,8 +4,8 @@ import { searchProducts, fetchProductByBarcode } from "./openfoodfacts.js";
 
 // Recherche Open Food Facts : texte + scan code-barres, puis saisie au gramme.
 // Reçoit le thème `C` et `accent` en props pour éviter tout couplage avec App.
-export default function OffSearch({ C, accent, onChoose, onSave }) {
-  const [q, setQ] = useState("");
+export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = "" }) {
+  const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -16,6 +16,8 @@ export default function OffSearch({ C, accent, onChoose, onSave }) {
   const videoRef = useRef(null);
   const rafRef = useRef(0);
   const abortRef = useRef(null);
+
+  useEffect(() => { if (initialQuery && initialQuery.trim()) runSearch(); /* lance la recherche en ligne avec la requête héritée */ }, []);
 
   const fmt = (v) => (v == null ? "—" : Number.isInteger(v) ? String(v) : String(Math.round(v * 10) / 10).replace(".", ","));
   const supported = typeof window !== "undefined" && "BarcodeDetector" in window;
