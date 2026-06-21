@@ -16,11 +16,14 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   const videoRef = useRef(null);
   const rafRef = useRef(0);
   const abortRef = useRef(null);
+  const zxingRef = useRef(null); // controls du lecteur ZXing (fallback iOS / navigateurs sans BarcodeDetector)
 
   useEffect(() => { if (initialQuery && initialQuery.trim()) runSearch(); /* lance la recherche en ligne avec la requête héritée */ }, []);
 
   const fmt = (v) => (v == null ? "—" : Number.isInteger(v) ? String(v) : String(Math.round(v * 10) / 10).replace(".", ","));
-  const supported = typeof window !== "undefined" && "BarcodeDetector" in window;
+  // Scan dispo si l'API native existe (Android/Chrome) OU si on a accès caméra (iOS → fallback ZXing).
+  const hasNativeDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
+  const supported = typeof navigator !== "undefined" && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
   async function runSearch() {
     const term = q.trim();
@@ -41,7 +44,13 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
 
   async function startScan() {
     setError("");
-    if (!supported) { setError("Le scan nécessite Chrome sur Android."); return; }
+    if (!supported) { setError("Caméra indisponible sur cet appareil."); return; }
+    if (hasNativeDetector) return startScanNative();
+    return startScanZXing();
+  }
+
+  // Voie rapide : API BarcodeDetector native (Android / Chrome).
+  async function startScanNative() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       setScanning(true);
@@ -66,8 +75,27 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
     }
   }
 
+  // Fallback iOS / navigateurs sans BarcodeDetector : décodage JS via ZXing (chargé à la demande).
+  async function startScanZXing() {
+    try {
+      setScanning(true);
+      await new Promise((r) => setTimeout(r, 0));
+      const v = videoRef.current;
+      if (!v) { setScanning(false); return; }
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const reader = new BrowserMultiFormatReader();
+      zxingRef.current = await reader.decodeFromVideoDevice(undefined, v, (result) => {
+        if (result) { const code = result.getText(); stopScan(); lookupBarcode(code); }
+      });
+    } catch (e) {
+      setScanning(false);
+      setError("Caméra indisponible ou autorisation refusée.");
+    }
+  }
+
   function stopScan() {
     cancelAnimationFrame(rafRef.current);
+    if (zxingRef.current) { try { zxingRef.current.stop(); } catch (_) {} zxingRef.current = null; }
     const v = videoRef.current;
     if (v && v.srcObject) { v.srcObject.getTracks().forEach((t) => t.stop()); v.srcObject = null; }
     setScanning(false);

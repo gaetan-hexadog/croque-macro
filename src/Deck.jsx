@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, Sparkles, Clock, Flame } from "lucide-react";
+import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame } from "lucide-react";
 import { MEALS, SLOTS, C, SLOT_UI, SHAKE_BASES, SHAKE_LIQUIDS } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
+import { Sheet } from "./Sheet.jsx";
 
 // normalise pour la recherche : minuscules, sans accents, œ→oe, æ→ae
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
@@ -77,28 +78,26 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
     const k = parseInt(cKcal, 10);
     if (!cName.trim() || isNaN(k)) return;
     onChoose({ id: `custom-${Date.now()}`, name: cName.trim(), kcal: k, p: parseInt(cP, 10) || 0, c: null, f: null, desc: "Mon repas", tags: [], slots: [slotKey], custom: true });
+    setCName(""); setCKcal(""); setCP(""); setCustomOpen(false);
   };
+  const customValid = cName.trim() && !isNaN(parseInt(cKcal, 10));
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center" style={{ backgroundColor: C.overlay, backdropFilter: "blur(3px)" }} onClick={onClose}>
-      <div className="flex w-full max-w-md flex-col rounded-t-3xl" style={{ maxHeight: "92vh", backgroundColor: C.sheet }} onClick={(e) => e.stopPropagation()}>
-
-        <div className="shrink-0 px-5 pb-3 pt-4">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ backgroundColor: C.line }} />
-          <div className="flex items-center justify-between">
-            {panel === "main" ? (
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}>{React.createElement(SLOTS[slotKey].icon, { size: 17 })}</span>
-                <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ui.color }}>{ui.time}</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter · {SLOTS[slotKey].label}</p></div>
-              </div>
-            ) : (
-              <button onClick={() => setPanel("main")} className="flex items-center gap-1.5 text-sm font-semibold active:scale-95" style={{ color: C.sub }}><ArrowLeft size={18} /> Retour</button>
-            )}
-            <button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>
+    <>
+    <Sheet open onClose={onClose} stickyHeader={
+      <div className="flex items-center justify-between">
+        {panel === "main" ? (
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}>{React.createElement(SLOTS[slotKey].icon, { size: 17 })}</span>
+            <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ui.color }}>{ui.time}</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter · {SLOTS[slotKey].label}</p></div>
           </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 pb-5">
+        ) : (
+          <button onClick={() => setPanel("main")} className="flex items-center gap-1.5 text-sm font-semibold active:scale-95" style={{ color: C.sub }}><ArrowLeft size={18} /> Retour</button>
+        )}
+        <button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>
+      </div>
+    }>
+        <div>
 
           {panel === "main" && (
             <>
@@ -159,20 +158,10 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
                 </>
               )}
 
-              <button onClick={() => setCustomOpen((v) => !v)} className="mb-2 mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ border: `1px dashed ${C.muted}`, color: C.sub }}>
+              <button onClick={() => setCustomOpen(true)} className="mb-2 mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ border: `1px dashed ${C.muted}`, color: C.sub }}>
                 <span className="flex items-center gap-2"><Pencil size={15} /> Saisir un aliment manuellement</span>
-                <ChevronDown size={16} style={{ transform: customOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                <ChevronRight size={16} style={{ color: C.muted }} />
               </button>
-              {customOpen && (
-                <div className="mb-2 space-y-2 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-                  <input value={cName} onChange={(e) => setCName(e.target.value)} placeholder="Ex. Mes 2 tacos œuf-fromage-avocat" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-                  <div className="flex gap-2">
-                    <input value={cKcal} onChange={(e) => setCKcal(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-                    <input value={cP} onChange={(e) => setCP(e.target.value)} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-                    <button onClick={addCustom} className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.ink }}>OK</button>
-                  </div>
-                </div>
-              )}
             </>
           )}
 
@@ -212,8 +201,29 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
           )}
 
         </div>
-      </div>
-    </div>
+    </Sheet>
+
+      {/* Sous-sheet dédiée : saisie d'un aliment manuel (au lieu d'un accordion) */}
+      <Sheet open={customOpen} onClose={() => setCustomOpen(false)} z={40}
+        title="Saisir un aliment"
+        headerRight={<button onClick={() => setCustomOpen(false)} className="rounded-full p-1.5 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={16} /></button>}
+      >
+        <p className="mb-3 text-xs" style={{ color: C.muted }}>Pour un plat maison ou un produit hors base. Les macros s'ajoutent direct à ta journée.</p>
+        <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: C.sub }}>Nom</label>
+        <input value={cName} onChange={(e) => setCName(e.target.value)} autoFocus placeholder="Ex. Mes 2 tacos œuf-fromage-avocat" className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: C.sub }}>Calories</label>
+            <input value={cKcal} onChange={(e) => setCKcal(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: C.sub }}>Protéines</label>
+            <input value={cP} onChange={(e) => setCP(e.target.value)} inputMode="numeric" placeholder="g" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          </div>
+        </div>
+        <button onClick={addCustom} disabled={!customValid} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: customValid ? ui.color : C.line }}><Plus size={16} /> Ajouter à ma journée</button>
+      </Sheet>
+    </>
   );
 }
 

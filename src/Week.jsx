@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronRight, TrendingDown, TrendingUp, Sparkles, Beef } from "lucide-react";
-import { weekStats, weekCoach, C, r0, parseISO } from "./core.js";
+import { weekStats, weekCoach, C, r0, parseISO, cardStyle } from "./core.js";
 
 // Système hebdomadaire : solde glissant 7 j, marge plaisir, pilotage doux.
 // Cadrage sain : pas de dette, pas de calories gagnées au sport, ancrage poids.
@@ -15,7 +15,7 @@ export function WeekStrip({ days, weights, settings, refISO, freeTonight, onOpen
   const tc = toneColor(coach.tone);
   const bal = Math.round(stats.balance);
   return (
-    <button onClick={onOpen} className="mb-4 w-full rounded-2xl p-4 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <button onClick={onOpen} className="mb-4 w-full rounded-2xl p-4 text-left active:scale-95" style={cardStyle()}>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Cette semaine</span>
         <ChevronRight size={15} style={{ color: C.muted }} />
@@ -44,7 +44,7 @@ export function WeekCard({ days, weights, settings, refISO }) {
   const MAX = 1.25;
 
   return (
-    <section className="mb-4 rounded-3xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: `0 20px 50px -28px ${C.shadow}` }}>
+    <section className="mb-4 rounded-3xl p-5" style={cardStyle()}>
       <div className="flex items-baseline justify-between">
         <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Bilan de la semaine</span>
         <span className="text-xs" style={{ color: C.muted }}>{stats.logged} / 7 j</span>

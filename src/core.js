@@ -244,29 +244,33 @@ const store = {
 //  Suivi du poids en parallèle des calories.
 // ════════════════════════════════════════════════════════════════════════════
 
+// Direction visuelle « Vivant maîtrisé » (variante E du design lab) :
+// base chaude, accent corail affirmé, créneaux saturés, profondeur sobre.
 const THEMES = {
   dark: {
-    bg: "#16120e", paper: "#16120e", sheet: "#211b15",
-    card: "rgba(255,255,255,0.055)", cardSolid: "#241d16",
-    ink: "#f4ede1", sub: "#b3a899", muted: "#7d7466",
-    line: "rgba(255,255,255,0.10)", track: "rgba(255,255,255,0.09)",
-    green: "#6cc38a", protein: "#f08a3e", over: "#ef6256", weight: "#8ea4e6", extra: "#b39ad6",
-    nav: "rgba(20,16,12,0.72)", overlay: "rgba(0,0,0,0.62)", shadow: "rgba(0,0,0,0.7)",
-    bgImage: "radial-gradient(1100px 480px at 12% -8%, rgba(108,195,138,0.16), transparent 60%), radial-gradient(900px 460px at 92% 4%, rgba(240,138,62,0.14), transparent 62%), radial-gradient(800px 600px at 50% 116%, rgba(142,164,230,0.12), transparent 60%)",
+    bg: "#17120c", paper: "#17120c", sheet: "#221a12",
+    card: "rgba(255,255,255,0.05)", cardSolid: "#241c14",
+    cardGrad: "linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018))", cardTop: "rgba(255,255,255,0.15)",
+    ink: "#f7efe4", sub: "#b1a596", muted: "#776c5d",
+    line: "rgba(255,255,255,0.10)", track: "rgba(255,255,255,0.08)",
+    green: "#5fd08a", protein: "#ff8a3d", accent: "#ff8a3d", over: "#ef6256", weight: "#7aa2ff", extra: "#b39ad6",
+    nav: "rgba(23,18,12,0.75)", overlay: "rgba(0,0,0,0.6)", shadow: "rgba(0,0,0,0.72)",
+    bgImage: "radial-gradient(1000px 520px at 100% 0%, rgba(255,138,61,0.13), transparent 60%), radial-gradient(900px 520px at 0% 3%, rgba(95,208,138,0.08), transparent 62%)",
   },
   light: {
-    bg: "#f3eee4", paper: "#f3eee4", sheet: "#fffdf9",
-    card: "rgba(255,255,255,0.78)", cardSolid: "#fffdf9",
-    ink: "#2b2530", sub: "#6f6577", muted: "#9b91a0",
-    line: "rgba(43,37,48,0.12)", track: "rgba(43,37,48,0.10)",
-    green: "#2f8d5f", protein: "#dd6f2f", over: "#cf4836", weight: "#4e6cae", extra: "#8a6fc0",
-    nav: "rgba(243,238,228,0.82)", overlay: "rgba(43,37,48,0.34)", shadow: "rgba(43,37,48,0.22)",
-    bgImage: "radial-gradient(1100px 480px at 12% -8%, rgba(47,141,95,0.12), transparent 60%), radial-gradient(900px 460px at 92% 4%, rgba(221,111,47,0.10), transparent 62%), radial-gradient(800px 600px at 50% 116%, rgba(78,108,174,0.10), transparent 60%)",
+    bg: "#f4ece0", paper: "#f4ece0", sheet: "#fffaf2",
+    card: "rgba(255,255,255,0.72)", cardSolid: "#fffaf2",
+    cardGrad: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.58))", cardTop: "rgba(255,255,255,0.95)",
+    ink: "#2a221a", sub: "#6f6456", muted: "#9a8f7e",
+    line: "rgba(60,45,25,0.12)", track: "rgba(60,45,25,0.10)",
+    green: "#3a9d63", protein: "#e0712a", accent: "#e0712a", over: "#cf4836", weight: "#4e6cae", extra: "#8a6fc0",
+    nav: "rgba(244,236,224,0.82)", overlay: "rgba(43,34,26,0.34)", shadow: "rgba(43,34,26,0.2)",
+    bgImage: "radial-gradient(1000px 520px at 100% 0%, rgba(224,113,42,0.10), transparent 60%), radial-gradient(900px 520px at 0% 3%, rgba(58,157,99,0.06), transparent 62%)",
   },
 };
 const SLOT_THEMES = {
-  dark:  { pdj: "#e7b24a", dej: "#6cc38a", diner: "#8ea4e6", snack: "#e06a9a" },
-  light: { pdj: "#c5871d", dej: "#2f8d5f", diner: "#4e6cae", snack: "#c0567e" },
+  dark:  { pdj: "#ffb24d", dej: "#5fd08a", diner: "#7aa2ff", snack: "#ff6fae" },
+  light: { pdj: "#c5871d", dej: "#3a9d63", diner: "#4e6cae", snack: "#c0567e" },
 };
 const C = { ...THEMES.dark };
 const SLOT_UI = {
@@ -275,12 +279,27 @@ const SLOT_UI = {
   diner: { time: "Soir",   color: SLOT_THEMES.dark.diner },
   snack: { time: "En-cas", color: SLOT_THEMES.dark.snack },
 };
+// Style « carte premium » (variante C du lab) : dégradé top-lit + liseré clair en
+// haut + ombre douce + flou. Centralisé → un ajustement ici se propage à toutes les
+// cartes-conteneurs qui l'utilisent. Lit C au moment du rendu (donc suit le thème).
+function cardStyle(extra) {
+  return {
+    background: C.cardGrad,
+    border: `1px solid ${C.line}`,
+    borderTop: `1px solid ${C.cardTop}`,
+    boxShadow: `0 18px 42px -30px ${C.shadow}`,
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    ...extra,
+  };
+}
+
 function applyTheme(t) {
   Object.assign(C, THEMES[t]);
   for (const k in SLOT_THEMES[t]) SLOT_UI[k].color = SLOT_THEMES[t][k];
   if (typeof document !== "undefined") {
     const root = document.documentElement, body = document.body;
-    if (body) { body.style.backgroundColor = C.bg; body.style.backgroundImage = C.bgImage; body.style.backgroundAttachment = "fixed"; }
+    if (body) { body.style.backgroundColor = C.bg; body.style.backgroundImage = C.bgImage; body.style.backgroundAttachment = "scroll"; body.style.backgroundRepeat = "no-repeat"; }
     if (root) root.style.backgroundColor = C.bg;
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", C.bg);
@@ -322,53 +341,6 @@ const picksKey = (slot) => (slot === "snack" ? "snacks" : slot);
 const clampQty = (v) => { v = Number(v); if (!isFinite(v) || v <= 0) return 1; return Math.min(20, Math.round(v * 100) / 100); };
 const fmtQty = (v) => (Number.isInteger(v) ? String(v) : String(v).replace(".", ","));
 
-const EXTRA_PRESETS = [
-  { cat: "Sucré", items: [
-    { name: "Boule de glace", kcal: 130, p: 2 },
-    { name: "Boule de sorbet", kcal: 95, p: 0 },
-    { name: "Cornet 1 boule", kcal: 160, p: 2 },
-    { name: "Cornet 2 boules", kcal: 320, p: 4 },
-    { name: "Mini cône sorbet (39 g)", kcal: 94, p: 1 },
-    { name: "Snickers glacé (1 barre)", kcal: 171, p: 3 },
-    { name: "Glace italienne", kcal: 220, p: 4 },
-    { name: "Part de gâteau", kcal: 350, p: 5 },
-    { name: "Crêpe sucre", kcal: 150, p: 3 },
-    { name: "Crêpe Nutella", kcal: 280, p: 5 },
-    { name: "Carré de chocolat", kcal: 55, p: 1 },
-    { name: "Barre protéinée", kcal: 200, p: 20 },
-    { name: "Poignée de chips", kcal: 150, p: 2 },
-  ] },
-  { cat: "Protéiné", items: [
-    { name: "Clear Protein Bulk (verre 150 ml)", kcal: CLEAR_PROTEIN_VERRE.kcal, p: CLEAR_PROTEIN_VERRE.p },
-    { name: "Clear Vegan Bulk (1 dose)", kcal: CLEAR_VEGAN_DOSE.kcal, p: CLEAR_VEGAN_DOSE.p },
-    { name: "Shake Vegan Bulk (eau, 35 g)", kcal: 127, p: 24 },
-    { name: "Barre gourmet vegane Bulk", kcal: 206, p: 17 },
-    { name: "Brownie vegan Bulk", kcal: 227, p: 15 },
-    { name: "Blondie vegan Bulk", kcal: 230, p: 14 },
-  ] },
-  { cat: "Sans alcool", items: [
-    { name: "Jus / smoothie detox", kcal: 150, p: 2 },
-    { name: "Soda (33 cl)", kcal: 140, p: 0 },
-    { name: "Soda / thé glacé zéro", kcal: 5, p: 0 },
-    { name: "Limonade / thé glacé", kcal: 120, p: 0 },
-    { name: "Kombucha Foliz · Le Festif (≈25 cl)", kcal: 35, p: 0 },
-    { name: "Kombucha Foliz · Le Passionné (≈25 cl)", kcal: 35, p: 0 },
-  ] },
-  { cat: "Bière & alcool", items: [
-    { name: "Demi blonde (25 cl)", kcal: 100, p: 1 },
-    { name: "Pinte blonde (50 cl)", kcal: 200, p: 2 },
-    { name: "IPA (33 cl)", kcal: 215, p: 2 },
-    { name: "Pinte IPA (50 cl)", kcal: 320, p: 3 },
-    { name: "Bière forte (33 cl)", kcal: 270, p: 2 },
-    { name: "Verre de vin (15 cl)", kcal: 125, p: 0 },
-    { name: "Verre de cidre", kcal: 110, p: 0 },
-    { name: "Spritz", kcal: 150, p: 0 },
-    { name: "Gin tonic", kcal: 170, p: 0 },
-    { name: "Mojito", kcal: 200, p: 0 },
-    { name: "Margarita", kcal: 250, p: 0 },
-    { name: "Piña colada", kcal: 380, p: 2 },
-  ] },
-];
 
 // ── Moteur hebdomadaire « intelligent » ─────────────────────────────────────
 // Solde glissant sur la semaine + budget plaisir + pilotage doux.
@@ -486,72 +458,63 @@ const DEFAULT_COMBOS = [
   ] },
 ];
 
+// ── Cible kcal/protéines : calcul + ajustement selon le poids réel ───────────
+// Profil par défaut (doit rester identique à celui de Settings.jsx).
+const DEFAULT_PROFILE = { sex: "h", age: 35, weight: 78, height: 178, activity: 1.45, deficit: 0.18 };
+
+// Calcule maintenance / cible / protéines reco à partir d'un profil (Mifflin-St Jeor).
+// Source unique : Settings (calculatrice) ET l'ajustement auto réutilisent CE calcul.
+function computeTargets(profile) {
+  const { sex, age, weight, height, activity, deficit } = { ...DEFAULT_PROFILE, ...(profile || {}) };
+  const w = +weight || 0, h = +height || 0, a = +age || 0;
+  const bmr = 10 * w + 6.25 * h - 5 * a + (sex === "h" ? 5 : -161);
+  const tdee = bmr * activity;
+  const round50 = (x) => Math.round(x / 50) * 50, round5 = (x) => Math.round(x / 5) * 5;
+  return {
+    maintenance: round50(tdee),
+    target: Math.max(1500, round50(tdee * (1 - deficit)), Math.round(bmr)),
+    proteinReco: Math.min(220, Math.max(100, round5(w * 1.9))),
+  };
+}
+
+// Poids « lissé » : moyenne pondérée des dernières pesées (récent = plus de poids),
+// pour gommer le bruit quotidien (eau, sel…). Renvoie { kg, n } ou null.
+function smoothedWeight(weights, refISO = TODAY, { span = 30, min = 1 } = {}) {
+  const pts = [];
+  for (let i = 0; i < span && pts.length < 10; i++) {
+    const iso = addDays(refISO, -i);
+    if (weights && weights[iso] != null && !isNaN(weights[iso])) pts.push(Number(weights[iso]));
+  }
+  if (pts.length < min) return null;
+  let wsum = 0, vsum = 0;
+  pts.forEach((kg, idx) => { const wt = 1 / (idx + 1); wsum += wt; vsum += wt * kg; });
+  return { kg: Math.round((vsum / wsum) * 10) / 10, n: pts.length };
+}
+
+// Construit un prompt prêt à coller dans Claude.ai à partir de la base perso + budget du jour.
+function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) {
+  const L = [];
+  L.push("Tu es mon assistant nutrition. Règles strictes à respecter :");
+  L.push("- Végétarien : œufs et fromages au lait de vache uniquement (jamais chèvre ni brebis).");
+  L.push("- Je ne bois pas de lait de vache. Lait végétal par défaut = lait d'amande non sucré.");
+  L.push("- La protéine vient surtout des aliments protéinés / de la poudre, pas du lait.");
+  L.push("");
+  if (customMeals.length) {
+    L.push("Mes ingrédients & produits habituels (macros par portion indiquée) :");
+    customMeals.forEach((m) => L.push(`- ${m.name} : ${r0(m.kcal)} kcal, ${m.p} g de protéines`));
+    L.push("");
+  }
+  const hasBudget = Number.isFinite(remKcal) && Number.isFinite(remP);
+  if (hasBudget) {
+    L.push(`Budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`);
+    L.push("");
+  }
+  L.push(`Propose-moi 3 recettes ${hasBudget ? "qui rentrent dans ce budget" : "équilibrées et protéinées"}, utilisant en priorité mes produits ci-dessus. Donne pour chacune les ingrédients, les étapes et les macros estimées (kcal + protéines).`);
+  return L.join("\n");
+}
+
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
-const MEAL_IDEAS = [
-  // Petit-déj
-  { id: "idea-oats", cat: "pdj", quick: true, name: "Overnight oats protéiné", emoji: "🥣", kcal: 390, p: 35, desc: "Se prépare la veille, se mange (ou se boit) en voiture.", ingredients: ["40 g de flocons d'avoine", "250 ml de lait d'amande", "1 dose de Vegan Protein", "une poignée de fruits rouges", "1 c. à café de graines de chia"], steps: ["La veille, mélange flocons + lait + protéine + chia dans un bocal.", "Laisse une nuit au frigo.", "Le matin, ajoute les fruits."] },
-  { id: "idea-pancakes", cat: "pdj", quick: true, name: "Pancakes protéinés", emoji: "🥞", kcal: 400, p: 35, desc: "Sans huile, à la poêle antiadhésive.", ingredients: ["40 g de flocons mixés", "2 œufs", "1 banane écrasée", "1/2 dose de Vegan Protein", "cannelle"], steps: ["Mixe le tout en pâte.", "Cuis en petits pancakes, poêle antiadhésive sans huile.", "Garnis de fruits ou d'un filet de sirop léger."] },
-  { id: "idea-tofuscramble", cat: "pdj", quick: true, name: "Tofu brouillé express", emoji: "🍳", kcal: 290, p: 22, desc: "L'alternative aux œufs, goût brouillé.", ingredients: ["150 g de tofu ferme", "curcuma, paprika, sel kala namak (goût œuf)", "1 tranche de pain complet"], steps: ["Écrase le tofu à la fourchette.", "Poêle antiadhésive + épices, 5 min.", "Sers avec le pain."] },
-  { id: "idea-skyrmuesli", cat: "pdj", quick: true, name: "Skyr soja & muesli", emoji: "🥣", kcal: 320, p: 20, desc: "Rapide. Choisis un skyr SOJA (plus protéiné que l'amande) et un muesli sans sucre ajouté.", ingredients: ["150 g de skyr/yaourt soja protéiné", "40 g de muesli sans sucre ajouté", "fruits frais"], steps: ["Mélange skyr + muesli.", "Ajoute les fruits."] },
-  // Déjeuner
-  { id: "idea-buddha", cat: "dej", quick: true, name: "Buddha bowl tofu", emoji: "🥗", kcal: 470, p: 32, desc: "Protéiné, frais, sec en gras.", ingredients: ["150 g de tofu fumé ou teriyaki", "80 g de quinoa (cru) cuit", "80 g d'edamame", "crudités (carotte, chou, concombre)", "sauce soja + citron + gingembre"], steps: ["Cuis le quinoa.", "Poêle le tofu.", "Assemble avec edamame et crudités, nappe de sauce."] },
-  { id: "idea-omelette", cat: "dej", name: "Omelette garnie", emoji: "🍳", kcal: 400, p: 24, desc: "Rapide et rassasiant.", ingredients: ["3 œufs", "champignons + épinards", "1 tranche de pain complet"], steps: ["Fais revenir champignons et épinards.", "Verse les œufs battus, cuis l'omelette.", "Sers avec le pain."] },
-  { id: "idea-steak", cat: "dej", name: "Steak végétal & légumes rôtis", emoji: "🥩", kcal: 450, p: 30, desc: "Avec HappyVore ou Garden Gourmet.", ingredients: ["1 steak végétal", "grosse portion de légumes rôtis", "100 g de patate douce ou lentilles"], steps: ["Rôtis les légumes au four.", "Poêle le steak.", "Assemble."] },
-  { id: "idea-wrap", cat: "dej", quick: true, name: "Wrap protéiné", emoji: "🌯", kcal: 400, p: 22, desc: "À emporter, se mange à une main.", ingredients: ["1 tortilla complète", "jambon La Vie ou tofu", "crudités", "1 c. à soupe de houmous"], steps: ["Tartine le houmous.", "Garnis de protéine + crudités.", "Roule serré."] },
-  { id: "idea-medbowl", cat: "dej", quick: true, name: "Bowl méditerranéen", emoji: "🥙", kcal: 470, p: 26, desc: "Pois chiches + œuf, frais et complet.", ingredients: ["150 g de pois chiches", "1 œuf dur", "concombre + tomate", "60 g de boulgour (cru) cuit", "citron, herbes"], steps: ["Cuis le boulgour.", "Assemble pois chiches, œuf, légumes.", "Assaisonne citron + herbes."] },
-  // Dîner
-  { id: "idea-curry", cat: "diner", name: "Curry de pois chiches express", emoji: "🍛", kcal: 520, p: 22, desc: "Réconfortant, prêt en 15 min.", ingredients: ["150 g de pois chiches", "150 ml de lait de coco allégé", "épinards", "tomate concassée + pâte de curry", "100 g de riz basmati (cru) cuit"], steps: ["Fais mijoter tomate + curry + coco.", "Ajoute pois chiches et épinards, 10 min.", "Sers sur le riz."] },
-  { id: "idea-wok", cat: "diner", name: "Poêlée tofu-légumes & soba", emoji: "🍜", kcal: 480, p: 28, desc: "Façon wok, vite fait.", ingredients: ["150 g de tofu teriyaki", "wok de légumes (poivron, brocoli, pousses)", "80 g de nouilles soba (crues) cuites", "sauce soja"], steps: ["Cuis les soba.", "Saute tofu + légumes au wok.", "Mélange, nappe de sauce."] },
-  { id: "idea-galette", cat: "diner", name: "Galette de sarrasin garnie", emoji: "🫓", kcal: 420, p: 22, desc: "Œuf + champignons, format crêpe salée.", ingredients: ["1 galette de sarrasin", "1 œuf", "champignons", "un peu de fromage râpé"], steps: ["Réchauffe la galette.", "Casse l'œuf au centre, ajoute champignons + fromage.", "Replie et sers."] },
-  { id: "idea-soupe", cat: "diner", quick: true, name: "Soupe + œufs durs", emoji: "🍲", kcal: 350, p: 18, desc: "Léger, parfait après une grosse journée.", ingredients: ["gros bol de soupe de légumes maison", "2 œufs durs", "1 tranche de pain complet"], steps: ["Réchauffe la soupe.", "Sers avec œufs durs + pain."] },
-  // Snack
-  { id: "idea-shakefruit", cat: "snack", quick: true, name: "Shake amande & fruit", emoji: "🥤", kcal: 330, p: 31, desc: "Le coup de fouet protéiné.", ingredients: ["1 dose d'All-in-One ou Vegan Protein", "250 ml de lait d'amande", "1 banane ou fruits rouges"], steps: ["Mets tout au shaker ou au blender.", "Mixe/secoue."] },
-  { id: "idea-skyrnoix", cat: "snack", quick: true, name: "Skyr soja & noix", emoji: "🥜", kcal: 230, p: 16, desc: "Crémeux + croquant.", ingredients: ["150 g de skyr/yaourt soja protéiné", "une petite poignée de noix", "un filet de miel (option)"], steps: ["Mélange.", "Ajoute les noix au moment de manger."] },
-  { id: "idea-houmous", cat: "snack", quick: true, name: "Houmous & crudités", emoji: "🥕", kcal: 180, p: 6, desc: "À grignoter, plein de fibres.", ingredients: ["2 c. à soupe de houmous", "bâtonnets de carotte, concombre, poivron"], steps: ["Coupe les crudités.", "Trempe."] },
-  { id: "idea-houmous-rouge", cat: "snack", quick: true, name: "Houmous de haricots rouges maison", emoji: "🫘", kcal: 250, p: 8, desc: "Ta recette (fait ~4 portions). Riche en bon gras : pour alléger, descends l'huile d'olive à 1 c. à soupe et rallonge à l'eau/aquafaba (~190 kcal/portion).", ingredients: ["300 g de haricots rouges cuits", "3 c. à soupe de tahini", "3 c. à soupe d'huile d'olive (1 suffit pour alléger)", "1/2 citron pressé", "sel, poivre"], steps: ["Mixe tout jusqu'à consistance lisse.", "Ajoute un peu d'eau ou d'aquafaba (jus de la boîte) si trop épais.", "Rectifie sel et citron. Sers avec des crudités."] },
-  { id: "idea-clearbarre", cat: "snack", quick: true, name: "Clear Vegan & barre", emoji: "🍫", kcal: 270, p: 32, desc: "Très protéiné, faible en gras.", ingredients: ["1 dose de Clear Vegan à l'eau glacée", "1 barre gourmet vegane Bulk"], steps: ["Prépare la Clear bien froide.", "Accompagne de la barre."] },
-  // — Lot 2 —
-  { id: "idea-porridge", cat: "pdj", name: "Porridge protéiné chaud", emoji: "🥣", kcal: 400, p: 35, desc: "Chaud et réconfortant les matins d'hiver.", ingredients: ["40 g de flocons d'avoine", "250 ml de lait d'amande", "1 dose de Vegan Protein", "1/2 banane en rondelles", "cannelle"], steps: ["Cuis flocons + lait 3-4 min en remuant.", "Hors du feu, incorpore la protéine.", "Garnis de banane et cannelle."] },
-  { id: "idea-chia", cat: "pdj", quick: true, name: "Chia pudding amande", emoji: "🍮", kcal: 300, p: 20, desc: "Se prépare la veille, ultra rassasiant.", ingredients: ["30 g de graines de chia", "250 ml de lait d'amande", "1/2 dose de Vegan Protein", "fruits rouges"], steps: ["Mélange chia + lait + protéine.", "Repos une nuit au frigo.", "Ajoute les fruits au matin."] },
-  { id: "idea-toastoeuf", cat: "pdj", quick: true, name: "Toast œuf-avocat", emoji: "🥑", kcal: 430, p: 20, desc: "Le brunch express, bon gras maîtrisé.", ingredients: ["2 tranches de pain complet", "1/2 avocat", "2 œufs pochés ou au plat", "citron, piment"], steps: ["Toaste le pain, écrase l'avocat dessus.", "Cuis les œufs.", "Pose-les sur le toast, citron + piment."] },
-  { id: "idea-dahl", cat: "dej", name: "Dahl de lentilles corail", emoji: "🍛", kcal: 520, p: 22, desc: "Épicé, réconfortant, peu de gras.", ingredients: ["80 g de lentilles corail (crues)", "150 ml de lait de coco allégé", "tomate, oignon, épices (curcuma, cumin)", "60 g de riz basmati (cru) cuit"], steps: ["Fais revenir oignon + épices.", "Ajoute lentilles, tomate, coco, mijote 15 min.", "Sers sur le riz."] },
-  { id: "idea-poke", cat: "dej", quick: true, name: "Poke bowl tofu", emoji: "🍣", kcal: 480, p: 28, desc: "Frais, façon hawaïen.", ingredients: ["80 g de riz (cru) cuit", "120 g de tofu fumé en dés", "edamame", "concombre, carotte, oignon rouge", "sauce soja + sésame"], steps: ["Dispose le riz tiède dans un bol.", "Ajoute tofu, edamame et crudités.", "Nappe de sauce, parsème de sésame."] },
-  { id: "idea-chili", cat: "dej", name: "Chili sin carne", emoji: "🫘", kcal: 520, p: 32, desc: "Avec haché végétal et haricots rouges.", ingredients: ["150 g de haricots rouges", "100 g de haché végétal (Garden Gourmet)", "tomate concassée, poivron, épices chili", "60 g de riz (cru) cuit"], steps: ["Fais revenir haché + poivron.", "Ajoute tomate, haricots, épices, mijote 15 min.", "Sers avec le riz."] },
-  { id: "idea-pates", cat: "diner", name: "Pâtes complètes & boulettes La Vie", emoji: "🍝", kcal: 520, p: 28, desc: "Le confort food protéiné.", ingredients: ["80 g de pâtes complètes (crues)", "boulettes La Vie", "sauce tomate basilic", "parmesan végétal (option)"], steps: ["Cuis les pâtes.", "Réchauffe boulettes dans la sauce tomate.", "Mélange et sers."] },
-  { id: "idea-shakshuka", cat: "diner", name: "Shakshuka", emoji: "🥘", kcal: 400, p: 22, desc: "Œufs pochés dans une sauce tomate-poivron.", ingredients: ["3 œufs", "tomate concassée, poivron, oignon", "cumin, paprika", "1 tranche de pain complet"], steps: ["Mijote tomate + poivron + épices.", "Casse les œufs dedans, couvre 5-6 min.", "Sers avec le pain pour saucer."] },
-  { id: "idea-tofuwok", cat: "diner", name: "Tofu teriyaki & riz sauté légumes", emoji: "🍚", kcal: 480, p: 24, desc: "Vite fait au wok.", ingredients: ["150 g de tofu teriyaki La Vie", "80 g de riz (cru) cuit", "wok de légumes (poivron, brocoli, petits pois)", "sauce soja"], steps: ["Saute les légumes au wok.", "Ajoute le riz cuit et le tofu, fais sauter.", "Déglace à la sauce soja."] },
-  { id: "idea-edamame", cat: "snack", quick: true, name: "Edamame vapeur", emoji: "🫛", kcal: 190, p: 17, desc: "Le snack le plus protéiné qui soit.", ingredients: ["150 g d'edamame (dans la cosse)", "sel, ou un peu de piment"], steps: ["Cuis 5 min à la vapeur ou à l'eau bouillante.", "Sale et déguste en pressant les cosses."] },
-  { id: "idea-mugcake", cat: "snack", quick: true, name: "Mug cake protéiné", emoji: "🧁", kcal: 220, p: 28, desc: "Dessert chaud en 1 min au micro-ondes.", ingredients: ["1 dose de Vegan Protein (chocolat)", "1 c. à soupe de cacao", "1/2 banane écrasée", "1 blanc d'œuf", "1/2 c. à café de levure"], steps: ["Mélange tout dans un mug.", "Micro-ondes 1 min.", "Laisse tiédir 1 min avant de manger."] },
-  { id: "idea-pommePB", cat: "snack", quick: true, name: "Pomme & purée de cacahuète", emoji: "🍎", kcal: 180, p: 4, desc: "Sucré-salé, croquant.", ingredients: ["1 pomme en quartiers", "1 c. à soupe de purée de cacahuète"], steps: ["Coupe la pomme.", "Trempe dans la purée de cacahuète."] },
-  // — Inspirées de The Conscious Plant Kitchen (réécrites, adaptées à tes produits) —
-  { id: "idea-orangetofu", cat: "diner", name: "Tofu croustillant à l'orange", emoji: "🍊", kcal: 480, p: 26, desc: "Inspirée de The Conscious Plant Kitchen. Croustillant dehors, sauce orange acidulée.", ingredients: ["200 g de tofu ferme en cubes", "1 c. à soupe de maïzena", "le jus d'1 orange", "2 c. à soupe de sauce soja", "1 c. à café de sirop d'érable", "ail + gingembre râpés", "60 g de riz (cru) cuit"], steps: ["Presse le tofu, enrobe les cubes de maïzena.", "Dore-les à la poêle (peu d'huile) ou à l'airfryer jusqu'à croustillant.", "Fais réduire jus d'orange + soja + sirop + ail/gingembre 3 min.", "Enrobe le tofu de sauce, sers sur le riz."] },
-  { id: "idea-szechuan", cat: "diner", name: "Tofu Szechuan", emoji: "🌶️", kcal: 500, p: 28, desc: "Inspirée de The Conscious Plant Kitchen. Relevé, vite fait au wok.", ingredients: ["200 g de tofu ferme en cubes", "1 poivron + oignon", "sauce : soja, vinaigre de riz, ail, piment, pointe de sucre", "60 g de riz (cru) cuit"], steps: ["Dore le tofu jusqu'à croustillant.", "Saute poivron + oignon au wok.", "Ajoute le tofu et la sauce, fais glacer 2 min.", "Sers sur le riz."] },
-  { id: "idea-bolo", cat: "diner", name: "Bolognaise végétale aux lentilles", emoji: "🍝", kcal: 520, p: 24, desc: "Inspirée de The Conscious Plant Kitchen. La bolo réconfortante, sans viande.", ingredients: ["150 g de lentilles vertes cuites", "carotte + oignon + céleri hachés", "tomate concassée + herbes", "80 g de pâtes complètes (crues)"], steps: ["Fais revenir carotte, oignon, céleri.", "Ajoute lentilles, tomate, herbes, mijote 20 min.", "Cuis les pâtes, mélange."] },
-  { id: "idea-hpsalad", cat: "dej", quick: true, name: "Salade vegan hyper-protéinée", emoji: "🥗", kcal: 450, p: 35, desc: "Inspirée de The Conscious Plant Kitchen. Le combo edamame + pois chiches + tofu.", ingredients: ["80 g d'edamame", "100 g de pois chiches", "80 g de tofu fumé en dés", "crudités + graines de courge", "sauce tahini + citron + eau"], steps: ["Assemble edamame, pois chiches, tofu et crudités.", "Émulsionne tahini + citron + un peu d'eau.", "Nappe, parsème de graines."] },
-  { id: "idea-bbburger", cat: "dej", name: "Burger patate douce & haricots noirs", emoji: "🍔", kcal: 430, p: 18, desc: "Inspirée de The Conscious Plant Kitchen. Galette maison moelleuse.", ingredients: ["1 petite patate douce cuite écrasée", "150 g de haricots noirs écrasés", "3 c. à soupe de flocons d'avoine", "épices (cumin, paprika, ail)", "1 pain à burger complet + crudités"], steps: ["Mélange patate douce, haricots, flocons et épices.", "Forme une galette, cuis 5 min par face à la poêle.", "Sers dans le pain avec des crudités."] },
-  { id: "idea-teriyaki", cat: "diner", name: "Nouilles teriyaki & edamame", emoji: "🍜", kcal: 480, p: 22, desc: "Inspirée de The Conscious Plant Kitchen. Rapide et gourmand.", ingredients: ["80 g de nouilles (crues) cuites", "80 g d'edamame", "tofu teriyaki La Vie", "légumes (poivron, carotte, oignon vert)", "sauce teriyaki (soja, sirop, ail, gingembre)"], steps: ["Cuis les nouilles.", "Saute légumes + tofu, ajoute edamame.", "Ajoute nouilles + sauce, fais glacer 2 min."] },
-  { id: "idea-peanutnoodles", cat: "diner", name: "Nouilles crémeuses cacahuète & tofu", emoji: "🥜", kcal: 540, p: 26, desc: "Inspirée de The Conscious Plant Kitchen. Sauce satay onctueuse.", ingredients: ["80 g de nouilles (crues) cuites", "120 g de tofu fumé", "sauce : purée de cacahuète, soja, citron vert, ail, eau", "crudités râpées (carotte, chou)"], steps: ["Cuis les nouilles.", "Dore le tofu.", "Mélange nouilles + tofu + sauce cacahuète, parsème de crudités."] },
-  { id: "idea-broccolipasta", cat: "diner", name: "Pâtes crémeuses au brocoli", emoji: "🥦", kcal: 470, p: 18, desc: "Inspirée de The Conscious Plant Kitchen. Sauce veloutée sans crème.", ingredients: ["80 g de pâtes complètes (crues)", "1 gros brocoli", "ail, levure maltée", "un peu de lait d'amande pour lier"], steps: ["Cuis pâtes + brocoli ensemble.", "Mixe une partie du brocoli avec ail, levure maltée et lait d'amande.", "Mélange la sauce aux pâtes."] },
-  { id: "idea-enchiladas", cat: "diner", name: "Enchiladas haricots noirs", emoji: "🫔", kcal: 450, p: 18, desc: "Inspirée de The Conscious Plant Kitchen. Roulées et gratinées.", ingredients: ["2 tortillas complètes", "150 g de haricots noirs", "maïs + poivron", "sauce tomate épicée", "fromage râpé (option)"], steps: ["Garnis les tortillas de haricots, maïs, poivron.", "Roule-les dans un plat, nappe de sauce tomate.", "Gratine 15 min au four."] },
-  { id: "idea-orangecauli", cat: "diner", name: "Chou-fleur croustillant à l'orange", emoji: "🍊", kcal: 380, p: 10, desc: "Inspirée de The Conscious Plant Kitchen. La version légumes du tofu à l'orange.", ingredients: ["1 chou-fleur en bouquets", "1 c. à soupe de maïzena", "sauce orange (jus d'orange, soja, ail, sirop)", "60 g de riz (cru) cuit"], steps: ["Enrobe le chou-fleur de maïzena, rôtis au four 25 min.", "Réduis la sauce orange.", "Enrobe et sers sur le riz."] },
-  { id: "idea-oatrolls", cat: "pdj", name: "Petits pains à l'avoine", emoji: "🍞", kcal: 120, p: 6, desc: "Inspirée de The Conscious Plant Kitchen. 6 g de protéines, 12 g de fibres, sans œuf. (par petit pain)", ingredients: ["flocons d'avoine mixés", "yaourt soja", "levure + sel", "graines (option)"], steps: ["Mélange avoine + yaourt + levure en pâte.", "Forme des petits pains.", "Cuis 30 min au four à 180°C."] },
-  { id: "idea-bananabars", cat: "snack", name: "Barres avoine, banane & yaourt soja", emoji: "🍌", kcal: 150, p: 5, desc: "Inspirée de The Conscious Plant Kitchen. 4 ingrédients, à emporter.", ingredients: ["2 bananes écrasées", "150 g de yaourt soja", "120 g de flocons d'avoine", "pépites ou fruits secs (option)"], steps: ["Mélange tout.", "Étale dans un moule.", "Cuis 30-35 min à 180°C, coupe en barres."] },
-  { id: "idea-kombuchacake", cat: "snack", name: "Gâteau au kombucha (plaisir)", emoji: "🍰", kcal: 250, p: 3, desc: "Inspirée de The Conscious Plant Kitchen. 4 ingrédients. Plaisir occasionnel : c'est un gâteau, le kombucha ne sert qu'à lever la pâte. (par part)", ingredients: ["farine à levée incorporée (ou farine + levure)", "sucre", "kombucha (saveur fruits rouges ou citron)", "huile neutre ou margarine fondue"], steps: ["Mélange farine + sucre, verse kombucha + huile.", "Remue en pâte lisse, verse dans un moule.", "Cuis ~50 min à 180°C. Laisse refroidir avant de couper."] },
-  // — Inspirées de Recettes de Julie (réécrites, adaptées à tes produits) —
-  { id: "idea-taboule", cat: "dej", quick: true, name: "Taboulé sucré-salé tomates & abricots rôtis", emoji: "🍅", kcal: 400, p: 14, desc: "Inspirée de Recettes de Julie. Frais et original. J'ai ajouté des pois chiches pour les protéines.", ingredients: ["60 g de semoule ou boulgour (cru) cuit", "tomates + abricots rôtis", "100 g de pois chiches", "menthe, citron, filet d'huile d'olive"], steps: ["Cuis la semoule.", "Rôtis tomates et abricots 15 min.", "Mélange avec pois chiches, menthe et citron."] },
-  { id: "idea-nicecream", cat: "snack", quick: true, name: "Nicecream banane-kiwi", emoji: "🍦", kcal: 150, p: 4, desc: "Inspirée de Recettes de Julie. Glace minute sans sucre ajouté. Une dose de protéine la transforme en dessert protéiné.", ingredients: ["2 bananes congelées en rondelles", "1 kiwi", "option : 1/2 dose de Vegan Protein", "un filet de lait d'amande"], steps: ["Mixe bananes congelées + kiwi (+ protéine si tu veux).", "Ajoute un peu de lait d'amande pour la texture.", "Sers aussitôt."] },
-  { id: "idea-concoyaourt", cat: "snack", quick: true, name: "Salade concombre au yaourt soja", emoji: "🥒", kcal: 120, p: 8, desc: "Inspirée de Recettes de Julie (yaourt soja à la place du grec). Fraîche et protéinée pour quasi rien.", ingredients: ["1 concombre", "150 g de yaourt soja nature", "ail, menthe, citron", "sel, poivre"], steps: ["Coupe le concombre.", "Mélange yaourt soja + ail + menthe + citron.", "Assaisonne et sers bien frais."] },
-  { id: "idea-epeautre", cat: "dej", name: "Salade de petit épeautre", emoji: "🌾", kcal: 450, p: 16, desc: "Inspirée de Recettes de Julie. Grains + légumes + fromage ou tofu.", ingredients: ["70 g de petit épeautre (cru) cuit", "tomates cerises, concombre, poivron", "feta ou tofu fumé en dés", "herbes, citron, filet d'huile d'olive"], steps: ["Cuis le petit épeautre.", "Mélange avec les légumes et le fromage/tofu.", "Assaisonne citron + herbes."] },
-  { id: "idea-crepescitron", cat: "pdj", name: "Crêpes citron & graines de pavot", emoji: "🍋", kcal: 300, p: 10, desc: "Inspirée de Recettes de Julie. Au lait d'amande.", ingredients: ["80 g de farine", "250 ml de lait d'amande", "1 œuf", "zeste de citron + graines de pavot"], steps: ["Mélange farine, lait d'amande, œuf, citron, pavot.", "Cuis les crêpes à la poêle.", "Garnis léger : fruits ou filet de sirop."] },
-  { id: "idea-pastapestoskyr", cat: "dej", name: "Pâtes pesto au skyr, asperges & brocolis", emoji: "🍝", kcal: 480, p: 22, desc: "Inspirée de Recettes de Julie. Le crémeux du pesto sans crème, grâce au skyr soja. Healthy et protéiné.", ingredients: ["80 g de pâtes (crues) cuites", "asperges + brocolis sautés", "2 c. à soupe de pesto", "150 g de skyr/yaourt soja épais", "citron"], steps: ["Cuis les pâtes, saute asperges et brocolis.", "Hors du feu, mélange pesto + skyr soja.", "Lie le tout, citron et poivre."] },
-  { id: "idea-oeufscocotte", cat: "dej", name: "Œufs cocotte aux asperges", emoji: "🍳", kcal: 280, p: 16, desc: "Inspirée de Recettes de Julie. Au four, protéiné et rapide.", ingredients: ["2 œufs", "asperges vertes", "un peu de fromage", "sel, poivre"], steps: ["Dispose asperges + fromage dans un ramequin.", "Casse les œufs dessus.", "Cuis 12-15 min au four à 180°C."] },
-  { id: "idea-orzopc", cat: "dej", name: "Orzo pesto, asperges & pois chiches", emoji: "🍲", kcal: 470, p: 18, desc: "Inspirée de Recettes de Julie. Prêt en 15 min.", ingredients: ["80 g d'orzo (cru) cuit", "100 g de pois chiches", "asperges vertes", "2 c. à soupe de pesto"], steps: ["Cuis l'orzo.", "Saute asperges + pois chiches.", "Mélange avec le pesto."] },
-  { id: "idea-curryasperges", cat: "diner", name: "Curry d'asperges vertes & riz", emoji: "🍛", kcal: 430, p: 10, desc: "Inspirée de Recettes de Julie. Vegan, doux au lait de coco. Ajoute du tofu pour les protéines.", ingredients: ["asperges vertes", "150 ml de lait de coco allégé", "pâte de curry", "60 g de riz (cru) cuit", "option : tofu"], steps: ["Fais revenir la pâte de curry.", "Ajoute asperges + coco, mijote 10 min.", "Sers sur le riz."] },
-  { id: "idea-quinoafraise", cat: "dej", name: "Salade quinoa, fraises & balsamique", emoji: "🍓", kcal: 400, p: 12, desc: "Inspirée de Recettes de Julie. Sucrée-salée, vegan.", ingredients: ["80 g de quinoa (cru) cuit", "fraises", "roquette", "réduction de balsamique", "graines"], steps: ["Cuis le quinoa, laisse refroidir.", "Mélange avec fraises et roquette.", "Arrose de balsamique, parsème de graines."] },
-  { id: "idea-coleslaw", cat: "snack", quick: true, name: "Coleslaw au skyr", emoji: "🥗", kcal: 150, p: 8, desc: "Inspirée de Recettes de Julie. Sauce skyr soja au lieu de mayo : léger et protéiné.", ingredients: ["chou + carotte râpés", "150 g de skyr/yaourt soja", "moutarde, citron, sel", "ciboulette"], steps: ["Râpe chou et carotte.", "Mélange skyr soja + moutarde + citron.", "Lie et laisse reposer 10 min."] },
-  { id: "idea-jusvert", cat: "snack", quick: true, name: "Jus vert concombre-kiwi-gingembre", emoji: "🥬", kcal: 90, p: 2, desc: "Inspirée de Recettes de Julie. Rafraîchissant et peu calorique — mais c'est un jus : peu de fibres, zéro protéine. Un plaisir hydratant, pas un repas.", ingredients: ["1 concombre", "1 kiwi", "un morceau de gingembre", "citron"], steps: ["Passe le tout à l'extracteur (ou mixe puis filtre).", "Sers bien frais."] },
-];
 
 export {
-  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, EXTRA_PRESETS, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, MEAL_IDEAS,
+  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt,
 };

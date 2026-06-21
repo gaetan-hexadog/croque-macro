@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
-  C, TODAY, parseISO, addDays, r0, dayTotals, hasData,
+  C, TODAY, parseISO, addDays, r0, dayTotals, hasData, cardStyle,
 } from "./core.js";
 import { WeekCard } from "./Week.jsx";
 
@@ -82,7 +82,7 @@ function TrendCard({ days, weights, period }) {
   }, [days, weights, period]);
 
   return (
-    <div className="mb-3 rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="mb-3 rounded-3xl p-4" style={cardStyle()}>
       <div className="mb-3 flex items-center gap-2">
         <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: C.protein }} />
         <h3 className="text-sm font-bold" style={{ color: C.ink }}>Tendance déficit</h3>
@@ -172,7 +172,7 @@ function WeightChart({ points }) {
 
 function ChartCard({ title, subtitle, accent, deltaColor, children }) {
   return (
-    <div className="mb-3 rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="mb-3 rounded-3xl p-4" style={cardStyle()}>
       <div className="mb-3 flex items-center gap-2">
         <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: accent }} />
         <h3 className="text-sm font-bold" style={{ color: C.ink }}>{title}</h3>

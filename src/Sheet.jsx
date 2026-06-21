@@ -1,0 +1,53 @@
+import React, { useEffect, useRef, useState } from "react";
+import { C } from "./core.js";
+
+const reduceMotion = () => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Bottom-sheet partagée : animation d'entrée (slide-up), poignée de glissement,
+// swipe-vers-le-bas pour fermer (sur la zone poignée/entête, pour ne pas voler le
+// scroll interne). Respecte prefers-reduced-motion. z permet d'empiler une sous-sheet.
+export function Sheet({ open, onClose, children, title, headerRight, stickyHeader, maxHeight = "92vh", z = 30 }) {
+  const [shown, setShown] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const startRef = useRef(null);
+  const reduce = reduceMotion();
+
+  useEffect(() => {
+    if (!open) { setShown(false); return; }
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
+  if (!open) return null;
+
+  const onTouchStart = (e) => { startRef.current = e.touches[0].clientY; };
+  const onTouchMove = (e) => { if (startRef.current == null) return; const dy = e.touches[0].clientY - startRef.current; setDragY(dy > 0 ? dy : 0); };
+  const onTouchEnd = () => { if (dragY > 90) onClose(); setDragY(0); startRef.current = null; };
+
+  const translate = shown ? dragY : (reduce ? 0 : 640);
+  return (
+    <div
+      className="fixed inset-0 flex items-end justify-center"
+      style={{ zIndex: z, backgroundColor: C.overlay, backdropFilter: "blur(3px)", opacity: shown ? 1 : 0, transition: reduce ? "none" : "opacity .25s ease" }}
+      onClick={(e) => { e.stopPropagation(); onClose(); }}
+    >
+      <div
+        className="flex w-full max-w-md flex-col rounded-t-3xl"
+        style={{ maxHeight, backgroundColor: C.sheet, transform: `translateY(${translate}px)`, transition: dragY || reduce ? "none" : "transform .34s cubic-bezier(.22,1,.36,1)", boxShadow: `0 -24px 64px -32px ${C.shadow}` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 cursor-grab px-5 pt-3 active:cursor-grabbing" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+          <div className="mx-auto mb-2 h-1.5 w-10 rounded-full" style={{ backgroundColor: C.line }} />
+          {(title || headerRight) && (
+            <div className="mb-1 flex items-center justify-between gap-2">
+              {title ? <h2 className="text-base font-bold" style={{ color: C.ink }}>{title}</h2> : <span />}
+              {headerRight}
+            </div>
+          )}
+        </div>
+        {stickyHeader && <div className="shrink-0 px-5 pb-2 pt-1">{stickyHeader}</div>}
+        <div className="flex-1 overflow-y-auto px-5 pb-5">{children}</div>
+      </div>
+    </div>
+  );
+}

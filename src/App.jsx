@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat } from "lucide-react";
 import {
-  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, MEAL_IDEAS,
+  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt,
 } from "./core.js";
+import { getLibrarySync, refreshLibrary } from "./library.js";
+import { supabase } from "./supabaseClient.js";
+import { pullAll, pushDays, pushWeights, pushAppState } from "./sync.js";
+import { AccountSheet } from "./AccountSheet.jsx";
 import { DayScreen, ExtrasSheet } from "./DayScreen.jsx";
 import { JournalScreen } from "./JournalScreen.jsx";
 import { ProgressScreen } from "./ProgressScreen.jsx";
@@ -23,16 +27,25 @@ export default function PiocheRepas() {
   const [shakeLiquids, setShakeLiquids] = useState([]); // liquides shake perso
   const [comboSeed, setComboSeed] = useState(0);        // version des presets installés
   const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
+  const [library, setLibrary] = useState(getLibrarySync); // { presets, recipes } — cache → Supabase
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
+  const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
+  const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
+  const [targetDismissed, setTargetDismissed] = useState(null); // poids pour lequel la suggestion de cible a été masquée
 
   // Navigation par historique : le geste retour de l'OS remonte dans l'app au lieu de quitter.
   const undoStack = useRef([]);
   const viewRef = useRef("jour");
   useEffect(() => { viewRef.current = view; }, [view]);
+  // Bibliothèque presets/recipes : on affiche le cache/snapshot tout de suite,
+  // puis on tente un rafraîchissement depuis Supabase en arrière-plan.
+  useEffect(() => { let on = true; refreshLibrary().then((lib) => { if (on) setLibrary(lib); }); return () => { on = false; }; }, []);
   const pushNav = useCallback((undo) => { undoStack.current.push(undo); try { window.history.pushState({ cm: undoStack.current.length }, ""); } catch (e) {} }, []);
   const navBack = useCallback(() => { if (undoStack.current.length) window.history.back(); }, []);
   useEffect(() => {
@@ -44,6 +57,20 @@ export default function PiocheRepas() {
   const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
   const openSettings = useCallback(() => { pushNav(() => setShowSettings(false)); setShowSettings(true); }, [pushNav]);
   const openExtras = useCallback(() => { pushNav(() => setExtrasOpen(false)); setExtrasOpen(true); }, [pushNav]);
+  const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
+  // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
+  // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
+  const openAccountFromSettings = useCallback(() => {
+    setShowSettings(false);
+    setAccountOpen(true);
+    const i = undoStack.current.length - 1;
+    if (i >= 0) undoStack.current[i] = () => setAccountOpen(false);
+  }, []);
+  // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
+  const stateRef = useRef({});
+  const lastSynced = useRef({ days: {}, weights: {}, appState: "" });
+  const syncTimer = useRef(null);
+  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs }; }, []);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -79,6 +106,88 @@ export default function PiocheRepas() {
   }, []);
   useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, hydrated]);
 
+  // ── Synchronisation Supabase (offline-first, local-first) ──────────────────
+  // Miroir de l'état courant pour lire des valeurs fraîches dans les callbacks async
+  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs }; });
+
+  // Abonnement à la session Supabase
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Sync initiale au login : pull → fusion (remote prioritaire sur recouvrement, on garde le local-only) → push du local-only
+  const runInitialSync = useCallback(async (uid) => {
+    setSyncStatus("syncing");
+    try {
+      const remote = await pullAll(uid);
+      const localDays = stateRef.current.days || {};
+      const localWeights = stateRef.current.weights || {};
+      setDays((l) => ({ ...l, ...remote.days }));
+      setWeights((l) => ({ ...l, ...remote.weights }));
+      if (remote.appState) {
+        const a = remote.appState;
+        if (a.settings) setSettings(a.settings);
+        if (a.templates) setTemplates(a.templates);
+        if (a.customMeals) setCustomMeals(a.customMeals);
+        if (a.usage) setUsage(a.usage);
+        if (a.combos) setCombos(a.combos);
+        if (a.shakeBases) setShakeBases(a.shakeBases);
+        if (a.shakeLiquids) setShakeLiquids(a.shakeLiquids);
+        if (typeof a.comboSeed === "number") setComboSeed(a.comboSeed);
+        if (a.favs) setFavs(a.favs);
+      }
+      const onlyDays = {}; for (const k in localDays) if (!(k in remote.days)) onlyDays[k] = localDays[k];
+      const onlyWeights = {}; for (const k in localWeights) if (!(k in remote.weights)) onlyWeights[k] = localWeights[k];
+      await pushDays(uid, onlyDays);
+      await pushWeights(uid, onlyWeights);
+      const mergedAppState = remote.appState || appStateNow();
+      if (!remote.appState) await pushAppState(uid, mergedAppState);
+      lastSynced.current = { days: { ...localDays, ...remote.days }, weights: { ...localWeights, ...remote.weights }, appState: JSON.stringify(mergedAppState) };
+      setSyncStatus("synced");
+    } catch (e) { console.warn("[sync] initial:", e.message); setSyncStatus("error"); }
+  }, [appStateNow]);
+
+  // Déclenche la sync initiale une fois connecté + hydraté
+  useEffect(() => {
+    if (session && hydrated && !syncReady) runInitialSync(session.user.id).then(() => setSyncReady(true));
+    if (!session && syncReady) setSyncReady(false);
+  }, [session, hydrated, syncReady, runInitialSync]);
+
+  // Push débouncé des changements (diff vs lastSynced)
+  const pushChanges = useCallback(async (uid) => {
+    const cur = stateRef.current;
+    const changedDays = {};
+    for (const iso in cur.days) if (JSON.stringify(cur.days[iso]) !== JSON.stringify(lastSynced.current.days[iso])) changedDays[iso] = cur.days[iso];
+    const changedWeights = {};
+    for (const iso in cur.weights) if (cur.weights[iso] !== lastSynced.current.weights[iso]) changedWeights[iso] = cur.weights[iso];
+    const appState = appStateNow();
+    const appChanged = JSON.stringify(appState) !== lastSynced.current.appState;
+    if (!Object.keys(changedDays).length && !Object.keys(changedWeights).length && !appChanged) return;
+    try {
+      setSyncStatus("syncing");
+      await pushDays(uid, changedDays);
+      await pushWeights(uid, changedWeights);
+      if (appChanged) await pushAppState(uid, appState);
+      lastSynced.current = { days: { ...cur.days }, weights: { ...cur.weights }, appState: JSON.stringify(appState) };
+      setSyncStatus("synced");
+    } catch (e) { console.warn("[sync] push:", e.message); setSyncStatus("error"); }
+  }, [appStateNow]);
+
+  useEffect(() => {
+    if (!session || !syncReady) return;
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => pushChanges(session.user.id), 2000);
+    return () => clearTimeout(syncTimer.current);
+  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, session, syncReady, pushChanges]);
+
+  useEffect(() => {
+    const onOnline = () => { if (session && syncReady) pushChanges(session.user.id); };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [session, syncReady, pushChanges]);
+
   const switchTheme = (t) => { applyTheme(t); setTheme(t); };
 
   useEffect(() => {
@@ -107,6 +216,26 @@ export default function PiocheRepas() {
   const totals = useMemo(() => dayTotals(day), [day]);
   const remKcal = settings.kcal - totals.kcal;
   const remP = settings.protein - totals.p;
+
+  // Ajustement de la cible selon le poids réel : on PROPOSE (jamais en silence),
+  // à partir du poids lissé des dernières pesées comparé au poids du dernier calcul.
+  const targetSuggestion = useMemo(() => {
+    const profile = settings.profile;
+    if (!profile || profile.weight == null) return null;          // pas de profil → pas de suggestion
+    const sw = smoothedWeight(weights, TODAY, { min: 3 });         // au moins 3 pesées pour être stable
+    if (!sw) return null;
+    const oldW = +profile.weight;
+    if (Math.abs(sw.kg - oldW) < 1.5) return null;                 // écart trop faible → on ne dérange pas
+    const t = computeTargets({ ...profile, weight: sw.kg });
+    if (t.target === settings.kcal && t.proteinReco === settings.protein) return null;
+    return { weightNow: sw.kg, oldWeight: oldW, kcal: t.target, protein: t.proteinReco, down: sw.kg < oldW };
+  }, [settings.profile, settings.kcal, settings.protein, weights]);
+
+  const applyTargetSuggestion = useCallback(() => {
+    if (!targetSuggestion) return;
+    setSettings((s) => ({ ...s, kcal: targetSuggestion.kcal, protein: targetSuggestion.protein, profile: { ...s.profile, weight: targetSuggestion.weightNow } }));
+  }, [targetSuggestion]);
+  const showTargetSuggestion = !!targetSuggestion && targetDismissed !== targetSuggestion.weightNow;
 
   const emptyPlanned = useMemo(() => {
     const list = [];
@@ -260,6 +389,8 @@ export default function PiocheRepas() {
             onAddExtra={addExtra} onRemoveExtra={removeExtra} onOpenExtras={openExtras} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
+            targetSuggestion={showTargetSuggestion ? targetSuggestion : null}
+            onApplyTarget={applyTargetSuggestion} onDismissTarget={() => setTargetDismissed(targetSuggestion.weightNow)}
           />
         )}
         {view === "journal" && (
@@ -272,7 +403,9 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "idees" && (
-          <IdeasScreen ideas={MEAL_IDEAS} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)} />
+          <IdeasScreen ideas={library.recipes} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)}
+            remKcal={remKcal} remP={remP} dateLabel={fmtFull(activeDate)}
+            claudePrompt={buildClaudePrompt({ customMeals, remKcal, remP, dateLabel: fmtFull(activeDate) })} />
         )}
       </div>
 
@@ -283,10 +416,13 @@ export default function PiocheRepas() {
         <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
       )}
       {extrasOpen && (
-        <ExtrasSheet onAdd={addExtra} onClose={navBack} />
+        <ExtrasSheet presets={library.presets} onAdd={addExtra} onClose={navBack} />
       )}
       {showSettings && (
-        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onClose={navBack} />
+        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccountFromSettings} onClose={navBack} />
+      )}
+      {accountOpen && (
+        <AccountSheet session={session} status={syncStatus} onClose={navBack} />
       )}
     </div>
   );

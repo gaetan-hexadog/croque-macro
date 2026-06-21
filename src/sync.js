@@ -1,0 +1,49 @@
+// ════════════════════════════════════════════════════════════════
+// sync.js — moteur de synchronisation des données perso (offline-first).
+//
+//   day_logs    : une ligne par jour, data = { picks, skipBreakfast }  ← LE log de repas
+//   weight_logs : une ligne par jour, kg
+//   app_state   : un seul bloc { settings, theme, templates, customMeals,
+//                 usage, combos, shakeBases, shakeLiquids, comboSeed, favs }
+//
+// Tout passe par RLS (auth.uid()) : on n'écrit/lit QUE les lignes du user connecté.
+// Le local (localStorage) reste la copie de travail ; ces fonctions ne font que
+// pousser/tirer. Aucune n'efface de données locales.
+// ════════════════════════════════════════════════════════════════
+import { supabase } from "./supabaseClient.js";
+
+// ── Lecture : tout l'historique du user → structures de l'app ───────────────
+export async function pullAll(userId) {
+  const [d, w, s] = await Promise.all([
+    supabase.from("day_logs").select("iso,data").eq("user_id", userId),
+    supabase.from("weight_logs").select("iso,kg").eq("user_id", userId),
+    supabase.from("app_state").select("data").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (d.error) throw d.error;
+  if (w.error) throw w.error;
+  if (s.error) throw s.error;
+  const days = {};
+  (d.data || []).forEach((r) => { days[r.iso] = r.data; });
+  const weights = {};
+  (w.data || []).forEach((r) => { weights[r.iso] = Number(r.kg); });
+  const appState = s.data ? s.data.data : null;
+  return { days, weights, appState };
+}
+
+// ── Écritures (upsert) ──────────────────────────────────────────────────────
+export async function pushDays(userId, daysObj) {
+  const rows = Object.entries(daysObj).map(([iso, data]) => ({ user_id: userId, iso, data }));
+  if (!rows.length) return;
+  const { error } = await supabase.from("day_logs").upsert(rows, { onConflict: "user_id,iso" });
+  if (error) throw error;
+}
+export async function pushWeights(userId, weightsObj) {
+  const rows = Object.entries(weightsObj).map(([iso, kg]) => ({ user_id: userId, iso, kg }));
+  if (!rows.length) return;
+  const { error } = await supabase.from("weight_logs").upsert(rows, { onConflict: "user_id,iso" });
+  if (error) throw error;
+}
+export async function pushAppState(userId, data) {
+  const { error } = await supabase.from("app_state").upsert({ user_id: userId, data }, { onConflict: "user_id" });
+  if (error) throw error;
+}

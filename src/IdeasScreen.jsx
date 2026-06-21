@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X, Star } from "lucide-react";
-import { C } from "./core.js";
+import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X, Star, Copy, Gauge } from "lucide-react";
+import { C, r0, cardStyle } from "./core.js";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
@@ -21,7 +21,7 @@ function IdeaCard({ idea, isFav, onToggleFav, onUse, onSave }) {
   const accent = { pdj: C.weight, dej: C.green, diner: C.protein, snack: C.extra }[idea.cat] || C.protein;
   const hasImg = idea.image && !imgErr;
   return (
-    <div className="mb-2.5 overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="mb-2.5 overflow-hidden rounded-2xl" style={cardStyle()}>
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-3 py-3 text-left active:opacity-70">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, border: `1px solid ${C.line}` }}>
           {hasImg
@@ -79,13 +79,17 @@ function IdeaCard({ idea, isFav, onToggleFav, onUse, onSave }) {
   );
 }
 
-export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave }) {
+export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave, remKcal, remP, dateLabel, claudePrompt }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
   const [protOnly, setProtOnly] = useState(false);
   const [quickOnly, setQuickOnly] = useState(false);
   const [favOnly, setFavOnly] = useState(false);
+  const [budgetOnly, setBudgetOnly] = useState(false);
+  const [copied, setCopied] = useState(false);
 
+  const hasBudget = Number.isFinite(remKcal);
+  const budgetCap = hasBudget ? Math.max(0, remKcal) * 1.1 : Infinity; // 10 % de tolérance
   const favSet = new Set(favs);
   const nq = deburr(q);
   const filtered = ideas.filter((i) =>
@@ -93,8 +97,15 @@ export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave 
     (!protOnly || i.p >= 20) &&
     (!quickOnly || i.quick) &&
     (!favOnly || favSet.has(i.id)) &&
+    (!budgetOnly || i.kcal <= budgetCap) &&
     (!nq || deburr(i.name + " " + (i.ingredients || []).join(" ")).includes(nq))
   );
+
+  const copyForClaude = async () => {
+    if (!claudePrompt) return;
+    try { await navigator.clipboard.writeText(claudePrompt); } catch (_) {}
+    setCopied(true); setTimeout(() => setCopied(false), 1800);
+  };
 
   const chip = (active) => ({
     backgroundColor: active ? C.ink : C.card,
@@ -127,8 +138,16 @@ export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave 
         )}
       </div>
 
+      {/* Copier ma base + budget pour Claude.ai */}
+      {claudePrompt && (
+        <button onClick={copyForClaude} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: copied ? `${C.green}1a` : C.card, border: `1px solid ${copied ? C.green : C.line}`, color: copied ? C.green : C.ink }}>
+          {copied ? <><Check size={15} /> Copié — colle-le dans Claude.ai</> : <><Copy size={15} /> Copier ma base + budget pour Claude</>}
+        </button>
+      )}
+
       {/* Filtres */}
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+      <div className="mb-2 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {hasBudget && <button onClick={() => setBudgetOnly((v) => !v)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(budgetOnly)}><Gauge size={13} /> Dans mon budget</button>}
         <button onClick={() => setFavOnly((v) => !v)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(favOnly)}>⭐ Favoris</button>
         <button onClick={() => setCat("all")} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "all")}>Tout</button>
         {CATS.map((c) => (
@@ -138,12 +157,20 @@ export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave 
         <button onClick={() => setQuickOnly((v) => !v)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(quickOnly)}>⚡ Rapide</button>
       </div>
 
+      {budgetOnly && (
+        <p className="mb-4 px-1 text-xs" style={{ color: C.muted }}>
+          Recettes qui tiennent dans ce qu'il te reste {dateLabel ? `(${dateLabel})` : ""} : <span className="font-semibold" style={{ color: C.weight }}>{r0(Math.max(0, remKcal))} kcal</span>{Number.isFinite(remP) && <> · <span className="font-semibold" style={{ color: C.protein }}>{r0(Math.max(0, remP))} g prot.</span></>}. Change de jour sur l'écran Jour pour anticiper.
+        </p>
+      )}
+      {!budgetOnly && <div className="mb-3" />}
+
       {filtered.length === 0 && (
         <p className="py-10 text-center text-sm" style={{ color: C.muted }}>{favOnly ? "Aucun favori pour l'instant — touche l'étoile sur une recette." : "Aucune recette ne correspond."}</p>
       )}
 
       {CATS.map((c) => {
-        const list = filtered.filter((i) => i.cat === c.k);
+        let list = filtered.filter((i) => i.cat === c.k);
+        if (budgetOnly && hasBudget) list = [...list].sort((a, b) => Math.abs(remKcal - a.kcal) - Math.abs(remKcal - b.kcal)); // au plus proche du budget d'abord
         if (!list.length) return null;
         return (
           <div key={c.k} className="mb-5">

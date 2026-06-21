@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef } from "react";
-import { X, Check, Flame, Beef, Package, ChevronRight, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark } from "lucide-react";
+import { X, Check, Flame, Beef, Package, ChevronRight, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark, Cloud } from "lucide-react";
 import {
-  C, TODAY,
+  C, TODAY, computeTargets, smoothedWeight,
 } from "./core.js";
+import { Sheet } from "./Sheet.jsx";
 
-export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onClose }) {
+export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onOpenAccount, onClose }) {
   const [kcal, setKcal] = useState(settings.kcal);
   const [protein, setProtein] = useState(settings.protein);
   const [showCalc, setShowCalc] = useState(false);
@@ -44,21 +45,14 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
   const onFile = (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = (ev) => applyImport(String(ev.target.result)); rd.readAsText(f); e.target.value = ""; };
   const copyJson = () => { try { navigator.clipboard.writeText(jsonOut); setMsg({ ok: true, m: "Copié dans le presse-papier." }); } catch (e) { setMsg({ ok: true, m: "Sélectionne le texte et copie-le manuellement." }); } };
 
-  const calc = useMemo(() => {
-    const { sex, age, weight, height, activity, deficit } = profile;
-    const w = +weight || 0, h = +height || 0, a = +age || 0;
-    const bmr = 10 * w + 6.25 * h - 5 * a + (sex === "h" ? 5 : -161);
-    const tdee = bmr * activity;
-    const round50 = (x) => Math.round(x / 50) * 50, round5 = (x) => Math.round(x / 5) * 5;
-    return { maintenance: round50(tdee), target: Math.max(1500, round50(tdee * (1 - deficit)), Math.round(bmr)), proteinReco: Math.min(220, Math.max(100, round5(w * 1.9))) };
-  }, [profile]);
+  const calc = useMemo(() => computeTargets(profile), [profile]);
+  // Poids réel lissé (dernières pesées) — pour caler le calcul sur ton poids du moment.
+  const realWeight = useMemo(() => smoothedWeight(allData?.weights || {}, TODAY, { min: 1 }), [allData]);
+  const weightStale = realWeight && Math.abs(realWeight.kg - (+profile.weight || 0)) >= 0.5;
   const ACTIVITIES = [{ v: 1.2, l: "Sédentaire" }, { v: 1.375, l: "Léger" }, { v: 1.45, l: "Modéré" }, { v: 1.55, l: "Actif" }, { v: 1.725, l: "Très actif" }];
   const DEFICITS = [{ v: 0, l: "Maintien" }, { v: 0.12, l: "Perte douce" }, { v: 0.18, l: "Perte" }, { v: 0.25, l: "Perte rapide" }];
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center" style={{ backgroundColor: C.overlay, backdropFilter: "blur(3px)" }} onClick={onClose}>
-      <div className="w-full max-w-md overflow-y-auto rounded-t-3xl p-5" style={{ maxHeight: "92vh", backgroundColor: C.sheet }} onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ backgroundColor: C.line }} />
-        <h2 className="mb-1 text-lg font-bold" style={{ color: C.ink }}>Objectifs du jour</h2>
+    <Sheet open onClose={onClose} title="Réglages">
         <p className="mb-4 text-sm" style={{ color: C.sub }}>Règle tes cibles à la main, ou laisse le calculateur les estimer.</p>
 
         <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
@@ -85,6 +79,11 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
               <NumField label="Poids" value={profile.weight} onChange={(v) => setP("weight", v)} suffix="kg" />
               <NumField label="Taille" value={profile.height} onChange={(v) => setP("height", v)} suffix="cm" />
             </div>
+            {weightStale && (
+              <button onClick={() => setP("weight", realWeight.kg)} className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.weight}55`, color: C.weight }}>
+                Utiliser mon poids actuel ({String(realWeight.kg).replace(".", ",")} kg)
+              </button>
+            )}
             <Picker2 label="Activité" options={ACTIVITIES} value={profile.activity} onChange={(v) => setP("activity", v)} />
             <Picker2 label="Objectif" options={DEFICITS} value={profile.deficit} onChange={(v) => setP("deficit", v)} />
             <div className="rounded-xl p-3" style={{ backgroundColor: C.paper }}>
@@ -103,6 +102,12 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
           <div className="mb-3 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
             <CustomBaseManager items={customMeals} onUpdate={onUpdateCustom} onDelete={onDeleteCustom} />
           </div>
+        )}
+        {onOpenAccount && (
+          <button onClick={onOpenAccount} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+            <span className="flex items-center gap-2"><Cloud size={16} /> Compte & synchronisation</span>
+            <ChevronRight size={16} />
+          </button>
         )}
         <button onClick={() => setShowData((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
           <span className="flex items-center gap-2"><Package size={16} /> Sauvegarde & restauration</span>
@@ -134,8 +139,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
         )}
 
         <button onClick={save} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 font-semibold text-white active:scale-95" style={{ backgroundColor: C.ink }}><Check size={18} /> Enregistrer</button>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

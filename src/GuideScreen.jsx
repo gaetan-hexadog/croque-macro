@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Salad, UtensilsCrossed, Plus, Check, Search, Flame, Beef, Package, Dumbbell, Cookie, Scale, ExternalLink, ScanLine, Beer, Wine, IceCream2, ChevronDown } from "lucide-react";
 import {
-  store, C,
+  store, C, cardStyle,
 } from "./core.js";
 
 export function GuideScreen({ onAddExtra, dateLabel, settings }) {
@@ -233,7 +233,7 @@ export function GuideScreen({ onAddExtra, dateLabel, settings }) {
         <RefRow icon={Wine} label="Vin" value="~125 kcal" hint="par verre de 15 cl" />
       </GuideBlock>
 
-      <div className="rounded-2xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+      <div className="rounded-2xl p-4" style={cardStyle()}>
         <p className="text-sm font-semibold" style={{ color: C.ink }}>Le réflexe</p>
         <p className="mt-1 text-sm" style={{ color: C.sub }}>Quelle que soit la source, logge le résultat dans <span style={{ color: C.extra, fontWeight: 600 }}>Extras</span> (presets boissons inclus). L'alcool compte vraiment : 7 kcal/g et il met la combustion des graisses en pause le temps d'être éliminé.</p>
       </div>
@@ -250,7 +250,7 @@ function SectionHead({ id, label }) {
 function GuideBlock({ icon: Icon, color, title, desc, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="mb-2.5 overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="mb-2.5 overflow-hidden rounded-2xl" style={cardStyle()}>
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:opacity-70">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}22`, color }}><Icon size={17} /></span>
         <span className="min-w-0 flex-1">
@@ -322,7 +322,7 @@ function DrinkCalc({ onAddExtra, dateLabel }) {
   );
 
   return (
-    <div className="mb-4 rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="mb-4 rounded-3xl p-4" style={cardStyle()}>
       <div className="mb-3 flex items-center gap-2">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.protein}22`, color: C.protein }}><Beer size={17} /></span>
         <h3 className="text-sm font-bold" style={{ color: C.ink }}>Calculateur boisson</h3>

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy, X, Pencil } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy, X, Pencil } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, EXTRA_PRESETS,
+  SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, cardStyle,
 } from "./core.js";
 import { WeekStrip } from "./Week.jsx";
+import { Sheet } from "./Sheet.jsx";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -36,8 +37,29 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: "pan-y" }}>
+      {/* Ajustement de la cible selon le poids réel (proposé, jamais imposé) */}
+      {targetSuggestion && (
+        <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}55` }}>
+          <div className="mb-2 flex items-start gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: C.weight, color: "#fff" }}><Scale size={16} /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold" style={{ color: C.ink }}>Ta cible peut s'ajuster</p>
+              <p className="mt-0.5 text-xs" style={{ color: C.sub }}>
+                Poids de référence {String(targetSuggestion.oldWeight).replace(".", ",")} kg → tu es à ~{String(targetSuggestion.weightNow).replace(".", ",")} kg.
+                Nouvelle cible suggérée : <span className="font-semibold" style={{ color: C.ink }}>{targetSuggestion.kcal} kcal · {targetSuggestion.protein} g</span>.
+              </p>
+            </div>
+            <button onClick={onDismissTarget} className="shrink-0 rounded-full p-1 active:scale-90" style={{ color: C.muted }} aria-label="Plus tard"><X size={16} /></button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onApplyTarget} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Check size={15} /> Ajuster ma cible</button>
+            <button onClick={onDismissTarget} className="rounded-xl px-4 py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>Plus tard</button>
+          </div>
+        </div>
+      )}
+
       {/* Sélecteur de date */}
-      <div className="mb-4 flex items-center justify-between rounded-2xl px-2 py-2" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+      <div className="mb-4 flex items-center justify-between rounded-2xl px-2 py-2" style={cardStyle()}>
         <button onClick={() => setActiveDate(addDays(activeDate, -1))} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: C.sub }}><ChevronLeft size={20} /></button>
         <div className="flex items-center gap-2 text-center">
           <span className="text-sm font-bold capitalize" style={{ color: C.ink }}>{fmtFull(activeDate)}</span>
@@ -46,36 +68,28 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
         <button onClick={() => !isToday && setActiveDate(addDays(activeDate, 1))} disabled={isToday} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: isToday ? C.line : C.sub }}><ChevronRight size={20} /></button>
       </div>
 
-      {/* Marqueur jour d'entraînement */}
-      <button onClick={onToggleTraining} className="mb-4 flex w-full items-center gap-2.5 rounded-2xl px-4 py-2.5 active:scale-95" style={training ? { backgroundColor: `${C.weight}1f`, border: `1px solid ${C.weight}55` } : { backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: training ? C.weight : C.paper, color: training ? "#fff" : C.muted }}><Dumbbell size={15} /></span>
-        <span className="flex-1 text-left text-sm font-semibold" style={{ color: training ? C.ink : C.sub }}>Jour d'entraînement</span>
-        <span className="text-xs font-semibold" style={{ color: training ? C.weight : C.muted }}>{training ? "Activé" : "Off"}</span>
-      </button>
-
-      {/* Jauge du jour — double anneau (kcal + protéines) */}
-      <section className="mb-4 rounded-3xl p-5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: `0 20px 50px -28px ${C.shadow}` }}>
+      {/* Jauge du jour — double anneau (kcal + protéines). Training = chip discret en coin. */}
+      <section className="relative mb-4 rounded-3xl p-5" style={cardStyle()}>
+        <button onClick={onToggleTraining} aria-pressed={training} title="Jour d'entraînement" className="absolute right-3.5 top-3.5 z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={training ? { backgroundColor: `${C.weight}26`, color: C.weight } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}><Dumbbell size={12} /> Training</button>
         <HeroRing kcal={totals.kcal} kcalTarget={settings.kcal} prot={totals.p} protTarget={settings.protein}>
           <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>{over ? "Dépassé de" : "Restant"}</p>
           <p className="leading-none" style={{ fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>
-            <span className="text-5xl font-bold" style={{ color: over ? C.over : C.ink }}>{r0(Math.abs(remKcal))}</span>
+            <span className="text-6xl font-bold tracking-tight" style={{ color: over ? C.over : C.ink }}>{r0(Math.abs(remKcal))}</span>
           </p>
-          <p className="mt-1 text-xs" style={{ color: C.sub }}>kcal · {r0(totals.kcal)} / {settings.kcal}</p>
-          <div className="mt-2 flex items-center gap-1.5">
-            <Beef size={13} style={{ color: C.protein }} />
-            <span className="text-sm font-bold" style={{ color: C.protein, fontVariantNumeric: "tabular-nums" }}>{r0(totals.p)}<span style={{ color: C.muted, fontWeight: 500 }}> / {settings.protein} g</span></span>
-          </div>
+          <p className="mt-1 text-xs" style={{ color: C.sub }}>kcal {over ? "au-dessus" : "restantes"}</p>
         </HeroRing>
-        <p className="mt-1 text-center text-xs" style={{ color: C.muted }}>{remP > 0 ? `Encore ${r0(remP)} g de protéines à viser` : "Objectif protéines atteint."}{training && remP > 0 ? " · priorité protéines (jour d'entraînement)" : ""}</p>
+        <p className="mt-2 text-center text-xs" style={{ color: C.muted }}>{remP > 0 ? `Encore ${r0(remP)} g de protéines à viser` : "Objectif protéines atteint."}{training && remP > 0 ? " · priorité protéines (jour d'entraînement)" : ""}</p>
+
+        <div className="mt-3 flex justify-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}><Flame size={12} /> {r0(totals.kcal)} / {settings.kcal}</span>
+          <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Beef size={12} /> {r0(totals.p)} / {settings.protein} g</span>
+        </div>
 
         <div className="mt-4">
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>L'assiette</p>
           <PlateBar segments={ribbon} total={settings.kcal} />
         </div>
       </section>
-
-      {/* Bilan hebdo compact */}
-      <WeekStrip days={days} weights={weights} settings={settings} refISO={activeDate} freeTonight={remKcal} onOpen={onOpenWeek} />
 
       {/* Les repas — une carte distincte par repas */}
       <div className="mb-2.5 mt-1 flex items-center justify-between px-1">
@@ -97,6 +111,11 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
       {/* Poids du jour */}
       <div className="mt-4">
         <WeightCard date={activeDate} weight={weight} onWeight={onWeight} />
+      </div>
+
+      {/* Bilan hebdo — le recul, en bas (après l'action du jour) */}
+      <div className="mt-2">
+        <WeekStrip days={days} weights={weights} settings={settings} refISO={activeDate} freeTonight={remKcal} onOpen={onOpenWeek} />
       </div>
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
@@ -124,10 +143,11 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurp
   const sub = meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 });
   const has = meals.length > 0;
   return (
-    <div className="rounded-3xl px-5 py-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
       <div className="mb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Icon size={16} /></span>
+          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ui.color }} />
+          <Icon size={17} style={{ color: ui.color }} />
           <div className="leading-tight">
             <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ui.color }}>{ui.time}</p>
             <p className="text-sm font-semibold" style={{ color: C.ink }}>{SLOTS[slotKey].label}{has && <span style={{ color: C.muted, fontWeight: 500 }}> · {sub.kcal} kcal · {sub.p} g</span>}</p>
@@ -172,10 +192,11 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurp
 
 function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onRemove, onQty, empty }) {
   return (
-    <div className="rounded-3xl px-5 py-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
       <div className="mb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}1a`, color }}><Icon size={16} /></span>
+          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+          <Icon size={17} style={{ color }} />
           <div className="leading-tight">
             <p className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>{time}</p>
             <p className="text-sm font-semibold" style={{ color: C.ink }}>{title}</p>
@@ -199,10 +220,11 @@ function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onR
 
 function ExtrasSection({ extras, onOpen, onRemove, onQty }) {
   return (
-    <div className="rounded-3xl px-5 py-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
       <div className="mb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.extra}24`, color: C.extra }}><Cookie size={16} /></span>
+          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.extra }} />
+          <Cookie size={17} style={{ color: C.extra }} />
           <div className="leading-tight">
             <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.extra }}>Hors base</p>
             <p className="text-sm font-semibold" style={{ color: C.ink }}>Extras</p>
@@ -223,31 +245,26 @@ function ExtrasSection({ extras, onOpen, onRemove, onQty }) {
   );
 }
 
-export function ExtrasSheet({ onAdd, onClose }) {
-  const [cat, setCat] = useState(EXTRA_PRESETS[0].cat);
+export function ExtrasSheet({ presets = [], onAdd, onClose }) {
+  const [cat, setCat] = useState(presets[0]?.cat || "");
   const [q, setQ] = useState("");
   const [name, setName] = useState(""); const [kcal, setKcal] = useState(""); const [p, setP] = useState("");
-  const group = EXTRA_PRESETS.find((g) => g.cat === cat);
-  const allItems = EXTRA_PRESETS.flatMap((g) => g.items);
+  const group = presets.find((g) => g.cat === cat) || presets[0] || { items: [] };
+  const allItems = presets.flatMap((g) => g.items);
   const nq = deburr(q);
   const found = nq ? allItems.filter((it) => deburr(it.name).includes(nq)) : [];
   const addPreset = (pr) => { onAdd(pr); onClose(); };
   const addCustom = () => { const k = parseInt(kcal, 10); if (!name.trim() || isNaN(k)) return; onAdd({ name: name.trim(), kcal: k, p: parseInt(p, 10) || 0 }); onClose(); };
   const chip = (active, color) => active ? { backgroundColor: color, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub };
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center" style={{ backgroundColor: C.overlay, backdropFilter: "blur(3px)" }} onClick={onClose}>
-      <div className="flex w-full max-w-md flex-col rounded-t-3xl" style={{ maxHeight: "92vh", backgroundColor: C.sheet }} onClick={(e) => e.stopPropagation()}>
-        <div className="shrink-0 px-5 pb-3 pt-4">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ backgroundColor: C.line }} />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.extra}1a`, color: C.extra }}><Cookie size={17} /></span>
-              <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.extra }}>Hors base</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter un extra</p></div>
-            </div>
-            <button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>
-          </div>
+    <Sheet open onClose={onClose}>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.extra}1a`, color: C.extra }}><Cookie size={17} /></span>
+          <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.extra }}>Hors base</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter un extra</p></div>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 pb-5">
+        <button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>
+      </div>
           <div className="mb-3 flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
             <Search size={16} style={{ color: C.muted }} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un extra…" className="w-full bg-transparent text-sm outline-none" style={{ color: C.ink }} />
@@ -267,7 +284,7 @@ export function ExtrasSheet({ onAdd, onClose }) {
           ) : (
             <>
               <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                {EXTRA_PRESETS.map((g) => (
+                {presets.map((g) => (
                   <button key={g.cat} onClick={() => setCat(g.cat)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === g.cat, C.extra)}>{g.cat}</button>
                 ))}
                 <button onClick={() => setCat("__manuel")} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "__manuel", C.ink)}><Pencil size={12} /> Manuel</button>
@@ -293,9 +310,7 @@ export function ExtrasSheet({ onAdd, onClose }) {
           )}
 
           <p className="mt-4 text-center text-xs" style={{ color: C.muted }}>Touche un extra : il s'ajoute à la journée et la modale se ferme. La quantité s'ajuste ensuite sur la carte du jour.</p>
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 
@@ -395,7 +410,7 @@ function WeightCard({ date, weight, onWeight }) {
   useEffect(() => { setVal(weight != null ? String(weight) : ""); }, [weight, date]);
   const save = () => { const kg = parseFloat(val.replace(",", ".")); onWeight(isNaN(kg) ? null : kg); setEditing(false); };
   return (
-    <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={cardStyle()}>
       <div className="flex items-center gap-2.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}><Scale size={16} /></span>
         <div className="leading-tight">
@@ -428,10 +443,7 @@ function Divider() { return <div style={{ height: 1, backgroundColor: C.line }} 
 function TemplatesSheet({ templates, hasContent, hasPrevDay, onCopyPrev, onSave, onLoad, onDelete, onClose }) {
   const [name, setName] = useState("");
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center" style={{ backgroundColor: C.overlay, backdropFilter: "blur(3px)" }} onClick={onClose}>
-      <div className="w-full max-w-md overflow-y-auto rounded-t-3xl p-5" style={{ maxHeight: "92vh", backgroundColor: C.sheet }} onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ backgroundColor: C.line }} />
-        <h2 className="mb-1 text-lg font-bold" style={{ color: C.ink }}>Modèles & copie</h2>
+    <Sheet open onClose={onClose} title="Modèles & copie">
         <p className="mb-4 text-sm" style={{ color: C.sub }}>Réutilise une journée déjà construite au lieu de tout repiocher.</p>
 
         <button onClick={onCopyPrev} disabled={!hasPrevDay} className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: hasPrevDay ? C.card : "transparent", border: `1px solid ${C.line}`, color: hasPrevDay ? C.ink : C.muted }}>
@@ -468,7 +480,6 @@ function TemplatesSheet({ templates, hasContent, hasPrevDay, onCopyPrev, onSave,
         ) : (
           <p className="text-sm" style={{ color: C.muted }}>Pioche d'abord quelques repas, puis reviens ici pour les enregistrer comme modèle.</p>
         )}
-      </div>
-    </div>
+    </Sheet>
   );
 }
