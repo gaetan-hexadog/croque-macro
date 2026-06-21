@@ -57,13 +57,14 @@ installée en **PWA standalone sur iPhone iOS**.
 - Tables publiques (lecture anon) : `recipes`, `presets`.
 - Tables perso (RLS `auth.uid()`) : `day_logs` (= le log de repas : `{picks, skipBreakfast}` par
   jour), `weight_logs` (kg/jour), `app_state` (bloc : settings, templates, customMeals, usage,
-  combos, shakeBases, shakeLiquids, comboSeed, favs).
+  combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes).
 - Migrations SQL dans `../croque-macro-supabase/001_init.sql` et `002_personal.sql`.
 - Auth activée : **email/mot de passe + magic link**. Site URL + Redirect URLs = domaine Netlify.
 
 ## Modèle de données local (payload localStorage, clé `croque-macro:v1`)
 `{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases,
-shakeLiquids, comboSeed, favs }`. **`days` = l'historique des repas** (`{ iso: {picks, skipBreakfast} }`).
+shakeLiquids, comboSeed, favs, customRecipes }`. **`days` = l'historique des repas** (`{ iso: {picks, skipBreakfast} }`).
+**`customRecipes`** = recettes perso (écran Idées), fusionnées à `library.recipes` au rendu.
 
 ## Principe directeur sync
 **Local-first.** localStorage reste la copie de travail (offline natif). Supabase = sauvegarde +

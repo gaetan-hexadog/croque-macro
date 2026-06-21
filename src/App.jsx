@@ -27,6 +27,7 @@ export default function PiocheRepas() {
   const [shakeLiquids, setShakeLiquids] = useState([]); // liquides shake perso
   const [comboSeed, setComboSeed] = useState(0);        // version des presets installés
   const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
+  const [customRecipes, setCustomRecipes] = useState([]); // recettes perso (écran Idées), fusionnées à la bibliothèque
   const [library, setLibrary] = useState(getLibrarySync); // { presets, recipes } — cache → Supabase
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
@@ -70,7 +71,7 @@ export default function PiocheRepas() {
   const stateRef = useRef({});
   const lastSynced = useRef({ days: {}, weights: {}, appState: "" });
   const syncTimer = useRef(null);
-  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs }; }, []);
+  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes }; }, []);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -96,6 +97,7 @@ export default function PiocheRepas() {
         if (Array.isArray(d.shakeBases)) setShakeBases(d.shakeBases);
         if (Array.isArray(d.shakeLiquids)) setShakeLiquids(d.shakeLiquids);
         if (Array.isArray(d.favs)) setFavs(d.favs);
+        if (Array.isArray(d.customRecipes)) setCustomRecipes(d.customRecipes);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       } else {
         setCombos(DEFAULT_COMBOS);
@@ -104,11 +106,11 @@ export default function PiocheRepas() {
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, hydrated]);
 
   // ── Synchronisation Supabase (offline-first, local-first) ──────────────────
   // Miroir de l'état courant pour lire des valeurs fraîches dans les callbacks async
-  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs }; });
+  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes }; });
 
   // Abonnement à la session Supabase
   useEffect(() => {
@@ -137,6 +139,7 @@ export default function PiocheRepas() {
         if (a.shakeLiquids) setShakeLiquids(a.shakeLiquids);
         if (typeof a.comboSeed === "number") setComboSeed(a.comboSeed);
         if (a.favs) setFavs(a.favs);
+        if (a.customRecipes) setCustomRecipes(a.customRecipes);
       }
       const onlyDays = {}; for (const k in localDays) if (!(k in remote.days)) onlyDays[k] = localDays[k];
       const onlyWeights = {}; for (const k in localWeights) if (!(k in remote.weights)) onlyWeights[k] = localWeights[k];
@@ -180,7 +183,7 @@ export default function PiocheRepas() {
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => pushChanges(session.user.id), 2000);
     return () => clearTimeout(syncTimer.current);
-  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, session, syncReady, pushChanges]);
+  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, session, syncReady, pushChanges]);
 
   useEffect(() => {
     const onOnline = () => { if (session && syncReady) pushChanges(session.user.id); };
@@ -297,6 +300,8 @@ export default function PiocheRepas() {
   };
   const deleteCombo = (id) => setCombos((c) => c.filter((x) => x.id !== id));
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
+  const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: `rec-${Date.now()}`, custom: true }, ...cur].slice(0, 200));
+  const deleteRecipe = (id) => setCustomRecipes((cur) => cur.filter((x) => x.id !== id));
   const useIdea = (idea) => {
     const slot = idea.cat, key = picksKey(slot);
     const item = { name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 };
@@ -363,6 +368,7 @@ export default function PiocheRepas() {
     if (Array.isArray(obj.shakeLiquids)) setShakeLiquids((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.shakeLiquids.filter((x) => !ids.has(x.id))]; });
     if (obj.usage && typeof obj.usage === "object") setUsage((prev) => ({ ...prev, ...obj.usage }));
     if (Array.isArray(obj.favs)) setFavs((prev) => Array.from(new Set([...prev, ...obj.favs])));
+    if (Array.isArray(obj.customRecipes)) setCustomRecipes((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customRecipes.filter((x) => !ids.has(x.id))]; });
   };
 
   return (
@@ -403,7 +409,8 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "idees" && (
-          <IdeasScreen ideas={library.recipes} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)}
+          <IdeasScreen ideas={[...customRecipes, ...library.recipes]} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)}
+            onAddRecipe={addRecipe} onDeleteRecipe={deleteRecipe}
             remKcal={remKcal} remP={remP} dateLabel={fmtFull(activeDate)}
             claudePrompt={buildClaudePrompt({ customMeals, remKcal, remP, dateLabel: fmtFull(activeDate) })} />
         )}

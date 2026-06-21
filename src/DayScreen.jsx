@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy, X, Pencil } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, cardStyle,
+  SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, cardStyle, weekStats, weekCoach,
 } from "./core.js";
-import { WeekStrip } from "./Week.jsx";
 import { Sheet } from "./Sheet.jsx";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
@@ -13,6 +12,12 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
+  // Résumé hebdo compact, intégré à la carte jauge (visible sans scroller).
+  const wstats = weekStats(days, settings, activeDate, 7);
+  const wcoach = weekCoach(wstats, settings, weights, activeDate);
+  const wBal = Math.round(wcoach.balance);
+  const wBalColor = wBal >= 0 ? C.green : C.protein;
+  const WTrend = wcoach.weightTrend === "down" ? TrendingDown : wcoach.weightTrend === "up" ? TrendingUp : null;
   const seg = (m, color) => ({ ...m, kcal: m.kcal * (m.qty || 1), p: m.p * (m.qty || 1), color });
   const ribbon = [
     ...picks.pdj.map((m) => seg(m, SLOT_UI.pdj.color)),
@@ -89,6 +94,20 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>L'assiette</p>
           <PlateBar segments={ribbon} total={settings.kcal} />
         </div>
+
+        {/* Bilan de la semaine, fusionné dans la jauge — tap → Progrès */}
+        <button onClick={onOpenWeek} className="mt-4 flex w-full items-center justify-between rounded-2xl px-3.5 py-2.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+          <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>
+            Cette semaine
+            {WTrend && <span className="flex items-center gap-0.5 normal-case" style={{ color: C.weight }}><WTrend size={13} /> poids</span>}
+          </span>
+          <span className="flex items-center gap-2">
+            {wstats.logged >= 2
+              ? <span className="text-sm font-bold tabular-nums" style={{ color: wBalColor }}>{wBal >= 0 ? `+${wBal}` : wBal} kcal</span>
+              : <span className="text-xs" style={{ color: C.muted }}>bilan en cours</span>}
+            <ChevronRight size={15} style={{ color: C.muted }} />
+          </span>
+        </button>
       </section>
 
       {/* Les repas — une carte distincte par repas */}
@@ -111,11 +130,6 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
       {/* Poids du jour */}
       <div className="mt-4">
         <WeightCard date={activeDate} weight={weight} onWeight={onWeight} />
-      </div>
-
-      {/* Bilan hebdo — le recul, en bas (après l'action du jour) */}
-      <div className="mt-2">
-        <WeekStrip days={days} weights={weights} settings={settings} refISO={activeDate} freeTonight={remKcal} onOpen={onOpenWeek} />
       </div>
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
