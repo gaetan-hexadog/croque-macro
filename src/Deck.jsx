@@ -134,9 +134,9 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
   const [browseAll, setBrowseAll] = useState(false);
   const [cName, setCName] = useState(""); const [cKcal, setCKcal] = useState(""); const [cP, setCP] = useState("");
   const [servingFor, setServingFor] = useState(null);
-  // Foods avec une unité spéciale (g/ml/dose) ou des servings → on ouvre le calculateur.
-  const needsPicker = (m) => (Array.isArray(m.servings) && m.servings.length > 0) || (m.unit && m.unit !== "portion");
-  const pickFood = (m) => { if (needsPicker(m)) setServingFor(m); else onChoose(m); };
+  // Piocher un aliment ouvre toujours le calculateur de quantité (fractions par
+  // défaut ; g/ml ou formats/servings selon ce que le produit déclare).
+  const pickFood = (m) => setServingFor(m);
 
   const frequent = useMemo(() => pool
     .filter((m) => m.slots.includes(slotKey) && usage[m.name] && usage[m.name].count >= 2)
@@ -223,13 +223,13 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
                   {recent.length > 0 && (
                     <div className="mb-4">
                       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}><Clock size={13} /> Récents</p>
-                      <div className="flex flex-wrap gap-1.5">{recent.map((m) => <ChipBtn key={m.name} m={m} onChoose={onChoose} />)}</div>
+                      <div className="flex flex-wrap gap-1.5">{recent.map((m) => <ChipBtn key={m.name} m={m} onChoose={pickFood} />)}</div>
                     </div>
                   )}
                   {frequent.length > 0 && (
                     <div className="mb-4">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Fréquents</p>
-                      <div className="flex flex-wrap gap-1.5">{frequent.map((m) => <ChipBtn key={m.name} m={m} onChoose={onChoose} />)}</div>
+                      <div className="flex flex-wrap gap-1.5">{frequent.map((m) => <ChipBtn key={m.name} m={m} onChoose={pickFood} />)}</div>
                     </div>
                   )}
                   <button onClick={() => setBrowseAll((v) => !v)} className="mb-3 flex w-full items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider active:scale-95" style={{ color: C.muted }}>
