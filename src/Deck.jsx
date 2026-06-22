@@ -392,7 +392,8 @@ function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], c
   const bases = [...catBases, ...customBases];
   const liquids = [...catLiquids, ...customLiquids];
   const sb = Math.min(bi, bases.length - 1), sl = Math.min(li, liquids.length - 1);
-  const base = bases[sb] || bases[0], liq = liquids[sl] || liquids[0];
+  const EMPTY = { name: "—", kcal: 0, p: 0 };
+  const base = bases[sb] || bases[0] || EMPTY, liq = liquids[sl] || liquids[0] || EMPTY; // jamais undefined → pas de crash
   const QOPTS = [0.5, 1, 1.5, 2];
   const qLabel = (o) => (o === 0.5 ? "½" : o === 1.5 ? "1½" : String(o));
   // Mode doses : (base + liquide) × nombre de doses
@@ -414,6 +415,9 @@ function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], c
   );
   const body = (
     <div className="space-y-2.5 p-3">
+      {bases.length === 0 && (
+        <p className="rounded-xl p-2.5 text-xs" style={{ backgroundColor: C.paper, color: C.sub }}>Aucune base de shake dans le catalogue pour l'instant (exécute la migration Supabase, ou ajoute-en une plus bas). Tu peux quand même composer une fois une base ajoutée.</p>
+      )}
       <div className="flex gap-1.5">
         <button onClick={() => setMode("dose")} className="flex-1 rounded-full py-1.5 text-xs font-bold active:scale-95" style={mode === "dose" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>En doses</button>
         <button onClick={() => setMode("verre")} className="flex-1 rounded-full py-1.5 text-xs font-bold active:scale-95" style={mode === "verre" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>Verre dilué</button>
