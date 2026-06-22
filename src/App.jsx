@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat } from "lucide-react";
 import {
   MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt,
@@ -6,14 +6,15 @@ import {
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
 import { pullAll, pushDays, pushWeights, pushAppState, mergeAppState } from "./sync.js";
-import { AccountSheet } from "./AccountSheet.jsx";
 import { DayScreen, ExtrasSheet } from "./DayScreen.jsx";
-import { JournalScreen } from "./JournalScreen.jsx";
-import { ProgressScreen } from "./ProgressScreen.jsx";
-import { GuideScreen } from "./GuideScreen.jsx";
 import { Deck } from "./Deck.jsx";
-import { IdeasScreen } from "./IdeasScreen.jsx";
-import { SettingsSheet } from "./Settings.jsx";
+// Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
+const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
+const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
+const GuideScreen = lazy(() => import("./GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
+const IdeasScreen = lazy(() => import("./IdeasScreen.jsx").then((m) => ({ default: m.IdeasScreen })));
+const SettingsSheet = lazy(() => import("./Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
+const AccountSheet = lazy(() => import("./AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
 
 export default function PiocheRepas() {
   const [settings, setSettings] = useState({ kcal: 1850, protein: 150 });
@@ -381,6 +382,7 @@ export default function PiocheRepas() {
           </button>
         </header>
 
+        <Suspense fallback={<ScreenFallback />}>
         {view === "jour" && (
           <DayScreen
             activeDate={activeDate} setActiveDate={setActiveDate}
@@ -413,6 +415,7 @@ export default function PiocheRepas() {
             remKcal={remKcal} remP={remP} dateLabel={fmtFull(activeDate)}
             claudePrompt={buildClaudePrompt({ customMeals, remKcal, remP, dateLabel: fmtFull(activeDate) })} />
         )}
+        </Suspense>
       </div>
 
       {/* Navigation */}
@@ -424,18 +427,27 @@ export default function PiocheRepas() {
       {extrasOpen && (
         <ExtrasSheet presets={library.presets} onAdd={addExtra} onClose={navBack} />
       )}
-      {showSettings && (
-        <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccountFromSettings} onClose={navBack} />
-      )}
-      {accountOpen && (
-        <AccountSheet session={session} status={syncStatus} onClose={navBack} />
-      )}
+      <Suspense fallback={null}>
+        {showSettings && (
+          <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccountFromSettings} onClose={navBack} />
+        )}
+        {accountOpen && (
+          <AccountSheet session={session} status={syncStatus} onClose={navBack} />
+        )}
+      </Suspense>
     </div>
   );
 }
 
 // ── Navigation par onglets ──────────────────────────────────────────────────
 
+function ScreenFallback() {
+  return (
+    <div className="flex justify-center py-24">
+      <div className="h-6 w-6 animate-spin rounded-full" style={{ border: `2px solid ${C.line}`, borderTopColor: C.green }} />
+    </div>
+  );
+}
 
 function TabBar({ view, setView }) {
   const tabs = [
