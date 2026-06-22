@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup } from "lucide-react";
 import {
   MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt,
 } from "./core.js";
@@ -13,6 +13,7 @@ const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ de
 const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
 const GuideScreen = lazy(() => import("./GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
 const IdeasScreen = lazy(() => import("./IdeasScreen.jsx").then((m) => ({ default: m.IdeasScreen })));
+const CuisineScreen = lazy(() => import("./CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
 const SettingsSheet = lazy(() => import("./Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
 const AccountSheet = lazy(() => import("./AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
 
@@ -68,6 +69,7 @@ export default function PiocheRepas() {
     const i = undoStack.current.length - 1;
     if (i >= 0) undoStack.current[i] = () => setAccountOpen(false);
   }, []);
+  const openGuideFromSettings = useCallback(() => { setShowSettings(false); go("guide"); }, [go]);
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
   const stateRef = useRef({});
   const lastSynced = useRef({ days: {}, weights: {}, appState: "" });
@@ -301,6 +303,19 @@ export default function PiocheRepas() {
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
   const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: `rec-${Date.now()}`, custom: true }, ...cur].slice(0, 200));
   const deleteRecipe = (id) => setCustomRecipes((cur) => cur.filter((x) => x.id !== id));
+  // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
+  const meals = useMemo(() => [
+    ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
+    ...combos.map((c) => { const t = (c.items || []).reduce((a, i) => ({ k: a.k + i.kcal * (i.qty || 1), p: a.p + i.p * (i.qty || 1) }), { k: 0, p: 0 }); return { ...c, kind: "combo", kcal: Math.round(t.k), p: Math.round(t.p) }; }),
+    ...customMeals.map((m) => ({ ...m, kind: "aliment" })),
+  ], [customRecipes, combos, customMeals]);
+  const deleteMeal = (m) => { if (m.kind === "recette") deleteRecipe(m.id); else if (m.kind === "combo") deleteCombo(m.id); else deleteCustomMeal(m.id); };
+  const useMealEntry = (m) => {
+    if (m.kind === "combo") { const slot = m.slot || "dej", key = picksKey(slot); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1 }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); return; }
+    const slot = m.kind === "recette" ? (m.cat || "dej") : (m.slots && m.slots[0]) || "dej", key = picksKey(slot);
+    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { name: m.name, kcal: m.kcal, p: m.p, qty: 1 }].slice(0, 8) } }));
+    bumpUsage(m.name);
+  };
   const useIdea = (idea) => {
     const slot = idea.cat, key = picksKey(slot);
     const item = { name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 };
@@ -409,6 +424,9 @@ export default function PiocheRepas() {
         {view === "guide" && (
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
+        {view === "cuisine" && (
+          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} />
+        )}
         {view === "idees" && (
           <IdeasScreen ideas={[...customRecipes, ...library.recipes]} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)}
             onAddRecipe={addRecipe} onDeleteRecipe={deleteRecipe}
@@ -429,7 +447,7 @@ export default function PiocheRepas() {
       )}
       <Suspense fallback={null}>
         {showSettings && (
-          <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccountFromSettings} onClose={navBack} />
+          <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccountFromSettings} onOpenGuide={openGuideFromSettings} onClose={navBack} />
         )}
         {accountOpen && (
           <AccountSheet session={session} status={syncStatus} onClose={navBack} />
@@ -454,7 +472,7 @@ function TabBar({ view, setView }) {
     { k: "jour", l: "Jour", icon: Sun },
     { k: "journal", l: "Journal", icon: CalendarDays },
     { k: "progres", l: "Progrès", icon: TrendingUp },
-    { k: "guide", l: "Guide", icon: BookOpen },
+    { k: "cuisine", l: "Cuisine", icon: Soup },
     { k: "idees", l: "Idées", icon: ChefHat },
   ];
   return (

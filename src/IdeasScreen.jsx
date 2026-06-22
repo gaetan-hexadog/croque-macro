@@ -213,7 +213,7 @@ export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave,
   );
 }
 
-function AddRecipeSheet({ onClose, onAdd }) {
+export function AddRecipeSheet({ onClose, onAdd }) {
   const [name, setName] = useState("");
   const [cat, setCat] = useState("dej");
   const [kcal, setKcal] = useState("");

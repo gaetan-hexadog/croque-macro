@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef } from "react";
-import { X, Check, Flame, Beef, Package, ChevronRight, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark, Cloud } from "lucide-react";
+import { X, Check, Flame, Beef, Package, ChevronRight, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark, Cloud, BookOpen } from "lucide-react";
 import {
   C, TODAY, computeTargets, smoothedWeight,
 } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
 
-export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onOpenAccount, onClose }) {
+export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onOpenAccount, onOpenGuide, onClose }) {
   const [kcal, setKcal] = useState(settings.kcal);
   const [protein, setProtein] = useState(settings.protein);
   const [showCalc, setShowCalc] = useState(false);
@@ -102,6 +102,12 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
           <div className="mb-3 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
             <CustomBaseManager items={customMeals} onUpdate={onUpdateCustom} onDelete={onDeleteCustom} />
           </div>
+        )}
+        {onOpenGuide && (
+          <button onClick={onOpenGuide} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+            <span className="flex items-center gap-2"><BookOpen size={16} /> Guide & méthode</span>
+            <ChevronRight size={16} />
+          </button>
         )}
         {onOpenAccount && (
           <button onClick={onOpenAccount} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
