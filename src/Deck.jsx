@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame } from "lucide-react";
-import { MEALS, SLOTS, C, SLOT_UI, SHAKE_BASES, SHAKE_LIQUIDS } from "./core.js";
+import { MEALS, SLOTS, C, SLOT_UI, SHAKE_BASES, SHAKE_LIQUIDS, newId } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 
@@ -77,7 +77,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
   const addCustom = () => {
     const k = parseInt(cKcal, 10);
     if (!cName.trim() || isNaN(k)) return;
-    onChoose({ id: `custom-${Date.now()}`, name: cName.trim(), kcal: k, p: parseInt(cP, 10) || 0, c: null, f: null, desc: "Mon repas", tags: [], slots: [slotKey], custom: true });
+    onChoose({ id: newId("custom"), name: cName.trim(), kcal: k, p: parseInt(cP, 10) || 0, c: null, f: null, desc: "Mon repas", tags: [], slots: [slotKey], custom: true });
     setCName(""); setCKcal(""); setCP(""); setCustomOpen(false);
   };
   const customValid = cName.trim() && !isNaN(parseInt(cKcal, 10));

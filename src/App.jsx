@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup } from "lucide-react";
 import {
-  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory,
+  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
@@ -282,11 +282,11 @@ export default function PiocheRepas() {
   const saveCombo = (slot, items, name) => {
     const clean = (items || []).map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, qty: m.qty || 1 }));
     if (!clean.length || !name || !name.trim()) return;
-    setCombos((c) => [{ id: `combo-${Date.now()}`, name: name.trim(), slot, items: clean, created: Date.now() }, ...c].slice(0, 60));
+    setCombos((c) => [{ id: newId("combo"), name: name.trim(), slot, items: clean, created: Date.now() }, ...c].slice(0, 60));
   };
   const deleteCombo = (id) => setCombos((c) => c.filter((x) => x.id !== id));
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
-  const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: `rec-${Date.now()}`, custom: true }, ...cur].slice(0, 200));
+  const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: newId("rec"), custom: true }, ...cur].slice(0, 200));
   const deleteRecipe = (id) => setCustomRecipes((cur) => cur.filter((x) => x.id !== id));
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
   const meals = useMemo(() => [
@@ -307,9 +307,9 @@ export default function PiocheRepas() {
     setDay((d) => { const arr = [...(d.picks[key] || []), item]; return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[slot] || 8) } }; });
     bumpUsage(idea.name);
   };
-  const addShakeBase = (it) => setShakeBases((a) => [...a, { id: `sb-${Date.now()}`, name: it.name, kcal: it.kcal, p: it.p }]);
+  const addShakeBase = (it) => setShakeBases((a) => [...a, { id: newId("sb"), name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
-  const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: `sl-${Date.now()}`, name: it.name, kcal: it.kcal, p: it.p }]);
+  const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: newId("sl"), name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeLiquid = (id) => setShakeLiquids((a) => a.filter((x) => x.id !== id));
   const setQty = (slot, index, value) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, qty: clampQty(value) } : m) } }; });
   const editItem = (slot, index, patch) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, ...patch } : m) } }; });
@@ -336,7 +336,7 @@ export default function PiocheRepas() {
   };
   const saveTemplate = (name) => {
     const cur = days[activeDate] || EMPTY_DAY();
-    setTemplates((t) => [...t, { id: `tpl-${Date.now()}`, name: name.trim() || "Modèle", picks: clone(cur.picks), skipBreakfast: !!cur.skipBreakfast, training: !!cur.training }]);
+    setTemplates((t) => [...t, { id: newId("tpl"), name: name.trim() || "Modèle", picks: clone(cur.picks), skipBreakfast: !!cur.skipBreakfast, training: !!cur.training }]);
   };
   const loadTemplate = (id) => {
     const t = templates.find((x) => x.id === id);

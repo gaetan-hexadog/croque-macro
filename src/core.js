@@ -130,6 +130,10 @@ const fmtShort = (iso) => parseISO(iso).toLocaleDateString("fr-FR", { weekday: "
 const fmtFull = (iso) => iso === TODAY ? "Aujourd'hui" : parseISO(iso).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 const r0 = (x) => Math.round(x);
 
+// Id unique pour le contenu perso synchronisé (évite les collisions Date.now()
+// entre appareils dans le merge sync). UUID si dispo, repli sinon.
+const newId = (prefix = "id") => `${prefix}-${(typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.round(Math.random() * 1e9)}`}`;
+
 const EMPTY_DAY = () => ({ picks: { pdj: [], dej: [], diner: [], snacks: [], extras: [] }, skipBreakfast: false, training: false });
 
 // normalise un repas (ancien format = objet unique) vers une liste
@@ -409,5 +413,5 @@ function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory,
+  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId,
 };
