@@ -405,9 +405,12 @@ function QtyStepper({ value, onChange, accent = C.ink }) {
   const [txt, setTxt] = useState(null);
   const shown = txt != null ? txt : fmtQty(v);
   const commit = () => { const n = parseFloat((txt || "").replace(",", ".")); onChange(isFinite(n) && n > 0 ? n : v); setTxt(null); };
+  const step = (val) => (val <= 1.5 ? 0.25 : 0.5); // pas fin pour les fractions (¼/½/¾), plus large au-delà
+  const dec = () => onChange(Math.max(0.1, Math.round((v - step(v)) * 100) / 100));
+  const inc = () => onChange(Math.round((v + step(v)) * 100) / 100);
   return (
     <div className="flex items-center gap-1 rounded-lg px-1 py-0.5" style={{ border: `1px solid ${C.line}` }}>
-      <button onClick={() => onChange(Math.max(0.1, Math.round((v - 0.5) * 100) / 100))} className="flex h-6 w-6 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: v > 0.1 ? C.ink : C.line }}>−</button>
+      <button onClick={dec} className="flex h-6 w-6 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: v > 0.1 ? C.ink : C.line }}>−</button>
       <input
         value={shown}
         inputMode="decimal"
@@ -418,7 +421,7 @@ function QtyStepper({ value, onChange, accent = C.ink }) {
         className="bg-transparent text-center text-xs font-bold outline-none"
         style={{ color: C.ink, width: "2.2rem", fontVariantNumeric: "tabular-nums" }}
       />
-      <button onClick={() => onChange(Math.round((v + 0.5) * 100) / 100)} className="flex h-6 w-6 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: accent }}>+</button>
+      <button onClick={inc} className="flex h-6 w-6 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: accent }}>+</button>
     </div>
   );
 }

@@ -266,29 +266,76 @@ function ShakeBuilder({ onAdd, customBases = [], customLiquids = [], onAddBase, 
   const [open, setOpen] = useState(embedded);
   const [bi, setBi] = useState(0); const [li, setLi] = useState(1);
   const [qty, setQty] = useState(1);
+  const [mode, setMode] = useState("dose"); // dose | verre
+  const [dosesPrep, setDosesPrep] = useState("1");   // doses dans la préparation
+  const [totalVol, setTotalVol] = useState("375");   // volume total préparé (ml)
+  const [glassVol, setGlassVol] = useState("150");   // volume d'un verre (ml)
+  const [nGlasses, setNGlasses] = useState("1");     // nombre de verres bus
   const bases = [...SHAKE_BASES, ...customBases];
   const liquids = [...SHAKE_LIQUIDS, ...customLiquids];
   const sb = Math.min(bi, bases.length - 1), sl = Math.min(li, liquids.length - 1);
   const base = bases[sb] || bases[0], liq = liquids[sl] || liquids[0];
   const QOPTS = [0.5, 1, 1.5, 2];
   const qLabel = (o) => (o === 0.5 ? "½" : o === 1.5 ? "1½" : String(o));
+  // Mode doses : (base + liquide) × nombre de doses
   const kcal = Math.round((base.kcal + liq.kcal) * qty), p = Math.round((base.p + liq.p) * qty);
+  // Mode verre dilué : poudre × doses préparées × (verre / volume total) × nb de verres
+  const num = (v) => Math.max(0, parseFloat(String(v).replace(",", ".")) || 0);
+  const frac = num(totalVol) > 0 ? num(glassVol) / num(totalVol) : 0;
+  const gFactor = num(dosesPrep) * frac * num(nGlasses);
+  const gKcal = Math.round(base.kcal * gFactor), gP = Math.round(base.p * gFactor);
+  const numField = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
+  const NumIn = ({ label, value, onChange, suffix }) => (
+    <div className="min-w-0 flex-1">
+      <p className="mb-1 text-[11px] font-semibold" style={{ color: C.sub }}>{label}</p>
+      <div className="flex items-center gap-1 rounded-lg px-2 py-1.5" style={numField}>
+        <input value={value} onChange={(e) => onChange(e.target.value)} inputMode="decimal" className="w-full min-w-0 bg-transparent text-sm outline-none" style={{ color: C.ink }} />
+        {suffix && <span className="shrink-0 text-xs" style={{ color: C.muted }}>{suffix}</span>}
+      </div>
+    </div>
+  );
   const body = (
     <div className="space-y-2.5 p-3">
-      <ShakeRow label="Base" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
-      <ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} />
-      <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Quantité</p>
-        <div className="flex gap-1.5">
-          {QOPTS.map((o) => (
-            <button key={o} onClick={() => setQty(o)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={o === qty ? { backgroundColor: C.protein, color: "#fff" } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{qLabel(o)} shake</button>
-          ))}
-        </div>
+      <div className="flex gap-1.5">
+        <button onClick={() => setMode("dose")} className="flex-1 rounded-full py-1.5 text-xs font-bold active:scale-95" style={mode === "dose" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>En doses</button>
+        <button onClick={() => setMode("verre")} className="flex-1 rounded-full py-1.5 text-xs font-bold active:scale-95" style={mode === "verre" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>Verre dilué</button>
       </div>
-      <div className="flex items-center justify-between pt-0.5">
-        <Stat label={`${p} g prot.`} value={`${kcal} kcal`} color={C.ink} />
-        <button onClick={() => onAdd({ name: `${base.name} + ${liq.name}${qty !== 1 ? ` (×${qLabel(qty)})` : ""}`, kcal, p })} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>Ajouter</button>
-      </div>
+
+      {mode === "dose" ? (
+        <>
+          <ShakeRow label="Base" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
+          <ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} />
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Quantité</p>
+            <div className="flex gap-1.5">
+              {QOPTS.map((o) => (
+                <button key={o} onClick={() => setQty(o)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={o === qty ? { backgroundColor: C.protein, color: "#fff" } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{qLabel(o)} dose</button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-0.5">
+            <Stat label={`${p} g prot.`} value={`${kcal} kcal`} color={C.ink} />
+            <button onClick={() => onAdd({ name: `${base.name} + ${liq.name}${qty !== 1 ? ` (×${qLabel(qty)})` : ""}`, kcal, p })} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>Ajouter</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <ShakeRow label="Poudre" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
+          <p className="text-xs" style={{ color: C.muted }}>Tu prépares la poudre dans un grand volume, et tu bois des verres. L'app calcule la part bue.</p>
+          <div className="flex gap-2">
+            <NumIn label="Doses préparées" value={dosesPrep} onChange={setDosesPrep} />
+            <NumIn label="Volume total" value={totalVol} onChange={setTotalVol} suffix="ml" />
+          </div>
+          <div className="flex gap-2">
+            <NumIn label="Verre" value={glassVol} onChange={setGlassVol} suffix="ml" />
+            <NumIn label="Nb de verres" value={nGlasses} onChange={setNGlasses} />
+          </div>
+          <div className="flex items-center justify-between pt-0.5">
+            <Stat label={`${gP} g prot.`} value={`${gKcal} kcal`} color={C.ink} />
+            <button onClick={() => onAdd({ name: `${base.name} · verre ${num(glassVol)} ml${num(nGlasses) !== 1 ? ` ×${num(nGlasses)}` : ""}`, kcal: gKcal, p: gP })} disabled={gFactor <= 0} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: gFactor > 0 ? C.protein : C.line }}>Ajouter</button>
+          </div>
+        </>
+      )}
     </div>
   );
   if (embedded) return <div className="overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>{body}</div>;
