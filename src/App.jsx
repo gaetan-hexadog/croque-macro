@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup } from "lucide-react";
 import {
-  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt,
+  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory,
 } from "./core.js";
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
@@ -75,7 +75,7 @@ export default function PiocheRepas() {
       const d = await store.get(STORE_KEY) || await store.get(LEGACY_KEY);
       if (d) {
         if (d.settings) setSettings(d.settings);
-        if (d.days) setDays(normDays(d.days));
+        if (d.days) setDays(fixClearProteinHistory(normDays(d.days)));
         if (d.weights) setWeights(d.weights);
         if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training })));
         if (Array.isArray(d.customMeals)) setCustomMeals(d.customMeals);
@@ -213,25 +213,18 @@ export default function PiocheRepas() {
   const remKcal = settings.kcal - totals.kcal;
   const remP = settings.protein - totals.p;
 
-  // Ajustement de la cible selon le poids réel : on PROPOSE (jamais en silence),
-  // à partir du poids lissé des dernières pesées comparé au poids du dernier calcul.
-  const targetSuggestion = useMemo(() => {
-    const profile = settings.profile;
-    if (!profile || profile.weight == null) return null;          // pas de profil → pas de suggestion
-    const sw = smoothedWeight(weights, TODAY, { min: 3 });         // au moins 3 pesées pour être stable
-    if (!sw) return null;
-    const oldW = +profile.weight;
-    if (Math.abs(sw.kg - oldW) < 1.5) return null;                 // écart trop faible → on ne dérange pas
-    const t = computeTargets({ ...profile, weight: sw.kg });
-    if (t.target === settings.kcal && t.proteinReco === settings.protein) return null;
-    return { weightNow: sw.kg, oldWeight: oldW, kcal: t.target, protein: t.proteinReco, down: sw.kg < oldW };
-  }, [settings.profile, settings.kcal, settings.protein, weights]);
+  // Ajustement adaptatif de la cible : ancré sur ta maintenance OBSERVÉE (pas une
+  // formule figée), pour forcer la continuité de perte, avec garde-fous (BMI/BMR/rythme).
+  // On PROPOSE, jamais en silence. Renvoie null tant qu'il n'y a pas assez de recul.
+  const targetSuggestion = useMemo(() =>
+    computeAdaptiveTarget({ profile: settings.profile, days, weights, currentTarget: settings.kcal, refISO: TODAY }),
+    [settings.profile, settings.kcal, days, weights]);
 
   const applyTargetSuggestion = useCallback(() => {
     if (!targetSuggestion) return;
     setSettings((s) => ({ ...s, kcal: targetSuggestion.kcal, protein: targetSuggestion.protein, profile: { ...s.profile, weight: targetSuggestion.weightNow } }));
   }, [targetSuggestion]);
-  const showTargetSuggestion = !!targetSuggestion && targetDismissed !== targetSuggestion.weightNow;
+  const showTargetSuggestion = !!targetSuggestion && targetDismissed !== targetSuggestion.kcal;
 
   const emptyPlanned = useMemo(() => {
     const list = [];
@@ -404,7 +397,7 @@ export default function PiocheRepas() {
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
             targetSuggestion={showTargetSuggestion ? targetSuggestion : null}
-            onApplyTarget={applyTargetSuggestion} onDismissTarget={() => setTargetDismissed(targetSuggestion.weightNow)}
+            onApplyTarget={applyTargetSuggestion} onDismissTarget={() => setTargetDismissed(targetSuggestion.kcal)}
           />
         )}
         {view === "journal" && (

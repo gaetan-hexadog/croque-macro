@@ -80,8 +80,8 @@ export const SNAPSHOT_PRESETS = [
     "items": [
       {
         "name": "Clear Protein Bulk (verre 150 ml)",
-        "kcal": 34,
-        "p": 8
+        "kcal": 30,
+        "p": 7
       },
       {
         "name": "Clear Vegan Bulk (1 dose)",

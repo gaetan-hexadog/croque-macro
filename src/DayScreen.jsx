@@ -48,10 +48,10 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
           <div className="mb-2 flex items-start gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: C.weight, color: "#fff" }}><Scale size={16} /></span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold" style={{ color: C.ink }}>Ta cible peut s'ajuster</p>
+              <p className="text-sm font-bold" style={{ color: C.ink }}>{targetSuggestion.headline}</p>
               <p className="mt-0.5 text-xs" style={{ color: C.sub }}>
-                Poids de référence {String(targetSuggestion.oldWeight).replace(".", ",")} kg → tu es à ~{String(targetSuggestion.weightNow).replace(".", ",")} kg.
-                Nouvelle cible suggérée : <span className="font-semibold" style={{ color: C.ink }}>{targetSuggestion.kcal} kcal · {targetSuggestion.protein} g</span>.
+                Sur ~3 semaines : maintenance réelle estimée ~<span className="font-semibold" style={{ color: C.ink }}>{targetSuggestion.maintenance} kcal</span>, {targetSuggestion.ratePerWeek <= 0 ? `perte ${String(Math.abs(targetSuggestion.ratePerWeek)).replace(".", ",")}` : `prise ${String(targetSuggestion.ratePerWeek).replace(".", ",")}`} kg/sem.
+                {" "}Nouvelle cible : <span className="font-semibold" style={{ color: C.ink }}>{targetSuggestion.kcal} kcal · {targetSuggestion.protein} g</span>.
               </p>
             </div>
             <button onClick={onDismissTarget} className="shrink-0 rounded-full p-1 active:scale-90" style={{ color: C.muted }} aria-label="Plus tard"><X size={16} /></button>

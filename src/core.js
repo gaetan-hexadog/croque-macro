@@ -301,6 +301,89 @@ function smoothedWeight(weights, refISO = TODAY, { span = 30, min = 1 } = {}) {
   return { kg: Math.round((vsum / wsum) * 10) / 10, n: pts.length };
 }
 
+// Métabolisme de base (Mifflin-St Jeor) — plancher physiologique des calculs.
+function mifflinBMR(profile) {
+  const { sex, age, weight, height } = { ...DEFAULT_PROFILE, ...(profile || {}) };
+  const w = +weight || 0, h = +height || 0, a = +age || 0;
+  return 10 * w + 6.25 * h - 5 * a + (sex === "h" ? 5 : -161);
+}
+
+// ── Tendance OBSERVÉE (faits, pas formule) ──────────────────────────────────
+// Sur une fenêtre, à partir de tes vraies pesées + apports : rythme réel (kg/sem)
+// et maintenance empirique (apport − énergie de la variation de poids). Renvoie
+// null si pas assez de recul/données → on n'agit jamais sur du bruit court terme.
+function observedTrend(days, weights, refISO = TODAY, span = 21) {
+  const inWin = (iso) => { const d = (parseISO(refISO) - parseISO(iso)) / 86400000; return d >= 0 && d < span; };
+  const wIso = Object.keys(weights || {}).filter((iso) => weights[iso] != null && !isNaN(weights[iso]) && inWin(iso)).sort();
+  if (wIso.length < 3) return null;
+  const spanDays = Math.round((parseISO(wIso[wIso.length - 1]) - parseISO(wIso[0])) / 86400000);
+  if (spanDays < 10) return null; // moins de 10 j de recul = bruit (eau, sel, 2-3 jours off)
+  const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+  const wEarly = avg(wIso.slice(0, 3).map((i) => Number(weights[i]))); // moyenne des 3 plus anciennes
+  const wLate = avg(wIso.slice(-3).map((i) => Number(weights[i])));     // moyenne des 3 plus récentes
+  const deltaKg = wLate - wEarly;
+  const loggedK = Object.keys(days || {}).filter((iso) => inWin(iso) && dayTotals(days[iso]).kcal > 0).map((i) => dayTotals(days[i]).kcal);
+  if (loggedK.length < 5) return null; // moins de 5 jours de repas loggés = pas fiable
+  const avgIntake = Math.round(avg(loggedK));
+  const ratePerWeek = Math.round((deltaKg / spanDays * 7) * 100) / 100;
+  const maintenance = Math.round(avgIntake - (deltaKg * 7700) / spanDays); // 7700 kcal ≈ 1 kg
+  return { ratePerWeek, avgIntake, maintenance, spanDays, nW: wIso.length, nK: loggedK.length };
+}
+
+// ── Cible adaptative « intelligente » ───────────────────────────────────────
+// Ancrée sur la maintenance OBSERVÉE (pas une formule figée) pour FORCER la
+// continuité de perte même en plateau, avec garde-fous : plancher BMI ~20,
+// jamais sous le BMR ni 1500 kcal, et plafond de perte à ~1 %/semaine.
+function computeAdaptiveTarget({ profile, days, weights, currentTarget, refISO = TODAY } = {}) {
+  if (!profile || profile.height == null) return null; // a besoin d'âge/taille
+  const t = observedTrend(days, weights, refISO);
+  if (!t) return null;
+  const sw = smoothedWeight(weights, refISO, { min: 2 });
+  const wNow = sw ? sw.kg : (+profile.weight || 0);
+  const proteinReco = computeTargets({ ...profile, weight: wNow }).proteinReco;
+  const bmr = Math.round(mifflinBMR({ ...profile, weight: wNow }));
+  const hardFloor = Math.max(1500, bmr);                  // jamais sous BMR ni 1500
+  const targetRate = Math.min(Math.max(profile.goalRate || 0.5, 0.2), 1.0); // kg/sem visé (sain)
+  const maxRateKg = wNow * 0.01;                          // 1 %/sem = limite de sécurité haute
+  const floorW = 20 * (profile.height / 100) ** 2;        // plancher de poids ~ BMI 20
+  const round10 = (x) => Math.round(x / 10) * 10;
+  const mk = (kcal, tone, headline) => {
+    const k = Math.max(hardFloor, round10(kcal));
+    if (Math.abs(k - currentTarget) < 60) return null;    // écart trop faible → on ne dérange pas
+    return { kcal: k, protein: proteinReco, weightNow: wNow, oldWeight: +profile.weight || wNow, tone, headline, maintenance: t.maintenance, ratePerWeek: t.ratePerWeek };
+  };
+
+  // 1) Limite de poids saine atteinte → on arrête le déficit (passage en maintien)
+  if (wNow <= floorW + 0.4) return mk(t.maintenance, "floor", "Tu approches une limite de poids saine");
+  // 2) Perte trop rapide (> ~1 %/sem) → on remonte vers un déficit doux
+  if (t.ratePerWeek < -maxRateKg) return mk(t.maintenance - (0.4 * 7700) / 7, "tooFast", "Perte trop rapide — on adoucit pour préserver le muscle");
+  // 3) Normal / plateau : ancrer sur la maintenance observée + viser le rythme cible
+  const kcal = t.maintenance - (targetRate * 7700) / 7;
+  const tone = t.ratePerWeek > -0.1 ? "stall" : "tune";
+  return mk(kcal, tone, tone === "stall" ? "Ta perte stagne — on recale sur tes données" : "Cible recalée sur ta maintenance réelle");
+}
+
+// Correction rétroactive des macros Clear Protein dans l'historique (verre 34/8→30/7,
+// dose 86/20→75/18). CIBLÉE (nom + anciennes valeurs exactes) et IDEMPOTENTE : une
+// fois corrigé, ça ne matche plus → safe à relancer à chaque démarrage.
+function fixClearProteinHistory(days = {}) {
+  let changed = false;
+  const fixItem = (m) => {
+    if (m && typeof m.name === "string" && m.name.includes("Clear Protein")) {
+      if (m.kcal === 34 && m.p === 8) { changed = true; return { ...m, kcal: 30, p: 7 }; }
+      if (m.kcal === 86 && m.p === 20) { changed = true; return { ...m, kcal: 75, p: 18 }; }
+    }
+    return m;
+  };
+  const fixArr = (a) => (a || []).map(fixItem);
+  const out = {};
+  for (const iso in days) {
+    const d = days[iso], pk = d.picks || {};
+    out[iso] = { ...d, picks: { pdj: fixArr(pk.pdj), dej: fixArr(pk.dej), diner: fixArr(pk.diner), snacks: fixArr(pk.snacks), extras: fixArr(pk.extras) } };
+  }
+  return changed ? out : days;
+}
+
 // Construit un prompt prêt à coller dans Claude.ai à partir de la base perso + budget du jour.
 function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) {
   const L = [];
@@ -326,5 +409,5 @@ function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt,
+  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory,
 };

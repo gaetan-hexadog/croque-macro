@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- 003_seed_library.sql — GÉNÉRÉ depuis src/library.snapshot.js. Ne pas éditer à la main.
--- Régénérer : node script (voir supabase/README.md). Idempotent (truncate + insert).
+-- Régénérer : voir supabase/README.md. Idempotent (truncate + insert).
 -- ════════════════════════════════════════════════════════════════════════════
 
 truncate table public.presets restart identity;
@@ -20,7 +20,7 @@ insert into public.presets (cat, name, kcal, p, sort) values
   ('Sucré', 'Carré de chocolat', 55, 1, 10),
   ('Sucré', 'Barre protéinée', 200, 20, 11),
   ('Sucré', 'Poignée de chips', 150, 2, 12),
-  ('Protéiné', 'Clear Protein Bulk (verre 150 ml)', 34, 8, 13),
+  ('Protéiné', 'Clear Protein Bulk (verre 150 ml)', 30, 7, 13),
   ('Protéiné', 'Clear Vegan Bulk (1 dose)', 67, 15, 14),
   ('Protéiné', 'Shake Vegan Bulk (eau, 35 g)', 127, 24, 15),
   ('Protéiné', 'Barre gourmet vegane Bulk', 206, 17, 16),
