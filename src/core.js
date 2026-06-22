@@ -8,9 +8,9 @@ import {
 } from "lucide-react";
 
 import { CLEAR_PROTEIN_DOSE, CLEAR_VEGAN_DOSE, CLEAR_PROTEIN_VERRE } from "./nutrition.js";
-import { MEALS } from "./meals.js";
 
-// Base de repas (MEALS) → ./meals.js · constantes Clear → ./nutrition.js
+// Catalogue d'aliments → table Supabase `foods` (via src/library.js).
+// Constantes Clear → ./nutrition.js (encore utilisées par le compositeur de shake).
 
 // ── Métadonnées des créneaux ────────────────────────────────────────────────
 const SLOTS = {
@@ -413,5 +413,5 @@ function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  MEALS, SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId,
 };

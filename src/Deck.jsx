@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame } from "lucide-react";
-import { MEALS, SLOTS, C, SLOT_UI, SHAKE_BASES, SHAKE_LIQUIDS, newId } from "./core.js";
+import { SLOTS, C, SLOT_UI, SHAKE_BASES, SHAKE_LIQUIDS, newId } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 
@@ -125,7 +125,7 @@ function ActionBtn({ icon, label, onClick }) {
   );
 }
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState("");
   const [panel, setPanel] = useState("main");          // main | shake | combos | off
