@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X, Star, Copy, Gauge, Trash2 } from "lucide-react";
 import { C, r0, cardStyle } from "./core.js";
-import { Sheet } from "./Sheet.jsx";
+import { AddRecipeSheet } from "./RecipeForm.jsx";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
@@ -213,59 +213,3 @@ export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave,
   );
 }
 
-export function AddRecipeSheet({ onClose, onAdd }) {
-  const [name, setName] = useState("");
-  const [cat, setCat] = useState("dej");
-  const [kcal, setKcal] = useState("");
-  const [p, setP] = useState("");
-  const [ingredients, setIngredients] = useState("");
-  const [steps, setSteps] = useState("");
-  const [quick, setQuick] = useState(false);
-  const valid = name.trim() && !isNaN(parseInt(kcal, 10));
-  const submit = () => {
-    if (!valid) return;
-    onAdd({
-      name: name.trim(), cat, kcal: parseInt(kcal, 10), p: parseInt(p, 10) || 0,
-      ingredients: ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
-      steps: steps.split("\n").map((s) => s.trim()).filter(Boolean),
-      quick,
-    });
-  };
-  const field = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
-  const lab = "mb-1 block text-xs font-semibold uppercase tracking-wide";
-  return (
-    <Sheet open onClose={onClose} title="Nouvelle recette"
-      headerRight={<button onClick={onClose} className="rounded-full p-1.5 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={16} /></button>}>
-      <label className={lab} style={{ color: C.sub }}>Nom</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ex. Bowl tofu cacahuète" className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
-
-      <label className={lab} style={{ color: C.sub }}>Créneau</label>
-      <div className="mb-3 flex gap-2">
-        {CATS.map((c) => (
-          <button key={c.k} onClick={() => setCat(c.k)} className="flex-1 rounded-xl py-2 text-xs font-semibold active:scale-95" style={cat === c.k ? { backgroundColor: C.ink, color: C.bg } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{c.l}</button>
-        ))}
-      </div>
-
-      <div className="mb-3 flex gap-2">
-        <div className="flex-1">
-          <label className={lab} style={{ color: C.sub }}>Calories</label>
-          <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
-        </div>
-        <div className="flex-1">
-          <label className={lab} style={{ color: C.sub }}>Protéines</label>
-          <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="g" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
-        </div>
-      </div>
-
-      <label className={lab} style={{ color: C.sub }}>Ingrédients <span style={{ textTransform: "none", color: C.muted }}>(un par ligne)</span></label>
-      <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} rows={4} placeholder={"200 g tofu ferme\n1 c.à.s beurre de cacahuète\n100 g riz"} className="mb-3 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={field} />
-
-      <label className={lab} style={{ color: C.sub }}>Préparation <span style={{ textTransform: "none", color: C.muted }}>(optionnel, une étape par ligne)</span></label>
-      <textarea value={steps} onChange={(e) => setSteps(e.target.value)} rows={3} placeholder={"Cuire le riz\nPoêler le tofu\nMélanger la sauce"} className="mb-3 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={field} />
-
-      <button onClick={() => setQuick((v) => !v)} className="mb-4 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={quick ? { backgroundColor: C.ink, color: C.bg } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>⚡ Rapide {quick ? "· oui" : ""}</button>
-
-      <button onClick={submit} disabled={!valid} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: valid ? C.protein : C.line }}><Plus size={16} /> Enregistrer la recette</button>
-    </Sheet>
-  );
-}

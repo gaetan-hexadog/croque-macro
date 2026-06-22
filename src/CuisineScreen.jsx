@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ChefHat, Plus, Trash2, Check, ChevronDown, Search, X, Soup, Layers, Apple } from "lucide-react";
 import { C, cardStyle } from "./core.js";
-import { AddRecipeSheet } from "./IdeasScreen.jsx";
+import { AddRecipeSheet } from "./RecipeForm.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 

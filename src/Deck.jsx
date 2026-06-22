@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame } from "lucide-react";
+import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup } from "lucide-react";
 import { SLOTS, C, SLOT_UI, newId } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
+import { AddRecipeSheet } from "./RecipeForm.jsx";
 
 // normalise pour la recherche : minuscules, sans accents, œ→oe, æ→ae
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
@@ -125,7 +126,7 @@ function ActionBtn({ icon, label, onClick }) {
   );
 }
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, bases = [], liquids = [], shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, bases = [], liquids = [], recipes = [], onAddRecipe, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState("");
   const [panel, setPanel] = useState("main");          // main | shake | combos | off
@@ -134,6 +135,8 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
   const [browseAll, setBrowseAll] = useState(false);
   const [cName, setCName] = useState(""); const [cKcal, setCKcal] = useState(""); const [cP, setCP] = useState("");
   const [servingFor, setServingFor] = useState(null);
+  const [creatingRecipe, setCreatingRecipe] = useState(false);
+  const slotRecipes = useMemo(() => recipes.filter((r) => (Array.isArray(r.slots) && r.slots.includes(slotKey)) || r.cat === slotKey), [recipes, slotKey]);
   // Piocher un aliment ouvre toujours le calculateur de quantité (fractions par
   // défaut ; g/ml ou formats/servings selon ce que le produit déclare).
   const pickFood = (m) => setServingFor(m);
@@ -194,6 +197,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
               </div>
 
               <div className="mb-4 flex gap-2">
+                <ActionBtn icon={<Soup size={20} style={{ color: C.green }} />} label="Recettes" onClick={() => setPanel("recipes")} />
                 <ActionBtn icon={<GlassWater size={20} style={{ color: C.protein }} />} label="Shake" onClick={() => setPanel("shake")} />
                 <ActionBtn icon={<UtensilsCrossed size={20} style={{ color: ui.color }} />} label="Mes repas" onClick={() => setPanel("combos")} />
                 <ActionBtn icon={<ScanLine size={20} style={{ color: C.ink }} />} label="Scanner" onClick={() => setPanel("off")} />
@@ -258,6 +262,28 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
             </div>
           )}
 
+          {panel === "recipes" && (
+            <div>
+              <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><Soup size={18} style={{ color: C.green }} /> Recettes</p>
+              <button onClick={() => setCreatingRecipe(true)} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Plus size={16} /> Créer une recette</button>
+              {slotRecipes.length === 0 ? (
+                <p className="py-6 text-center text-sm leading-relaxed" style={{ color: C.muted }}>Aucune recette pour ce créneau.<br />Crée-en une — elle s'enregistre dans Ma cuisine et s'ajoute à ce repas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {slotRecipes.map((r) => (
+                    <button key={r.id} onClick={() => onChoose({ name: r.name, kcal: r.kcal, p: r.p, qty: 1 })} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold" style={{ color: C.ink }}>{r.emoji ? `${r.emoji} ` : ""}{r.name}{r.custom && <span style={{ color: C.protein }}> ·perso</span>}</span>
+                        <span className="block text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{r.kcal} kcal · {r.p} g prot.</span>
+                      </span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${C.green}14`, color: C.green }}><Plus size={16} /></span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {panel === "combos" && (
             <div>
               <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><UtensilsCrossed size={18} style={{ color: ui.color }} /> Mes repas</p>
@@ -312,6 +338,9 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
       {/* Calculateur de portions générique (foods avec unité/servings) */}
       {servingFor && <ServingPicker food={servingFor} accent={ui.color} onChoose={(it) => { onChoose(it); setServingFor(null); }} onClose={() => setServingFor(null)} />}
+
+      {/* Créer une recette depuis la pioche : enregistre dans Ma cuisine + ajoute au repas */}
+      {creatingRecipe && <AddRecipeSheet defaultSlots={[slotKey]} onClose={() => setCreatingRecipe(false)} onAdd={(r) => { onAddRecipe && onAddRecipe(r); onChoose({ name: r.name, kcal: r.kcal, p: r.p, qty: 1 }); setCreatingRecipe(false); }} />}
     </>
   );
 }
