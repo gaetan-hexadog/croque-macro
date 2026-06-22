@@ -313,6 +313,7 @@ export default function PiocheRepas() {
   const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: `sl-${Date.now()}`, name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeLiquid = (id) => setShakeLiquids((a) => a.filter((x) => x.id !== id));
   const setQty = (slot, index, value) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, qty: clampQty(value) } : m) } }; });
+  const editItem = (slot, index, patch) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, ...patch } : m) } }; });
   const clearSlot = (slot, index) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((_, i) => i !== index) } }; });
   const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1 }] } }));
   const removeExtra = (i) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: (d.picks.extras || []).filter((_, idx) => idx !== i) } }));
@@ -391,7 +392,7 @@ export default function PiocheRepas() {
             training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker}
-            onSurprise={surprise} onClear={clearSlot} onQty={setQty} onSkip={toggleSkip}
+            onSurprise={surprise} onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip}
             onAddExtra={addExtra} onRemoveExtra={removeExtra} onOpenExtras={openExtras} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}

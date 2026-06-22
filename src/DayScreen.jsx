@@ -8,7 +8,7 @@ import { Sheet } from "./Sheet.jsx";
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onSurprise, onClear, onQty, onEditItem, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -120,11 +120,11 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
       </div>
 
       <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onSkip={onSkip} onSaveCombo={onSaveCombo} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onSaveCombo={onSaveCombo} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onSaveCombo={onSaveCombo} />
-        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} onQty={(i, nv) => onQty("snack", i, nv)} empty="Un en-cas protéiné si un repas est juste." />
-        <ExtrasSection extras={picks.extras || []} onOpen={onOpenExtras} onRemove={onRemoveExtra} onQty={(i, nv) => onQty("extras", i, nv)} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} />
+        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} onQty={(i, nv) => onQty("snack", i, nv)} onEdit={(i, patch) => onEditItem("snack", i, patch)} empty="Un en-cas protéiné si un repas est juste." />
+        <ExtrasSection extras={picks.extras || []} onOpen={onOpenExtras} onRemove={onRemoveExtra} onQty={(i, nv) => onQty("extras", i, nv)} onEdit={(i, patch) => onEditItem("extras", i, patch)} />
       </div>
 
       {/* Poids du jour */}
@@ -149,7 +149,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
 }
 
 
-function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurprise, onClear, onQty, onSkip, onSaveCombo }) {
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurprise, onClear, onQty, onEdit, onSkip, onSaveCombo }) {
   const ui = SLOT_UI[slotKey];
   const Icon = SLOTS[slotKey].icon;
   const [naming, setNaming] = useState(false);
@@ -182,7 +182,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurp
       ) : (
         <div className="space-y-2">
           {meals.map((m, i) => (
-            <MealItemRow key={i} m={m} accent={ui.color} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} />
+            <MealItemRow key={i} m={m} accent={ui.color} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} />
           ))}
           <div className="flex items-center gap-2 pt-0.5">
             <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Plus size={15} /> Ajouter</button>
@@ -204,7 +204,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onReplace, onSurp
 }
 
 
-function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onRemove, onQty, empty }) {
+function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onRemove, onQty, onEdit, empty }) {
   return (
     <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
       <div className="mb-2.5 flex items-center justify-between">
@@ -223,7 +223,7 @@ function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onR
       ) : (
         <div className="space-y-2">
           {items.map((s, i) => (
-            <MealItemRow key={i} m={s} accent={color} onQty={onQty ? (nv) => onQty(i, nv) : undefined} onRemove={() => onRemove(i)} />
+            <MealItemRow key={i} m={s} accent={color} onQty={onQty ? (nv) => onQty(i, nv) : undefined} onRemove={() => onRemove(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} />
           ))}
         </div>
       )}
@@ -232,7 +232,7 @@ function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onR
 }
 
 
-function ExtrasSection({ extras, onOpen, onRemove, onQty }) {
+function ExtrasSection({ extras, onOpen, onRemove, onQty, onEdit }) {
   return (
     <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
       <div className="mb-2.5 flex items-center justify-between">
@@ -251,7 +251,7 @@ function ExtrasSection({ extras, onOpen, onRemove, onQty }) {
       ) : (
         <div className="space-y-2">
           {extras.map((e, i) => (
-            <MealItemRow key={i} m={e} accent={C.extra} onQty={onQty ? (nv) => onQty(i, nv) : undefined} onRemove={() => onRemove(i)} bg={`${C.extra}14`} />
+            <MealItemRow key={i} m={e} accent={C.extra} onQty={onQty ? (nv) => onQty(i, nv) : undefined} onRemove={() => onRemove(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} bg={`${C.extra}14`} />
           ))}
         </div>
       )}
@@ -331,8 +331,38 @@ export function ExtrasSheet({ presets = [], onAdd, onClose }) {
 // ── DECK : la pioche ────────────────────────────────────────────────────────
 
 
-function MealItemRow({ m, accent, onQty, onReplace, onRemove, bg }) {
+function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, bg }) {
   const q = m.qty || 1;
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(m.name);
+  const [kcal, setKcal] = useState(String(m.kcal));
+  const [p, setP] = useState(String(m.p));
+  useEffect(() => { setName(m.name); setKcal(String(m.kcal)); setP(String(m.p)); }, [m.name, m.kcal, m.p]);
+  const save = () => {
+    const k = parseFloat(String(kcal).replace(",", ".")), pp = parseFloat(String(p).replace(",", "."));
+    onEdit({ name: name.trim() || m.name, kcal: isFinite(k) && k >= 0 ? k : m.kcal, p: isFinite(pp) && pp >= 0 ? pp : m.p });
+    setEditing(false);
+  };
+  const cancel = () => { setName(m.name); setKcal(String(m.kcal)); setP(String(m.p)); setEditing(false); };
+  const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
+
+  if (editing) {
+    return (
+      <div className="rounded-2xl p-3" style={{ backgroundColor: bg || C.paper, border: `1px solid ${accent}66` }}>
+        <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Nom" className="mb-2 w-full rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
+        <div className="mb-2 flex gap-2">
+          <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="decimal" placeholder="kcal" className="w-full min-w-0 rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
+          <input value={p} onChange={(e) => setP(e.target.value)} inputMode="decimal" placeholder="prot. (g)" className="w-full min-w-0 rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={save} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: accent }}><Check size={15} /> Enregistrer</button>
+          <button onClick={cancel} className="rounded-xl px-3 py-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }} aria-label="Annuler"><X size={16} /></button>
+        </div>
+        {q !== 1 && <p className="mt-1.5 px-1 text-xs" style={{ color: C.muted }}>Valeurs par portion · quantité ×{fmtQty(q)} appliquée à part.</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-start justify-between gap-2 rounded-2xl p-3" style={{ backgroundColor: bg || C.paper }}>
       <div className="min-w-0 flex-1">
@@ -345,6 +375,7 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, bg }) {
       <div className="flex shrink-0 flex-col items-end gap-1.5">
         <QtyStepper value={q} onChange={onQty} accent={accent} />
         <div className="flex gap-1.5">
+          {onEdit && <button onClick={() => setEditing(true)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={14} /></button>}
           {onReplace && <button onClick={onReplace} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Shuffle size={14} /></button>}
           <button onClick={onRemove} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
         </div>
