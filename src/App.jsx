@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup } from "lucide-react";
 import {
-  MEALS, SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
@@ -319,7 +319,7 @@ export default function PiocheRepas() {
   const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: [] } }));
   const toggleTraining = () => setDay((d) => ({ ...d, training: !d.training }));
   const surprise = (slotKey) => {
-    const pool = rankFor(slotKey, MEALS.filter((m) => m.slots.includes(slotKey)));
+    const pool = rankFor(slotKey, library.pool.filter((m) => (m.slots || []).includes(slotKey)));
     const good = pool.filter((m) => fitOf(m) === "ok");
     const from = (good.length ? good : pool).slice(0, 6);
     const pick = from[Math.floor(Math.random() * from.length)];
@@ -428,7 +428,7 @@ export default function PiocheRepas() {
       <TabBar view={view} setView={go} />
 
       {picker && (
-        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...MEALS, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
+        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo} shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
       )}
       {extrasOpen && (
         <ExtrasSheet presets={library.presets} onAdd={addExtra} onClose={navBack} />
