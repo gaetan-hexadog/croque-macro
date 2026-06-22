@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame } from "lucide-react";
-import { SLOTS, C, SLOT_UI, SHAKE_BASES, SHAKE_LIQUIDS, newId } from "./core.js";
+import { SLOTS, C, SLOT_UI, newId } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 
@@ -125,7 +125,7 @@ function ActionBtn({ icon, label, onClick }) {
   );
 }
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, bases = [], liquids = [], shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState("");
   const [panel, setPanel] = useState("main");          // main | shake | combos | off
@@ -254,7 +254,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
           {panel === "shake" && (
             <div>
               <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><GlassWater size={18} style={{ color: C.protein }} /> Composer un shake</p>
-              <ShakeBuilder embedded onAdd={onChoose} customBases={shakeBases} customLiquids={shakeLiquids} onAddBase={onAddShakeBase} onDelBase={onDelShakeBase} onAddLiquid={onAddShakeLiquid} onDelLiquid={onDelShakeLiquid} />
+              <ShakeBuilder embedded onAdd={onChoose} bases={bases} liquids={liquids} customBases={shakeBases} customLiquids={shakeLiquids} onAddBase={onAddShakeBase} onDelBase={onDelShakeBase} onAddLiquid={onAddShakeLiquid} onDelLiquid={onDelShakeLiquid} />
             </div>
           )}
 
@@ -351,7 +351,7 @@ function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {
   );
 }
 
-function ShakeBuilder({ onAdd, customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid, embedded = false }) {
+function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid, embedded = false }) {
   const [open, setOpen] = useState(embedded);
   const [bi, setBi] = useState(0); const [li, setLi] = useState(1);
   const [qty, setQty] = useState(1);
@@ -360,8 +360,8 @@ function ShakeBuilder({ onAdd, customBases = [], customLiquids = [], onAddBase, 
   const [totalVol, setTotalVol] = useState("375");   // volume total préparé (ml)
   const [glassVol, setGlassVol] = useState("150");   // volume d'un verre (ml)
   const [nGlasses, setNGlasses] = useState("1");     // nombre de verres bus
-  const bases = [...SHAKE_BASES, ...customBases];
-  const liquids = [...SHAKE_LIQUIDS, ...customLiquids];
+  const bases = [...catBases, ...customBases];
+  const liquids = [...catLiquids, ...customLiquids];
   const sb = Math.min(bi, bases.length - 1), sl = Math.min(li, liquids.length - 1);
   const base = bases[sb] || bases[0], liq = liquids[sl] || liquids[0];
   const QOPTS = [0.5, 1, 1.5, 2];

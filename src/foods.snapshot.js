@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// foods.snapshot.js — GÉNÉRÉ (meals.js + snapshot + overrides servings). Bootstrap
-// offline du catalogue unifié `foods`. SOURCE VIVANTE = Supabase. Ne pas éditer.
+// foods.snapshot.js — GÉNÉRÉ + overrides (servings, bases/liquides shake).
+// Bootstrap offline du catalogue `foods`. SOURCE VIVANTE = Supabase. Ne pas éditer.
 // ════════════════════════════════════════════════════════════════
 export const SNAPSHOT_FOODS = [
  {
@@ -1610,7 +1610,8 @@ export const SNAPSHOT_FOODS = [
    "rapide",
    "transportable",
    "sans-oeuf",
-   "bulk"
+   "bulk",
+   "shake-base"
   ],
   "kind": "supplement",
   "unit": "dose",
@@ -1646,7 +1647,8 @@ export const SNAPSHOT_FOODS = [
    "rapide",
    "transportable",
    "sans-oeuf",
-   "bulk"
+   "bulk",
+   "shake-base"
   ],
   "kind": "supplement",
   "unit": "dose",
@@ -7083,5 +7085,170 @@ export const SNAPSHOT_FOODS = [
   ],
   "desc": "Inspirée de Recettes de Julie. Rafraîchissant et peu calorique — mais c'est un jus : peu de fibres, zéro protéine. Un plaisir hydratant, pas un repas.",
   "sort": 246
+ },
+ {
+  "id": "supp-allinone",
+  "name": "Vegan All-in-One (Bulk)",
+  "cat": "pdj",
+  "slots": [
+   "pdj",
+   "dej",
+   "snack"
+  ],
+  "tags": [
+   "bulk",
+   "sans-oeuf",
+   "shake-base"
+  ],
+  "kind": "supplement",
+  "unit": "dose",
+  "per": 1,
+  "kcal": 216,
+  "p": 29,
+  "c": 22,
+  "f": 4,
+  "default_amount": 1,
+  "servings": [
+   {
+    "label": "1 dose (60 g)",
+    "factor": 1
+   }
+  ],
+  "emoji": null,
+  "quick": false,
+  "ingredients": [],
+  "steps": [],
+  "desc": "Bulk Vegan All-in-One, 1 dose = 60 g. Créatine, BCAA, HMB inclus.",
+  "sort": 247
+ },
+ {
+  "id": "supp-vegan-protein",
+  "name": "Vegan Protein (Bulk)",
+  "cat": "pdj",
+  "slots": [
+   "pdj",
+   "dej",
+   "snack"
+  ],
+  "tags": [
+   "bulk",
+   "sans-oeuf",
+   "shake-base"
+  ],
+  "kind": "supplement",
+  "unit": "dose",
+  "per": 1,
+  "kcal": 127,
+  "p": 24,
+  "c": 4,
+  "f": 1,
+  "default_amount": 1,
+  "servings": [
+   {
+    "label": "1 dose (35 g)",
+    "factor": 1
+   }
+  ],
+  "emoji": null,
+  "quick": false,
+  "ingredients": [],
+  "steps": [],
+  "desc": "Bulk Vegan Protein, 1 dose = 35 g. À l'eau : 127 kcal / 24 g.",
+  "sort": 248
+ },
+ {
+  "id": "liq-eau",
+  "name": "Eau",
+  "cat": null,
+  "slots": [],
+  "tags": [
+   "shake-liquid"
+  ],
+  "kind": "food",
+  "unit": "ml",
+  "per": 250,
+  "kcal": 0,
+  "p": 0,
+  "c": 0,
+  "f": 0,
+  "default_amount": 250,
+  "servings": [
+   {
+    "label": "250 ml",
+    "amount": 250
+   }
+  ],
+  "emoji": null,
+  "quick": false,
+  "ingredients": [],
+  "steps": [],
+  "desc": "Eau (0 kcal).",
+  "sort": 249
+ },
+ {
+  "id": "liq-amande",
+  "name": "Lait d'amande non sucré",
+  "cat": "pdj",
+  "slots": [
+   "pdj",
+   "snack"
+  ],
+  "tags": [
+   "shake-liquid",
+   "sans-oeuf"
+  ],
+  "kind": "food",
+  "unit": "ml",
+  "per": 250,
+  "kcal": 25,
+  "p": 1,
+  "c": 1,
+  "f": 2,
+  "default_amount": 250,
+  "servings": [
+   {
+    "label": "250 ml",
+    "amount": 250
+   }
+  ],
+  "emoji": null,
+  "quick": false,
+  "ingredients": [],
+  "steps": [],
+  "desc": "Lait d'amande non sucré, ~25 kcal / 250 ml.",
+  "sort": 250
+ },
+ {
+  "id": "liq-soja",
+  "name": "Lait de soja",
+  "cat": "pdj",
+  "slots": [
+   "pdj",
+   "snack"
+  ],
+  "tags": [
+   "shake-liquid",
+   "sans-oeuf"
+  ],
+  "kind": "food",
+  "unit": "ml",
+  "per": 250,
+  "kcal": 90,
+  "p": 9,
+  "c": 4,
+  "f": 4,
+  "default_amount": 250,
+  "servings": [
+   {
+    "label": "250 ml",
+    "amount": 250
+   }
+  ],
+  "emoji": null,
+  "quick": false,
+  "ingredients": [],
+  "steps": [],
+  "desc": "Lait de soja, ~90 kcal / 250 ml, 9 g de protéines.",
+  "sort": 251
  }
 ];

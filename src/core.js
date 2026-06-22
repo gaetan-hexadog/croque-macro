@@ -7,10 +7,8 @@ import {
   Coffee, Salad, UtensilsCrossed, Apple, Clock, Package, Soup, EggOff, Snowflake, Dumbbell,
 } from "lucide-react";
 
-import { CLEAR_PROTEIN_DOSE, CLEAR_VEGAN_DOSE, CLEAR_PROTEIN_VERRE } from "./nutrition.js";
-
 // Catalogue d'aliments → table Supabase `foods` (via src/library.js).
-// Constantes Clear → ./nutrition.js (encore utilisées par le compositeur de shake).
+// Bases/liquides du compositeur de shake → foods (tags shake-base / shake-liquid).
 
 // ── Métadonnées des créneaux ────────────────────────────────────────────────
 const SLOTS = {
@@ -216,19 +214,6 @@ function weekCoach(stats, settings, weights, refISO) {
   return { tone: "ontrack", headline: "Pile dans ton plan", detail: "Ta moyenne colle à ta cible. C'est la régularité qui fait avancer, pas la perfection sur quelques jours.", balance, suggestTomorrow: null, weightTrend, proteinRoom };
 }
 
-// Compositeur de shake : base (poudre) + liquide, additionnés.
-const SHAKE_BASES = [
-  { name: "Vegan All-in-One", kcal: 216, p: 29 },
-  { name: "Vegan Protein", kcal: 127, p: 24 },
-  { name: "Clear Vegan", kcal: CLEAR_VEGAN_DOSE.kcal, p: CLEAR_VEGAN_DOSE.p },
-  { name: "Clear Protein", kcal: CLEAR_PROTEIN_DOSE.kcal, p: CLEAR_PROTEIN_DOSE.p },
-];
-const SHAKE_LIQUIDS = [
-  { name: "eau", kcal: 0, p: 0 },
-  { name: "lait amande", kcal: 25, p: 1 },
-  { name: "lait soja", kcal: 90, p: 9 },
-];
-
 // Repas réutilisables de départ. Bump COMBOS_SEED_VERSION pour pousser une mise à jour.
 const COMBOS_SEED_VERSION = 2;
 const DEFAULT_COMBOS = [
@@ -256,7 +241,7 @@ const DEFAULT_COMBOS = [
     { name: "Flocons d'avoine (30 g)", kcal: 115, p: 4, qty: 1 },
   ] },
   { id: "cdef-pdj-leger", slot: "pdj", name: "Express léger · Clear & banane", created: 6, items: [
-    { name: "Clear Protein (verre 150 ml)", kcal: CLEAR_PROTEIN_VERRE.kcal, p: CLEAR_PROTEIN_VERRE.p, qty: 1 },
+    { name: "Clear Protein (verre 150 ml)", kcal: 30, p: 7, qty: 1 },
     { name: "Banane", kcal: 90, p: 1, qty: 1 },
   ] },
   // Déj protéinés — adaptés au stock
@@ -413,5 +398,5 @@ function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, SHAKE_BASES, SHAKE_LIQUIDS, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId,
 };
