@@ -58,7 +58,9 @@ installée en **PWA standalone sur iPhone iOS**.
 - Tables perso (RLS `auth.uid()`) : `day_logs` (= le log de repas : `{picks, skipBreakfast}` par
   jour), `weight_logs` (kg/jour), `app_state` (bloc : settings, templates, customMeals, usage,
   combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes).
-- Migrations SQL dans `../croque-macro-supabase/001_init.sql` et `002_personal.sql`.
+- Migrations SQL **dans le repo** : `supabase/001_init.sql` (recipes+presets),
+  `supabase/002_personal.sql` (day_logs/weight_logs/app_state), `supabase/003_seed_library.sql`
+  (seed généré depuis `library.snapshot.js`). Voir `supabase/README.md`.
 - Auth activée : **email/mot de passe + magic link**. Site URL + Redirect URLs = domaine Netlify.
 
 ## Modèle de données local (payload localStorage, clé `croque-macro:v1`)
