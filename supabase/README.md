@@ -13,6 +13,12 @@ Migrations versionnées avec l'app (avant, elles vivaient hors repo).
   RLS `auth.uid()`, triggers `updated_at`, index.
 - **`003_seed_library.sql`** — **généré** depuis `src/library.snapshot.js`
   (37 presets + 55 recettes). Idempotent (`truncate` + `insert`).
+- **`004_fix_clear_protein.sql`** — correctif macros Clear Protein.
+- **`005_foods.sql`** — **catalogue unifié** `foods` (pioche + suppléments + extras
+  + recettes, modèle unit-aware). Destiné à remplacer meals.js/nutrition.js + les
+  tables recipes/presets. *(Câblage app = phases suivantes.)*
+- **`006_seed_foods.sql`** — **généré** (meals.js + snapshot) : 247 lignes
+  (155 pioche + 37 extras + 55 recettes). Idempotent.
 
 ## Appliquer
 Dans le SQL Editor Supabase, exécute dans l'ordre : `001` → `002` → `003`.
