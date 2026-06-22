@@ -1,7 +1,6 @@
 // ════════════════════════════════════════════════════════════════
-// foods.snapshot.js — GÉNÉRÉ (meals.js + snapshot). Bootstrap offline du
-// catalogue unifié `foods`. La SOURCE VIVANTE est Supabase (table foods).
-// Ne pas éditer à la main.
+// foods.snapshot.js — GÉNÉRÉ (meals.js + snapshot + overrides servings). Bootstrap
+// offline du catalogue unifié `foods`. SOURCE VIVANTE = Supabase. Ne pas éditer.
 // ════════════════════════════════════════════════════════════════
 export const SNAPSHOT_FOODS = [
  {
@@ -1600,7 +1599,7 @@ export const SNAPSHOT_FOODS = [
  },
  {
   "id": "bv1",
-  "name": "Clear Vegan Bulk (1 dose)",
+  "name": "Clear Vegan (Bulk)",
   "cat": "pdj",
   "slots": [
    "pdj",
@@ -1614,24 +1613,29 @@ export const SNAPSHOT_FOODS = [
    "bulk"
   ],
   "kind": "supplement",
-  "unit": "portion",
+  "unit": "dose",
   "per": 1,
   "kcal": 67,
   "p": 15,
   "c": 2,
   "f": 1,
   "default_amount": 1,
-  "servings": [],
+  "servings": [
+   {
+    "label": "1 dose (~20 g)",
+    "factor": 1
+   }
+  ],
   "emoji": null,
   "quick": false,
   "ingredients": [],
   "steps": [],
-  "desc": "Un verre de Clear Vegan Bulk (1 dose ~20 g de poudre, à l'eau glacée) : 67 kcal / 15 g. Qté = nombre de doses. Le volume d'eau ne change pas les macros.",
+  "desc": "Protéine vegan clarifiée Bulk, à l'eau glacée. 1 dose = 67 kcal / 15 g.",
   "sort": 57
  },
  {
   "id": "bv5",
-  "name": "Clear Protein Bulk (verre 150 ml)",
+  "name": "Clear Protein (Bulk)",
   "cat": "pdj",
   "slots": [
    "pdj",
@@ -1645,19 +1649,28 @@ export const SNAPSHOT_FOODS = [
    "bulk"
   ],
   "kind": "supplement",
-  "unit": "portion",
+  "unit": "dose",
   "per": 1,
-  "kcal": 30,
-  "p": 7,
+  "kcal": 75,
+  "p": 18,
   "c": 0,
   "f": 0,
   "default_amount": 1,
-  "servings": [],
+  "servings": [
+   {
+    "label": "1 dose (20 g)",
+    "factor": 1
+   },
+   {
+    "label": "verre 150 ml (1 dose + 350 ml)",
+    "factor": 0.4
+   }
+  ],
   "emoji": null,
   "quick": false,
   "ingredients": [],
   "steps": [],
-  "desc": "Un verre de 150 ml préparé à 1 dose + 350 ml d'eau (whey clarifiée) : ~30 kcal / 7 g. Qté = nombre de verres. Pas vegan (lait), mais sans œuf. Pour 1 dose entière, prends le compositeur.",
+  "desc": "Whey clarifiée Bulk. 1 dose (20 g) = 75 kcal / 18 g. Verre 150 ml dilué = 40 % de la dose. Choisis le format et la quantité.",
   "sort": 58
  },
  {

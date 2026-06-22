@@ -30,6 +30,88 @@ function FoodRow({ m, accent, fitColor, onChoose, onDelete }) {
   );
 }
 
+// Calculateur de portions générique : l'input s'adapte à l'unité du produit.
+// - mesuré (g/ml) : champ quantité (g/ml), raccourcis servings remplissent le champ.
+// - compté (portion/dose) : raccourcis servings + stepper fractions (½, ¼…).
+// Macros = base (food.kcal/p pour food.per) × facteur. Tout vient de la data.
+function ServingPicker({ food, accent, onChoose, onClose }) {
+  const unit = food.unit || "portion";
+  const per = food.per || 1;
+  const servings = Array.isArray(food.servings) ? food.servings : [];
+  const measured = unit === "g" || unit === "ml";
+  const [sel, setSel] = useState(servings.length ? 0 : -1);
+  const [amount, setAmount] = useState(String(food.default_amount ?? per));
+  const [qty, setQty] = useState(1);
+  const numA = Math.max(0, parseFloat(String(amount).replace(",", ".")) || 0);
+  const fmtQ = (v) => (v === 0.25 ? "¼" : v === 0.5 ? "½" : v === 0.75 ? "¾" : v === 1.5 ? "1½" : String(v).replace(".", ","));
+  const svFactor = (sv) => (sv.factor != null ? sv.factor : sv.amount != null ? sv.amount / per : 1);
+
+  let factor, label;
+  if (measured) {
+    factor = numA / per;
+    label = `${food.name} (${numA} ${unit})`;
+  } else if (servings.length && sel >= 0) {
+    factor = svFactor(servings[sel]) * qty;
+    label = `${food.name} · ${servings[sel].label}${qty !== 1 ? ` ×${fmtQ(qty)}` : ""}`;
+  } else {
+    factor = qty;
+    label = `${food.name}${qty !== 1 ? ` ×${fmtQ(qty)}` : ""}`;
+  }
+  const kcal = Math.round(food.kcal * factor), p = Math.round(food.p * factor);
+  const QO = [0.25, 0.5, 1, 1.5, 2, 3];
+  const fld = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
+
+  return (
+    <Sheet open onClose={onClose} z={40} title={food.name}
+      headerRight={<button onClick={onClose} className="rounded-full p-1.5 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={16} /></button>}>
+      {servings.length > 0 && !measured && (
+        <>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Format</p>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {servings.map((sv, i) => (
+              <button key={i} onClick={() => setSel(i)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={i === sel ? { backgroundColor: accent, color: "#fff" } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{sv.label}</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {measured ? (
+        <>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Quantité</p>
+          <div className="mb-2 flex items-center gap-2 rounded-xl px-3 py-2.5" style={fld}>
+            <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" autoFocus className="w-full bg-transparent text-sm outline-none" style={{ color: C.ink }} />
+            <span className="shrink-0 text-sm" style={{ color: C.muted }}>{unit}</span>
+          </div>
+          {servings.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {servings.map((sv, i) => (
+                <button key={i} onClick={() => setAmount(String(sv.amount ?? per))} className="rounded-full px-3 py-1.5 text-xs font-medium active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{sv.label}</button>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Quantité</p>
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {QO.map((o) => (
+              <button key={o} onClick={() => setQty(o)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={o === qty ? { backgroundColor: accent, color: "#fff" } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{fmtQ(o)}</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="mb-3 flex items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: C.paper }}>
+        <div className="leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>
+          <p className="text-2xl font-extrabold" style={{ color: C.ink }}>{kcal} <span className="text-sm font-medium" style={{ color: C.sub }}>kcal</span></p>
+          <p className="text-xs font-semibold" style={{ color: C.protein }}>{p} g protéines</p>
+        </div>
+        <button onClick={() => onChoose({ id: `${food.id}-${Date.now()}`, name: label, kcal, p, qty: 1 })} disabled={factor <= 0} className="flex items-center gap-1.5 rounded-2xl px-5 py-2.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: factor > 0 ? accent : C.line }}><Plus size={16} /> Ajouter</button>
+      </div>
+    </Sheet>
+  );
+}
+
 function ChipBtn({ m, onChoose }) {
   return <button onClick={() => onChoose(m)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{m.name} <span style={{ color: C.muted }}>{m.kcal}</span></button>;
 }
@@ -51,6 +133,10 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
   const [customOpen, setCustomOpen] = useState(false);
   const [browseAll, setBrowseAll] = useState(false);
   const [cName, setCName] = useState(""); const [cKcal, setCKcal] = useState(""); const [cP, setCP] = useState("");
+  const [servingFor, setServingFor] = useState(null);
+  // Foods avec une unité spéciale (g/ml/dose) ou des servings → on ouvre le calculateur.
+  const needsPicker = (m) => (Array.isArray(m.servings) && m.servings.length > 0) || (m.unit && m.unit !== "portion");
+  const pickFood = (m) => { if (needsPicker(m)) setServingFor(m); else onChoose(m); };
 
   const frequent = useMemo(() => pool
     .filter((m) => m.slots.includes(slotKey) && usage[m.name] && usage[m.name].count >= 2)
@@ -120,7 +206,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
                     <button onClick={() => setBudgetOnly((v) => !v)} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium active:scale-95" style={budgetOnly ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.card, color: C.sub, border: `1px solid ${C.line}` }}><Flame size={12} /> Dans le budget</button>
                   </div>
                   <div className="space-y-2">
-                    {results.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={onChoose} onDelete={onDeleteCustom} />)}
+                    {results.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={pickFood} onDelete={onDeleteCustom} />)}
                   </div>
                   <button onClick={() => setPanel("off")} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold active:scale-95" style={{ border: `1px dashed ${C.muted}`, color: C.sub }}>
                     <Search size={15} /> Chercher « {q.trim()} » dans Open Food Facts
@@ -131,7 +217,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
                   {suggestions.length > 0 && (
                     <div className="mb-4">
                       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}><Sparkles size={13} /> Suggéré pour ce repas</p>
-                      <div className="space-y-2">{suggestions.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={onChoose} onDelete={onDeleteCustom} />)}</div>
+                      <div className="space-y-2">{suggestions.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={pickFood} onDelete={onDeleteCustom} />)}</div>
                     </div>
                   )}
                   {recent.length > 0 && (
@@ -152,7 +238,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
                   </button>
                   {browseAll && (
                     <div className="mb-2 space-y-2">
-                      {allForSlot.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={onChoose} onDelete={onDeleteCustom} />)}
+                      {allForSlot.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={pickFood} onDelete={onDeleteCustom} />)}
                     </div>
                   )}
                 </>
@@ -223,6 +309,9 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = MEALS, usage 
         </div>
         <button onClick={addCustom} disabled={!customValid} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: customValid ? ui.color : C.line }}><Plus size={16} /> Ajouter à ma journée</button>
       </Sheet>
+
+      {/* Calculateur de portions générique (foods avec unité/servings) */}
+      {servingFor && <ServingPicker food={servingFor} accent={ui.color} onChoose={(it) => { onChoose(it); setServingFor(null); }} onClose={() => setServingFor(null)} />}
     </>
   );
 }
