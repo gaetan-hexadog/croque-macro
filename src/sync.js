@@ -47,3 +47,28 @@ export async function pushAppState(userId, data) {
   const { error } = await supabase.from("app_state").upsert({ user_id: userId, data }, { onConflict: "user_id" });
   if (error) throw error;
 }
+
+// Fusionne local + remote app_state SANS rien perdre : les collections (recettes,
+// repas, modèles, bases shake…) sont unionnées par id ; les scalaires (settings,
+// comboSeed) prennent le plus récent/élevé. Évite qu'un appareil écrase les ajouts
+// de l'autre (le bloc app_state était auparavant un simple last-write-wins).
+export function mergeAppState(local = {}, remote) {
+  if (!remote) return local;
+  const byId = (a = [], b = []) => {
+    const m = new Map();
+    [...(a || []), ...(b || [])].forEach((x) => { const k = x && (x.id ?? x.name); if (k != null) m.set(k, x); });
+    return [...m.values()];
+  };
+  return {
+    settings: remote.settings || local.settings,
+    templates: byId(local.templates, remote.templates),
+    customMeals: byId(local.customMeals, remote.customMeals),
+    customRecipes: byId(local.customRecipes, remote.customRecipes),
+    combos: byId(local.combos, remote.combos),
+    shakeBases: byId(local.shakeBases, remote.shakeBases),
+    shakeLiquids: byId(local.shakeLiquids, remote.shakeLiquids),
+    usage: { ...(local.usage || {}), ...(remote.usage || {}) },
+    favs: Array.from(new Set([...(local.favs || []), ...(remote.favs || [])])),
+    comboSeed: Math.max(local.comboSeed || 0, remote.comboSeed || 0),
+  };
+}

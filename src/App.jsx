@@ -5,7 +5,7 @@ import {
 } from "./core.js";
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
-import { pullAll, pushDays, pushWeights, pushAppState } from "./sync.js";
+import { pullAll, pushDays, pushWeights, pushAppState, mergeAppState } from "./sync.js";
 import { AccountSheet } from "./AccountSheet.jsx";
 import { DayScreen, ExtrasSheet } from "./DayScreen.jsx";
 import { JournalScreen } from "./JournalScreen.jsx";
@@ -128,26 +128,24 @@ export default function PiocheRepas() {
       const localWeights = stateRef.current.weights || {};
       setDays((l) => ({ ...l, ...remote.days }));
       setWeights((l) => ({ ...l, ...remote.weights }));
-      if (remote.appState) {
-        const a = remote.appState;
-        if (a.settings) setSettings(a.settings);
-        if (a.templates) setTemplates(a.templates);
-        if (a.customMeals) setCustomMeals(a.customMeals);
-        if (a.usage) setUsage(a.usage);
-        if (a.combos) setCombos(a.combos);
-        if (a.shakeBases) setShakeBases(a.shakeBases);
-        if (a.shakeLiquids) setShakeLiquids(a.shakeLiquids);
-        if (typeof a.comboSeed === "number") setComboSeed(a.comboSeed);
-        if (a.favs) setFavs(a.favs);
-        if (a.customRecipes) setCustomRecipes(a.customRecipes);
-      }
+      // Fusion sans perte : on unionne local + remote (collections par id), on applique, on repousse.
+      const merged = mergeAppState(appStateNow(), remote.appState);
+      if (merged.settings) setSettings(merged.settings);
+      setTemplates(merged.templates);
+      setCustomMeals(merged.customMeals);
+      setCustomRecipes(merged.customRecipes);
+      setUsage(merged.usage);
+      setCombos(merged.combos);
+      setShakeBases(merged.shakeBases);
+      setShakeLiquids(merged.shakeLiquids);
+      if (typeof merged.comboSeed === "number") setComboSeed(merged.comboSeed);
+      setFavs(merged.favs);
       const onlyDays = {}; for (const k in localDays) if (!(k in remote.days)) onlyDays[k] = localDays[k];
       const onlyWeights = {}; for (const k in localWeights) if (!(k in remote.weights)) onlyWeights[k] = localWeights[k];
       await pushDays(uid, onlyDays);
       await pushWeights(uid, onlyWeights);
-      const mergedAppState = remote.appState || appStateNow();
-      if (!remote.appState) await pushAppState(uid, mergedAppState);
-      lastSynced.current = { days: { ...localDays, ...remote.days }, weights: { ...localWeights, ...remote.weights }, appState: JSON.stringify(mergedAppState) };
+      await pushAppState(uid, merged); // repousse l'état fusionné → les ajouts des 2 appareils sont préservés
+      lastSynced.current = { days: { ...localDays, ...remote.days }, weights: { ...localWeights, ...remote.weights }, appState: JSON.stringify(merged) };
       setSyncStatus("synced");
     } catch (e) { console.warn("[sync] initial:", e.message); setSyncStatus("error"); }
   }, [appStateNow]);

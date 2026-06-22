@@ -119,6 +119,21 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
         </div>
       </div>
 
+      {/* Démarrage rapide sur jour vide : reprendre une journée type en 1 tap */}
+      {ribbon.length === 0 && (hasPrevDay || templates.length > 0) && (
+        <div className="mb-3 rounded-2xl p-3" style={cardStyle()}>
+          <p className="mb-2 px-0.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Démarrage rapide</p>
+          <div className="flex flex-wrap gap-2">
+            {hasPrevDay && (
+              <button onClick={onCopyPrev} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><Copy size={13} /> Copier hier</button>
+            )}
+            {templates.slice(0, 4).map((t) => (
+              <button key={t.id} onClick={() => onLoadTemplate(t.id)} className="flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><Layers size={13} style={{ color: C.sub }} /> {t.name}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} />
         <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} />
