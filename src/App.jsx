@@ -288,6 +288,7 @@ export default function PiocheRepas() {
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
   const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: newId("rec"), custom: true }, ...cur].slice(0, 200));
   const deleteRecipe = (id) => setCustomRecipes((cur) => cur.filter((x) => x.id !== id));
+  const updateRecipe = (id, patch) => setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
   const meals = useMemo(() => [
     ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
@@ -410,7 +411,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} />
+          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} />
         )}
         {view === "reglages" && (
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />

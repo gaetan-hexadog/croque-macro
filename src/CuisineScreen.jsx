@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChefHat, Plus, Trash2, Check, ChevronDown, Search, X, Soup, Layers, Apple } from "lucide-react";
+import { ChefHat, Plus, Trash2, Check, ChevronDown, Search, X, Soup, Layers, Apple, Pencil } from "lucide-react";
 import { C, cardStyle } from "./core.js";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
 
@@ -19,10 +19,11 @@ const kindMeta = {
   recette: { label: "Recette", color: C.weight },
 };
 
-export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe }) {
+export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEditRecipe }) {
   const [kind, setKind] = useState("all");
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(null);
   const nq = deburr(q);
   const list = meals.filter((m) =>
     (kind === "all" || m.kind === kind) &&
@@ -64,18 +65,19 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe }) {
         </p>
       ) : (
         <div className="space-y-2.5">
-          {list.map((m) => <Card key={`${m.kind}-${m.id}`} m={m} onUse={onUse} onDelete={onDelete} />)}
+          {list.map((m) => <Card key={`${m.kind}-${m.id}`} m={m} onUse={onUse} onDelete={onDelete} onEdit={(m.kind === "recette" && m.custom && onEditRecipe) ? () => setEditing(m) : undefined} />)}
         </div>
       )}
 
       <div style={{ height: "0.5rem" }} />
 
       {adding && <AddRecipeSheet onClose={() => setAdding(false)} onAdd={(r) => { onAddRecipe(r); setAdding(false); }} />}
+      {editing && <AddRecipeSheet initial={editing} onClose={() => setEditing(null)} onAdd={(r) => { onEditRecipe(editing.id, r); setEditing(null); }} />}
     </div>
   );
 }
 
-function Card({ m, onUse, onDelete }) {
+function Card({ m, onUse, onDelete, onEdit }) {
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState(false);
   const meta = kindMeta[m.kind] || kindMeta.aliment;
@@ -118,6 +120,7 @@ function Card({ m, onUse, onDelete }) {
         <button onClick={() => { onUse(m); flash(); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: meta.color }}>
           {used ? <><Check size={15} /> Ajouté</> : <><Plus size={15} /> Aujourd'hui</>}
         </button>
+        {onEdit && <button onClick={onEdit} className="flex items-center justify-center rounded-xl px-3 py-2 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={15} /></button>}
         <button onClick={() => onDelete(m)} className="flex items-center justify-center rounded-xl px-3 py-2 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={15} /></button>
       </div>
     </div>

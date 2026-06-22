@@ -10,16 +10,28 @@ const CATS = [
   { k: "snack", l: "Snack" },
 ];
 
+// Reparse une ligne d'ingrédient texte ("200 g tofu ferme") en {qty, unit, name}.
+const parseIng = (s) => {
+  const t = String(s).trim();
+  let m = t.match(/^([\d.,]+)\s+(\S+)\s+(.+)$/);
+  if (m) return { qty: m[1], unit: m[2], name: m[3] };
+  m = t.match(/^([\d.,]+)\s+(.+)$/);
+  if (m) return { qty: m[1], unit: "", name: m[2] };
+  return { qty: "", unit: "", name: t };
+};
+
 // Formulaire de recette (multi-créneaux + ingrédients structurés). Partagé par
-// l'écran Idées, Ma cuisine et la pioche. defaultSlots pré-coche les créneaux.
-export function AddRecipeSheet({ onClose, onAdd, defaultSlots }) {
-  const [name, setName] = useState("");
-  const [slots, setSlots] = useState(defaultSlots && defaultSlots.length ? defaultSlots : ["dej"]);
-  const [kcal, setKcal] = useState("");
-  const [p, setP] = useState("");
-  const [ingRows, setIngRows] = useState([{ qty: "", unit: "", name: "" }]);
-  const [steps, setSteps] = useState("");
-  const [quick, setQuick] = useState(false);
+// l'écran Idées, Ma cuisine et la pioche. defaultSlots pré-coche les créneaux ;
+// `initial` passe en mode édition (pré-remplit tout).
+export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial }) {
+  const editing = !!initial;
+  const [name, setName] = useState(initial?.name || "");
+  const [slots, setSlots] = useState(initial?.slots?.length ? initial.slots : initial?.cat ? [initial.cat] : (defaultSlots && defaultSlots.length ? defaultSlots : ["dej"]));
+  const [kcal, setKcal] = useState(initial != null ? String(initial.kcal ?? "") : "");
+  const [p, setP] = useState(initial != null ? String(initial.p ?? "") : "");
+  const [ingRows, setIngRows] = useState(initial?.ingredients?.length ? initial.ingredients.map(parseIng) : [{ qty: "", unit: "", name: "" }]);
+  const [steps, setSteps] = useState(initial?.steps?.length ? initial.steps.join("\n") : "");
+  const [quick, setQuick] = useState(!!initial?.quick);
   const toggleSlot = (k) => setSlots((s) => s.includes(k) ? s.filter((x) => x !== k) : [...s, k]);
   const setIng = (i, key, v) => setIngRows((rows) => rows.map((r, idx) => idx === i ? { ...r, [key]: v } : r));
   const addIng = () => setIngRows((rows) => [...rows, { qty: "", unit: "", name: "" }]);
@@ -37,7 +49,7 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots }) {
   const field = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
   const lab = "mb-1 block text-xs font-semibold uppercase tracking-wide";
   return (
-    <Sheet open onClose={onClose} title="Nouvelle recette"
+    <Sheet open onClose={onClose} title={editing ? "Modifier la recette" : "Nouvelle recette"}
       headerRight={<button onClick={onClose} className="rounded-full p-1.5 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={16} /></button>}>
       <label className={lab} style={{ color: C.sub }}>Nom</label>
       <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ex. Bowl tofu cacahuète" className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
@@ -81,7 +93,7 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots }) {
 
       <button onClick={() => setQuick((v) => !v)} className="mb-4 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={quick ? { backgroundColor: C.ink, color: C.bg } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>⚡ Rapide {quick ? "· oui" : ""}</button>
 
-      <button onClick={submit} disabled={!valid} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: valid ? C.protein : C.line }}><Plus size={16} /> Enregistrer la recette</button>
+      <button onClick={submit} disabled={!valid} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: valid ? C.protein : C.line }}><Plus size={16} /> {editing ? "Enregistrer les modifications" : "Enregistrer la recette"}</button>
     </Sheet>
   );
 }
