@@ -14,7 +14,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase.config.js";
 import { SNAPSHOT_FOODS } from "./foods.snapshot.js";
 
-const CACHE_KEY = "croque-macro:library:v2"; // v2 : shape étendu (pool inclus)
+const CACHE_KEY = "croque-macro:library:v3"; // bump → ignore l'ancien cache (data Clear Protein à jour)
 
 // Lignes `foods` plates → shapes attendus par l'app, partitionnés par kind.
 function shapeFromFoods(foods) {
@@ -55,7 +55,7 @@ export function getLibrarySync() {
 export async function refreshLibrary() {
   const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/foods?select=*&order=sort.asc`, { headers });
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/foods?select=*&order=sort.asc`, { headers, cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
     const lib = shapeFromFoods(rows);
