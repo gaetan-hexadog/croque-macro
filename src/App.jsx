@@ -34,7 +34,6 @@ export default function PiocheRepas() {
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
-  const [showSettings, setShowSettings] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
   const [accountOpen, setAccountOpen] = useState(false);
@@ -58,18 +57,11 @@ export default function PiocheRepas() {
   }, []);
   const go = useCallback((v) => { if (v === viewRef.current) return; const prev = viewRef.current; pushNav(() => setView(prev)); setView(v); }, [pushNav]);
   const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
-  const openSettings = useCallback(() => { pushNav(() => setShowSettings(false)); setShowSettings(true); }, [pushNav]);
+  const openSettings = useCallback(() => go("reglages"), [go]);
   const openExtras = useCallback(() => { pushNav(() => setExtrasOpen(false)); setExtrasOpen(true); }, [pushNav]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
-  const openAccountFromSettings = useCallback(() => {
-    setShowSettings(false);
-    setAccountOpen(true);
-    const i = undoStack.current.length - 1;
-    if (i >= 0) undoStack.current[i] = () => setAccountOpen(false);
-  }, []);
-  const openGuideFromSettings = useCallback(() => { setShowSettings(false); go("guide"); }, [go]);
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
   const stateRef = useRef({});
   const lastSynced = useRef({ days: {}, weights: {}, appState: "" });
@@ -427,6 +419,9 @@ export default function PiocheRepas() {
         {view === "cuisine" && (
           <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} />
         )}
+        {view === "reglages" && (
+          <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
+        )}
         {view === "idees" && (
           <IdeasScreen ideas={[...customRecipes, ...library.recipes]} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)}
             onAddRecipe={addRecipe} onDeleteRecipe={deleteRecipe}
@@ -446,9 +441,6 @@ export default function PiocheRepas() {
         <ExtrasSheet presets={library.presets} onAdd={addExtra} onClose={navBack} />
       )}
       <Suspense fallback={null}>
-        {showSettings && (
-          <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccountFromSettings} onOpenGuide={openGuideFromSettings} onClose={navBack} />
-        )}
         {accountOpen && (
           <AccountSheet session={session} status={syncStatus} onClose={navBack} />
         )}

@@ -1,9 +1,8 @@
 import React, { useState, useMemo, useRef } from "react";
-import { X, Check, Flame, Beef, Package, ChevronRight, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark, Cloud, BookOpen } from "lucide-react";
+import { X, Check, Flame, Beef, Package, ChevronRight, ChevronLeft, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark, Cloud, BookOpen } from "lucide-react";
 import {
   C, TODAY, computeTargets, smoothedWeight,
 } from "./core.js";
-import { Sheet } from "./Sheet.jsx";
 
 export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onOpenAccount, onOpenGuide, onClose }) {
   const [kcal, setKcal] = useState(settings.kcal);
@@ -52,7 +51,11 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
   const ACTIVITIES = [{ v: 1.2, l: "Sédentaire" }, { v: 1.375, l: "Léger" }, { v: 1.45, l: "Modéré" }, { v: 1.55, l: "Actif" }, { v: 1.725, l: "Très actif" }];
   const DEFICITS = [{ v: 0, l: "Maintien" }, { v: 0.12, l: "Perte douce" }, { v: 0.18, l: "Perte" }, { v: 0.25, l: "Perte rapide" }];
   return (
-    <Sheet open onClose={onClose} title="Réglages">
+    <div className="px-1">
+      <div className="mb-3 flex items-center gap-2">
+        <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Retour"><ChevronLeft size={20} /></button>
+        <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Réglages</h1>
+      </div>
         <p className="mb-4 text-sm" style={{ color: C.sub }}>Règle tes cibles à la main, ou laisse le calculateur les estimer.</p>
 
         <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
@@ -145,7 +148,8 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
         )}
 
         <button onClick={save} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 font-semibold text-white active:scale-95" style={{ backgroundColor: C.ink }}><Check size={18} /> Enregistrer</button>
-    </Sheet>
+      <div style={{ height: "1rem" }} />
+    </div>
   );
 }
 
