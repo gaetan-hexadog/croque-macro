@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, Plus, Lightbulb } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -42,6 +42,8 @@ export default function PiocheRepas() {
   const [picker, setPicker] = useState(null);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [toolOpen, setToolOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);        // menu d'actions rapides (bouton central +)
+  const [cuisineAdd, setCuisineAdd] = useState(false);  // signal : ouvrir le formulaire « ajouter recette » en arrivant sur Cuisine
   const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
   const [sessionChecked, setSessionChecked] = useState(false); // getSession résolu → on peut décider gate vs app
   const [accountOpen, setAccountOpen] = useState(false);
@@ -69,6 +71,7 @@ export default function PiocheRepas() {
   const openExtras = useCallback(() => { pushNav(() => setExtrasOpen(false)); setExtrasOpen(true); }, [pushNav]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
+  const openFab = useCallback(() => { pushNav(() => setFabOpen(false)); setFabOpen(true); }, [pushNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
@@ -318,9 +321,9 @@ export default function PiocheRepas() {
     ...customMeals.map((m) => ({ ...m, kind: "aliment" })),
   ], [customRecipes, combos, customMeals]);
   const deleteMeal = (m) => { if (m.kind === "recette") deleteRecipe(m.id); else if (m.kind === "combo") deleteCombo(m.id); else deleteCustomMeal(m.id); };
-  const useMealEntry = (m) => {
-    if (m.kind === "combo") { const slot = m.slot || "dej", key = picksKey(slot); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1 }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); return; }
-    const slot = m.kind === "recette" ? (m.cat || "dej") : (m.slots && m.slots[0]) || "dej", key = picksKey(slot);
+  const useMealEntry = (m, slotOverride) => {
+    if (m.kind === "combo") { const slot = slotOverride || m.slot || "dej", key = picksKey(slot); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1 }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); return; }
+    const slot = slotOverride || (m.kind === "recette" ? (m.cat || "dej") : (m.slots && m.slots[0]) || "dej"), key = picksKey(slot);
     setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { name: m.name, kcal: m.kcal, p: m.p, qty: 1 }].slice(0, 8) } }));
     bumpUsage(m.name);
   };
@@ -473,7 +476,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} />
+          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} />
         )}
         {view === "reglages" && (
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
@@ -489,7 +492,7 @@ export default function PiocheRepas() {
       </div>
 
       {/* Navigation */}
-      <TabBar view={view} setView={go} />
+      <TabBar view={view} setView={go} onFab={openFab} />
 
       {picker && (
         <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...customMeals]} usage={usage} combos={combos} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
@@ -504,6 +507,26 @@ export default function PiocheRepas() {
         <Sheet open onClose={navBack} title="Scanner un produit">
           <p className="mb-3 text-xs" style={{ color: C.muted }}>Scanne ou cherche un produit pour voir son feu 🟢/🟠/🔴 et l'enregistrer dans ta base (« je consomme ça »).</p>
           <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={saveCustomMeal} />
+        </Sheet>
+      )}
+      {fabOpen && (
+        <Sheet open onClose={navBack} title="Actions rapides">
+          <div className="grid grid-cols-2 gap-2.5 pb-2">
+            {[
+              { l: "Logger un repas", s: "Aller au jour", icon: Plus, c: C.green, act: () => go("jour") },
+              { l: "Planifier", s: "Jour / semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
+              { l: "Scanner", s: "Code-barres", icon: ScanLine, c: C.protein, act: openTool },
+              { l: "Ajouter une recette", s: "Créer", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
+            ].map((a) => {
+              const Icon = a.icon;
+              return (
+                <button key={a.l} onClick={() => { navBack(); setTimeout(a.act, 0); }} className="flex flex-col items-start gap-2 rounded-2xl p-4 active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${a.c}1f`, color: a.c }}><Icon size={20} /></span>
+                  <span><span className="block text-sm font-bold" style={{ color: C.ink }}>{a.l}</span><span className="text-xs" style={{ color: C.muted }}>{a.s}</span></span>
+                </button>
+              );
+            })}
+          </div>
         </Sheet>
       )}
       {ideaSlot && (
@@ -534,26 +557,35 @@ function ScreenFallback() {
   );
 }
 
-function TabBar({ view, setView }) {
+function TabBar({ view, setView, onFab }) {
+  // 4 onglets + bouton central « + » (actions rapides). Planifier vit dans le +.
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
     { k: "journal", l: "Journal", icon: CalendarDays },
     { k: "progres", l: "Progrès", icon: TrendingUp },
     { k: "cuisine", l: "Cuisine", icon: Soup },
-    { k: "idees", l: "Planifier", icon: CalendarRange },
   ];
+  const Tab = ({ t }) => {
+    const Icon = t.icon, active = view === t.k;
+    return (
+      <button onClick={() => setView(t.k)} className="flex flex-1 flex-col items-center gap-0.5 py-2.5 active:scale-95" style={{ color: active ? C.ink : C.muted }}>
+        <Icon size={20} strokeWidth={active ? 2.4 : 1.8} />
+        <span className="text-xs font-semibold" style={{ opacity: active ? 1 : 0.8 }}>{t.l}</span>
+      </button>
+    );
+  };
   return (
     <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="mx-auto flex max-w-md">
-        {tabs.map((t) => {
-          const Icon = t.icon, active = view === t.k;
-          return (
-            <button key={t.k} onClick={() => setView(t.k)} className="flex flex-1 flex-col items-center gap-0.5 py-2.5 active:scale-95" style={{ color: active ? C.ink : C.muted }}>
-              <Icon size={20} strokeWidth={active ? 2.4 : 1.8} />
-              <span className="text-xs font-semibold" style={{ opacity: active ? 1 : 0.8 }}>{t.l}</span>
-            </button>
-          );
-        })}
+      <div className="mx-auto flex max-w-md items-end">
+        <Tab t={tabs[0]} />
+        <Tab t={tabs[1]} />
+        <div className="flex flex-1 justify-center">
+          <button onClick={onFab} aria-label="Actions rapides" className="flex h-14 w-14 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.accent, color: "#1b1206", marginTop: -26, border: `4px solid ${C.bg}`, boxShadow: `0 12px 28px -10px ${C.accent}` }}>
+            <Plus size={26} strokeWidth={2.6} />
+          </button>
+        </div>
+        <Tab t={tabs[2]} />
+        <Tab t={tabs[3]} />
       </div>
     </div>
   );

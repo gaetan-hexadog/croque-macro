@@ -118,11 +118,12 @@ function ChipBtn({ m, onChoose }) {
   return <button onClick={() => onChoose(m)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{m.name} <span style={{ color: C.muted }}>{m.kcal}</span></button>;
 }
 
-function ActionBtn({ icon, label, onClick }) {
+// Moyen d'entrée compact (P2) : icône + petit label, au lieu d'un gros bouton plein.
+function MethodBtn({ icon: Icon, color, label, onClick }) {
   return (
-    <button onClick={onClick} className="flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
-      {icon}
-      <span className="text-xs font-semibold">{label}</span>
+    <button onClick={onClick} className="flex flex-col items-center gap-1.5 active:scale-95">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: `${color}1a`, color, border: `1px solid ${C.line}` }}><Icon size={20} /></span>
+      <span className="text-[10.5px] font-semibold" style={{ color: C.sub }}>{label}</span>
     </button>
   );
 }
@@ -198,11 +199,12 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 {q && <button onClick={() => setQ("")} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Effacer"><X size={15} /></button>}
               </div>
 
-              <div className="mb-4 flex gap-2">
-                <ActionBtn icon={<Soup size={20} style={{ color: C.green }} />} label="Recettes" onClick={() => setPanel("recipes")} />
-                <ActionBtn icon={<GlassWater size={20} style={{ color: C.protein }} />} label="Shake" onClick={() => setPanel("shake")} />
-                <ActionBtn icon={<UtensilsCrossed size={20} style={{ color: ui.color }} />} label="Mes repas" onClick={() => setPanel("combos")} />
-                <ActionBtn icon={<ScanLine size={20} style={{ color: C.ink }} />} label="Scanner" onClick={() => setPanel("off")} />
+              <div className="mb-5 grid grid-cols-5 gap-1.5">
+                <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
+                <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
+                <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Mes repas" onClick={() => setPanel("combos")} />
+                <MethodBtn icon={ScanLine} color={C.weight} label="Scanner" onClick={() => setPanel("off")} />
+                <MethodBtn icon={Pencil} color={C.extra} label="Manuel" onClick={() => setCustomOpen(true)} />
               </div>
 
               {q.trim() ? (
@@ -250,10 +252,6 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 </>
               )}
 
-              <button onClick={() => setCustomOpen(true)} className="mb-2 mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ border: `1px dashed ${C.muted}`, color: C.sub }}>
-                <span className="flex items-center gap-2"><Pencil size={15} /> Saisir un aliment manuellement</span>
-                <ChevronRight size={16} style={{ color: C.muted }} />
-              </button>
             </>
           )}
 
