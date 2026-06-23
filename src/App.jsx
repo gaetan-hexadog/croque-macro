@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, Plus, Lightbulb } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, Plus, Lightbulb, Refrigerator } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -12,6 +12,7 @@ import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { AuthGate } from "./AuthGate.jsx";
 import { MealSuggestSheet } from "./MealSuggestSheet.jsx";
+import { PantrySheet } from "./PantrySheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
@@ -43,6 +44,7 @@ export default function PiocheRepas() {
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [toolOpen, setToolOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);        // menu d'actions rapides (bouton central +)
+  const [frigoOpen, setFrigoOpen] = useState(false);    // gestion du frigo/placard (accès global)
   const [cuisineAdd, setCuisineAdd] = useState(false);  // signal : ouvrir le formulaire « ajouter recette » en arrivant sur Cuisine
   const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
   const [sessionChecked, setSessionChecked] = useState(false); // getSession résolu → on peut décider gate vs app
@@ -72,6 +74,7 @@ export default function PiocheRepas() {
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   const openFab = useCallback(() => { pushNav(() => setFabOpen(false)); setFabOpen(true); }, [pushNav]);
+  const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
@@ -476,7 +479,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} />
+          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} pantry={pantry} />
         )}
         {view === "reglages" && (
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
@@ -509,6 +512,9 @@ export default function PiocheRepas() {
           <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={saveCustomMeal} />
         </Sheet>
       )}
+      {frigoOpen && (
+        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onRemove={removePantry} onClose={navBack} />
+      )}
       {fabOpen && (
         <Sheet open onClose={navBack} title="Actions rapides">
           <div className="grid grid-cols-2 gap-2.5 pb-2">
@@ -516,6 +522,7 @@ export default function PiocheRepas() {
               { l: "Logger un repas", s: "Aller au jour", icon: Plus, c: C.green, act: () => go("jour") },
               { l: "Planifier", s: "Jour / semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
               { l: "Scanner", s: "Code-barres", icon: ScanLine, c: C.protein, act: openTool },
+              { l: "Mon frigo", s: "Ce que j'ai", icon: Refrigerator, c: C.weight, act: openFrigo },
               { l: "Ajouter une recette", s: "Créer", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
             ].map((a) => {
               const Icon = a.icon;

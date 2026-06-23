@@ -25,12 +25,15 @@ export function MealSuggestSheet({
 
   const local = useMemo(() => {
     const cap = remKcal > 0 ? remKcal * 1.1 : Infinity;
+    const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const out = pantry.filter((x) => x.out).map((x) => deburr(x.name)).filter(Boolean);
+    const hasRupture = (r) => { const hay = deburr(r.name + " " + (r.ingredients || []).map((i) => (typeof i === "string" ? i : i.name)).join(" ")); return out.some((o) => hay.includes(o)); };
     return localIdeas
-      .filter((r) => (r.cat || r.slot) === slot && (r.kcal || 0) <= cap)
+      .filter((r) => (r.cat || r.slot) === slot && (r.kcal || 0) <= cap && !hasRupture(r))
       .sort((a, b) => (b.p || 0) - (a.p || 0))
       .slice(0, 4)
       .map((r) => ({ title: r.name, emoji: r.emoji, kcal: r.kcal, protein: r.p, slot, ingredients: r.ingredients?.map((s) => (typeof s === "string" ? { name: s } : s)) || [], steps: r.steps || [] }));
-  }, [slot, remKcal, localIdeas]);
+  }, [slot, remKcal, localIdeas, pantry]);
   const thin = local.length < 3;
 
   const ask = async () => {

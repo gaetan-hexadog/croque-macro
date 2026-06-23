@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil } from "lucide-react";
+import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight } from "lucide-react";
 import { C, cardStyle } from "./core.js";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
 
@@ -24,7 +24,7 @@ const SLOT_CHOICES = [
   { k: "snack", l: "En-cas" },
 ];
 
-export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone }) {
+export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, pantry = [] }) {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -43,6 +43,19 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une recette, un repas, un aliment…" className="w-full rounded-2xl py-3 pl-9 pr-9 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
         {q && <button onClick={() => setQ("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: C.muted }}><X size={16} /></button>}
       </div>
+
+      {onOpenFrigo && (
+        <button onClick={onOpenFrigo} className="mb-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left active:scale-95" style={cardStyle()}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><Refrigerator size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold" style={{ color: C.ink }}>Mon frigo / placard</span>
+            <span className="block text-xs" style={{ color: C.muted }}>
+              {pantry.length === 0 ? "Dis ce que tu as sous la main" : `${pantry.filter((x) => !x.out).length} dispo${pantry.some((x) => x.out) ? ` · ${pantry.filter((x) => x.out).length} en rupture` : ""}`}
+            </span>
+          </span>
+          <ChevronRight size={18} style={{ color: C.muted }} />
+        </button>
+      )}
 
       {filtered.length === 0 ? (
         <p className="py-12 text-center text-sm" style={{ color: C.muted }}>
