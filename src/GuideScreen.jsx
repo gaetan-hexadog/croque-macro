@@ -152,6 +152,38 @@ export function GuideScreen({ onAddExtra, dateLabel, settings }) {
 
       <SectionHead id="antiseches" label="Antisèches" />
 
+      <GuideBlock icon={ScanLine} color={C.green} title="Réflexe courses : le feu 🟢🟠🔴" desc="3 ratios sur l'étiquette (/100 g) pour trier en 5 s. Le scan de l'app (icône en haut) les calcule pour toi.">
+        <div className="space-y-3">
+          <div>
+            <p className="mb-1 text-sm font-semibold" style={{ color: C.ink }}>1. kcal ÷ prot <span style={{ color: C.muted, fontWeight: 400 }}>· la règle reine</span></p>
+            <ul className="space-y-0.5 text-sm" style={{ color: C.sub }}>
+              <li>🟢 ≤ 8 excellent · 8–12 ça passe</li>
+              <li>🟠 12–15 moyen, à compter</li>
+              <li>🔴 &gt; 15 : ce n'est plus un aliment protéiné (gras ou sucre déguisé)</li>
+            </ul>
+            <p className="mt-1 text-xs" style={{ color: C.muted }}>Astuce sans diviser : « les kcal font-elles moins de 10× les prot ? » Plus de 200 kcal pour 20 g de prot → tu regardes pourquoi.</p>
+          </div>
+          <div>
+            <p className="mb-1 text-sm font-semibold" style={{ color: C.ink }}>2. gras vs prot <span style={{ color: C.muted, fontWeight: 400 }}>· compare les 2 chiffres</span></p>
+            <ul className="space-y-0.5 text-sm" style={{ color: C.sub }}>
+              <li>🟢 gras ≤ moitié des prot = source maigre</li>
+              <li>🟠 gras ≈ prot = mixte, ok ponctuel</li>
+              <li>🔴 gras &gt; prot = aliment gras (le piège fromage, ton plus gros levier)</li>
+            </ul>
+          </div>
+          <div>
+            <p className="mb-1 text-sm font-semibold" style={{ color: C.ink }}>3. sucre vs prot</p>
+            <ul className="space-y-0.5 text-sm" style={{ color: C.sub }}>
+              <li>🟢 sucre ≤ prot = ok</li>
+              <li>🔴 sucre &gt; prot = produit sucré (yaourts « protéinés » aromatisés, barres, tofu teriyaki trompeur)</li>
+            </ul>
+          </div>
+          <p className="border-t pt-2 text-sm" style={{ borderColor: C.line, color: C.sub }}>
+            En une phrase : <span style={{ color: C.ink, fontWeight: 600 }}>la protéine doit être le plus gros nombre, le gras moins de la moitié, le sucre en dessous.</span> Si oui → dans le panier. Ces ratios trient les aliments, mais ton déficit se joue sur le <span style={{ color: C.ink }}>total du jour</span> : un aliment moyen reste ok s'il rentre dans tes {settings?.kcal ?? 1850} kcal.
+          </p>
+        </div>
+      </GuideBlock>
+
       <GuideBlock icon={Beef} color={C.weight} title="Antisèche protéines végé" desc="Teneur en protéines pour 100 g (ou 100 ml). De quoi composer sans peser.">
         <div className="space-y-1.5 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
           {prot.map(([name, val]) => (

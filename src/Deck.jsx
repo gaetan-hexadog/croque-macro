@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup } from "lucide-react";
-import { SLOTS, C, SLOT_UI, newId } from "./core.js";
+import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
+import { ProductVerdict } from "./ProductVerdict.jsx";
 
 // normalise pour la recherche : minuscules, sans accents, œ→oe, æ→ae
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
@@ -134,6 +135,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
   const [customOpen, setCustomOpen] = useState(false);
   const [browseAll, setBrowseAll] = useState(false);
   const [cName, setCName] = useState(""); const [cKcal, setCKcal] = useState(""); const [cP, setCP] = useState("");
+  const [cF, setCF] = useState(""); const [cS, setCS] = useState("");
   const [servingFor, setServingFor] = useState(null);
   const [creatingRecipe, setCreatingRecipe] = useState(false);
   const slotRecipes = useMemo(() => recipes.filter((r) => (Array.isArray(r.slots) && r.slots.includes(slotKey)) || r.cat === slotKey), [recipes, slotKey]);
@@ -166,8 +168,8 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
   const addCustom = () => {
     const k = parseInt(cKcal, 10);
     if (!cName.trim() || isNaN(k)) return;
-    onChoose({ id: newId("custom"), name: cName.trim(), kcal: k, p: parseInt(cP, 10) || 0, c: null, f: null, desc: "Mon repas", tags: [], slots: [slotKey], custom: true });
-    setCName(""); setCKcal(""); setCP(""); setCustomOpen(false);
+    onChoose({ id: newId("custom"), name: cName.trim(), kcal: k, p: parseInt(cP, 10) || 0, c: null, f: cF !== "" ? parseFloat(cF) : null, desc: "Mon repas", tags: [], slots: [slotKey], custom: true });
+    setCName(""); setCKcal(""); setCP(""); setCF(""); setCS(""); setCustomOpen(false);
   };
   const customValid = cName.trim() && !isNaN(parseInt(cKcal, 10));
 
@@ -333,6 +335,18 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
             <input value={cP} onChange={(e) => setCP(e.target.value)} inputMode="numeric" placeholder="g" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
           </div>
         </div>
+        <div className="mt-2 flex gap-2">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: C.sub }}>Gras <span style={{ textTransform: "none", color: C.muted }}>(opt.)</span></label>
+            <input value={cF} onChange={(e) => setCF(e.target.value)} inputMode="decimal" placeholder="g" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: C.sub }}>Sucre <span style={{ textTransform: "none", color: C.muted }}>(opt.)</span></label>
+            <input value={cS} onChange={(e) => setCS(e.target.value)} inputMode="decimal" placeholder="g" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          </div>
+        </div>
+        <p className="mt-1.5 text-[11px]" style={{ color: C.muted }}>Renseigne gras/sucre (mêmes proportions que sur l'étiquette) pour le feu courses.</p>
+        {(() => { const v = scoreProduct({ kcal: parseFloat(cKcal), p: parseFloat(cP), fat: cF !== "" ? parseFloat(cF) : null, sugar: cS !== "" ? parseFloat(cS) : null }); return v ? <div className="mt-2"><ProductVerdict C={C} verdict={v} note="verdict · ratios" /></div> : null; })()}
         <button onClick={addCustom} disabled={!customValid} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: customValid ? ui.color : C.line }}><Plus size={16} /> Ajouter à ma journée</button>
       </Sheet>
 

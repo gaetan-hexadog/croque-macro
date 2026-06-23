@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Search, ScanLine, X, Check, Plus, Loader, Bookmark } from "lucide-react";
 import { searchProducts, fetchProductByBarcode } from "./openfoodfacts.js";
 import { scoreProduct } from "./core.js";
+import { ProductVerdict } from "./ProductVerdict.jsx";
 
 // Recherche Open Food Facts : texte + scan code-barres, puis saisie au gramme.
 // Reçoit le thème `C` et `accent` en props pour éviter tout couplage avec App.
@@ -167,7 +168,6 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   // ── Vue produit sélectionné (saisie grammes) ──
   if (selected) {
     const verdict = scoreProduct({ kcal: selected.per100.kcal, p: selected.per100.p, fat: selected.per100.f, sugar: selected.per100.s });
-    const FLAG = { good: { c: C.green, e: "🟢", l: "Bon choix" }, mid: { c: C.protein, e: "🟠", l: "Moyen" }, bad: { c: C.over, e: "🔴", l: "À surveiller" } };
     return (
       <div className="rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
         <div className="mb-1 flex items-start justify-between gap-2">
@@ -179,24 +179,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
         </div>
         <p className="mb-2 text-xs" style={{ color: C.muted }}>Pour 100 g : {fmt(selected.per100.kcal)} kcal · {fmt(selected.per100.p)} g prot.</p>
 
-        {verdict && (
-          <div className="mb-3 rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="rounded-full px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: `${FLAG[verdict.flag].c}22`, color: FLAG[verdict.flag].c }}>{FLAG[verdict.flag].e} {FLAG[verdict.flag].l}</span>
-              <span className="text-[11px]" style={{ color: C.muted }}>verdict courses · /100 g</span>
-            </div>
-            <div className="space-y-1">
-              {verdict.rules.map((r) => (
-                <div key={r.key} className="flex items-center gap-2 text-xs">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: FLAG[r.status].c }} />
-                  <span style={{ color: C.sub }}>{r.label}</span>
-                  <span className="ml-auto font-semibold tabular-nums" style={{ color: C.ink }}>{r.value}</span>
-                  <span className="w-16 text-right" style={{ color: FLAG[r.status].c }}>{r.hint}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {verdict && <div className="mb-3"><ProductVerdict C={C} verdict={verdict} /></div>}
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold" style={{ color: C.sub }}>Quantité</span>

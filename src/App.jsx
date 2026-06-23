@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup, ScanLine } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -8,6 +8,8 @@ import { supabase } from "./supabaseClient.js";
 import { pullAll, pushDays, pushWeights, pushAppState, mergeAppState } from "./sync.js";
 import { DayScreen, ExtrasSheet } from "./DayScreen.jsx";
 import { Deck } from "./Deck.jsx";
+import OffSearch from "./OffSearch.jsx";
+import { Sheet } from "./Sheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
@@ -35,6 +37,7 @@ export default function PiocheRepas() {
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
   const [extrasOpen, setExtrasOpen] = useState(false);
+  const [toolOpen, setToolOpen] = useState(false);
   const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
   const [accountOpen, setAccountOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
@@ -60,6 +63,7 @@ export default function PiocheRepas() {
   const openSettings = useCallback(() => go("reglages"), [go]);
   const openExtras = useCallback(() => { pushNav(() => setExtrasOpen(false)); setExtrasOpen(true); }, [pushNav]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
+  const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
@@ -378,9 +382,14 @@ export default function PiocheRepas() {
         {/* Marque */}
         <header className="mb-5 flex items-center justify-between">
           <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-          <button onClick={openSettings} className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-            <Settings2 size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+              <ScanLine size={18} />
+            </button>
+            <button onClick={openSettings} aria-label="Réglages" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+              <Settings2 size={18} />
+            </button>
+          </div>
         </header>
 
         <Suspense fallback={<ScreenFallback />}>
@@ -436,6 +445,12 @@ export default function PiocheRepas() {
       )}
       {extrasOpen && (
         <ExtrasSheet presets={library.presets} onAdd={addExtra} onClose={navBack} />
+      )}
+      {toolOpen && (
+        <Sheet open onClose={navBack} title="Scanner un produit">
+          <p className="mb-3 text-xs" style={{ color: C.muted }}>Scanne ou cherche un produit pour voir son feu 🟢/🟠/🔴 et l'enregistrer dans ta base (« je consomme ça »).</p>
+          <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={saveCustomMeal} />
+        </Sheet>
       )}
       <Suspense fallback={null}>
         {accountOpen && (
