@@ -54,11 +54,11 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
 
   if (scanning) {
     return (
-      <Sheet open onClose={onClose} title="Scanner un produit" z={40}>
+      <Sheet open onClose={onClose} title="Ajouter au frigo" z={40}>
         <button onClick={() => setScanning(false)} className="mb-3 flex items-center gap-1.5 text-sm font-semibold active:scale-95" style={{ color: C.sub }}><ArrowLeft size={16} /> Retour au frigo</button>
-        <p className="mb-3 text-xs" style={{ color: C.sub }}>Scanne ou cherche le produit — son nom, sa quantité et ses macros /100 pré-rempliront ton frigo (tu pourras ajuster).</p>
+        <p className="mb-3 text-xs" style={{ color: C.sub }}>Cherche un produit ou scanne son code-barres, puis « Ajouter » — il rejoint directement ton frigo (nom, quantité du paquet et macros /100 repris automatiquement, éditables ensuite).</p>
         <OffSearch C={C} accent={C.weight} onChoose={(it) => {
-          setF({ name: stripQty(it.name), unit: it.unit || "g", qty: (() => { const q = parsePkg(it.pkgQty, it.unit); return q ? String(q) : ""; })(), kcal100: it.per100?.kcal ? String(it.per100.kcal) : "", p100: it.per100?.p ? String(it.per100.p) : "" });
+          onAdd(stripQty(it.name), { unit: it.unit || "g", qty: parsePkg(it.pkgQty, it.unit), kcal100: it.per100?.kcal, p100: it.per100?.p });
           setScanning(false);
         }} />
       </Sheet>
@@ -69,12 +69,13 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
     <Sheet open onClose={onClose} title="Mon frigo / placard" z={40}>
       <p className="mb-3 text-xs leading-relaxed" style={{ color: C.sub }}>Ce que tu as sous la main, avec la quantité. Passe en <b style={{ color: C.over }}>rupture</b> ce qui te manque. L'assistant peut n'en utiliser qu'une <b style={{ color: C.ink }}>partie</b> (chocolat, compote, yaourt…).</p>
 
-      {/* Ajout : nom + scan, puis quantité + unité, puis densité /100 */}
+      {/* Chemin principal : chercher/scanner via Open Food Facts (ajout direct) */}
+      <button onClick={() => setScanning(true)} className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}>
+        <ScanLine size={17} /> Chercher ou scanner un produit
+      </button>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>ou ajoute à la main</p>
       <div className="mb-4 space-y-2">
-        <div className="flex gap-2">
-          <input value={f.name} onChange={set("name")} onKeyDown={(ev) => { if (ev.key === "Enter") add(); }} placeholder="Nom (ex. compote pomme)…" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-          <button onClick={() => setScanning(true)} className="flex items-center gap-1.5 rounded-xl px-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><ScanLine size={16} /> Scan</button>
-        </div>
+        <input value={f.name} onChange={set("name")} onKeyDown={(ev) => { if (ev.key === "Enter") add(); }} placeholder="Nom (ex. compote pomme)…" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
         <div className="flex gap-2">
           <input value={f.qty} onChange={set("qty")} inputMode="decimal" placeholder="Quantité que j'ai" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
           <UnitSelect value={f.unit} onChange={set("unit")} />
