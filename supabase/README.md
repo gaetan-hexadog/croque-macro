@@ -19,11 +19,18 @@ Migrations versionnées avec l'app (avant, elles vivaient hors repo).
   tables recipes/presets. *(Câblage app = phases suivantes.)*
 - **`006_seed_foods.sql`** — **généré** (meals.js + snapshot) : 247 lignes
   (155 pioche + 37 extras + 55 recettes). Idempotent.
+- **`009_lock_catalog.sql`** — **multi-utilisateur** : verrouille l'écriture du
+  catalogue (`foods`/`recipes`/`presets`) à l'admin (toi). Lecture toujours
+  publique. ⚠️ **Édite `admin_uid` (ton User UID) avant de l'exécuter.**
 
 ## Appliquer
 Dans le SQL Editor Supabase, exécute dans l'ordre : `001` → `002` → `003`.
 Puis : Authentication → Providers → activer **Email** ; URL Configuration →
 **Site URL** + **Redirect URLs** = domaine Netlify.
+
+**Multi-utilisateur** : exécute aussi `009_lock_catalog.sql` (après avoir remplacé
+le User UID). Les données perso sont déjà isolées par `auth.uid()` (002). L'app
+exige désormais la connexion (gate) → chaque compte ne voit que ses données.
 
 ## Régénérer le seed
 Après une mise à jour de la bibliothèque (snapshot régénéré), relance :

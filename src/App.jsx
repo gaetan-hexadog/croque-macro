@@ -10,6 +10,7 @@ import { DayScreen, ExtrasSheet } from "./DayScreen.jsx";
 import { Deck } from "./Deck.jsx";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
+import { AuthGate } from "./AuthGate.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
@@ -39,6 +40,7 @@ export default function PiocheRepas() {
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [toolOpen, setToolOpen] = useState(false);
   const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
+  const [sessionChecked, setSessionChecked] = useState(false); // getSession résolu → on peut décider gate vs app
   const [accountOpen, setAccountOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
   const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
@@ -113,8 +115,8 @@ export default function PiocheRepas() {
 
   // Abonnement à la session Supabase
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setSessionChecked(true); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); setSessionChecked(true); });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -375,6 +377,11 @@ export default function PiocheRepas() {
     if (Array.isArray(obj.favs)) setFavs((prev) => Array.from(new Set([...prev, ...obj.favs])));
     if (Array.isArray(obj.customRecipes)) setCustomRecipes((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customRecipes.filter((x) => !ids.has(x.id))]; });
   };
+
+  // Multi-utilisateur : tant que la session n'est pas vérifiée, écran neutre ;
+  // sans session → gate de connexion obligatoire (chacun accède à SES données).
+  if (!sessionChecked) return <div className="min-h-screen w-full" style={{ backgroundColor: C.bg }} />;
+  if (!session) return <AuthGate />;
 
   return (
     <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
