@@ -484,18 +484,21 @@ function buildAssistantPrompt({
 
   const budget = Number.isFinite(remKcal) && Number.isFinite(remP);
   if (mode === "week") {
-    L.push(`Planifie 7 jours (dayIndex 0 à 6${startLabel ? `, jour 0 = ${startLabel}` : ""}). Pour CHAQUE jour : petit-déjeuner, déjeuner, dîner et un en-cas. Pour CHAQUE repas, propose 2 OPTIONS différentes au choix (même \`slot\` ET même \`dayIndex\`).`);
-    L.push(`Vise ~${r0(targetKcal)} kcal et au moins ${r0(targetP)} g de protéines par jour. Varie les repas d'un jour à l'autre.`);
+    const SLOT_CODES = [["pdj", "petit-déjeuner"], ["dej", "déjeuner"], ["diner", "dîner"], ["snack", "en-cas"]];
+    L.push(`Planifie 7 jours complets (dayIndex 0 à 6${startLabel ? `, jour 0 = ${startLabel}` : ""}).`);
+    L.push(`Pour CHAQUE jour, propose les 4 repas : ${SLOT_CODES.map(([c, l]) => `${l} (slot="${c}")`).join(", ")}.`);
+    L.push(`Pour CHACUN de ces repas, donne 2 OPTIONS au choix. → Chaque jour = 8 repas (4 slots × 2 options), donc 56 repas au total sur la semaine. Renseigne le bon \`slot\` ET le bon \`dayIndex\` sur chaque option.`);
+    L.push(`Cible par jour : ~${r0(targetKcal)} kcal et au moins ${r0(targetP)} g de protéines (réparties sur les repas). Varie d'un jour à l'autre.`);
     const fb = (filledByDay || []).map((arr, i) => ({ i, arr: arr || [] })).filter((x) => x.arr.length);
     if (fb.length) {
-      L.push("Repas DÉJÀ faits (ne les propose PAS) :");
+      L.push("Repas DÉJÀ faits (ne les propose PAS, saute-les) :");
       fb.forEach((x) => L.push(`- Jour ${x.i + 1} : ${x.arr.map((s) => SLOT_LABELS[s] || s).join(", ")} déjà fait${x.arr.length > 1 ? "s" : ""}.`));
     }
   } else if (mode === "day") {
     const sl = slots.length ? slots : ["pdj", "dej", "diner", "snack"];
-    L.push(`Propose mon plan du jour${dateLabel ? ` (${dateLabel})` : ""}. Repas à proposer${sl.length < 4 ? " (les autres sont déjà faits aujourd'hui)" : ""} : ${sl.map((s) => SLOT_LABELS[s] || s).join(", ")}.`);
-    L.push(`Budget RESTANT à couvrir avec ces repas : ${r0(Math.max(0, remKcal))} kcal et au moins ${r0(Math.max(0, remP))} g de protéines.`);
-    L.push("Pour CHAQUE repas ci-dessus, propose 3 OPTIONS différentes au choix (même `slot`).");
+    L.push(`Planifie ces repas pour ${dateLabel || "la journée"}${sl.length < 4 ? " (les autres sont déjà faits)" : ""} : ${sl.map((s) => `${SLOT_LABELS[s]} (slot="${s}")`).join(", ")}.`);
+    L.push(`Budget total à répartir sur l'ENSEMBLE de ces ${sl.length} repas : ${r0(Math.max(0, remKcal))} kcal et au moins ${r0(Math.max(0, remP))} g de protéines.`);
+    L.push(`Pour CHACUN de ces ${sl.length} repas, donne 3 OPTIONS au choix. → Tu dois renvoyer ${sl.length * 3} repas au total (3 par slot). Renseigne le bon \`slot\` sur chaque option.`);
   } else {
     const slotTxt = SLOT_LABELS[slot] || "repas";
     L.push(budget
