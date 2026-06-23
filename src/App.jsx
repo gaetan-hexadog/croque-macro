@@ -362,16 +362,19 @@ export default function PiocheRepas() {
     ingredients: (m.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim())),
     steps: m.steps || [], desc: m.note || "",
   });
-  // Planif : logger une suggestion dans une DATE précise (pas seulement le jour actif).
-  const logToDate = (iso, slot, m) => {
-    const s = slot || m.slot || "dej", key = picksKey(s);
+  // Planif : écrit les repas PLANIFIÉS d'un jour (forecast). Remplace les anciens
+  // planifiés (re-planification) et garde les repas réellement consommés.
+  const planDay = (iso, entries = []) => {
     setDays((prev) => {
       const d = prev[iso] || EMPTY_DAY();
-      const arr = [...((d.picks && d.picks[key]) || []), { name: m.title, kcal: Math.round(m.kcal), p: Math.round(m.protein), qty: 1 }].slice(0, CAP[s] || 8);
-      return { ...prev, [iso]: { ...d, picks: { ...(d.picks || {}), [key]: arr } } };
+      const picks = { ...(d.picks || {}) };
+      for (const k of Object.keys(picks)) if (Array.isArray(picks[k])) picks[k] = picks[k].filter((it) => !it.planned);
+      entries.forEach(({ slot, meal }) => { const key = picksKey(slot || meal.slot || "dej"); picks[key] = [...(picks[key] || []), { name: meal.title, kcal: Math.round(meal.kcal), p: Math.round(meal.protein), qty: 1, planned: true }].slice(0, CAP[slot] || 8); });
+      return { ...prev, [iso]: { ...d, picks } };
     });
-    bumpUsage(m.title);
   };
+  // « J'ai mangé » : un repas planifié devient réellement consommé.
+  const confirmMeal = (slot, index) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, planned: false } : m) } }; });
   const addShakeBase = (it) => setShakeBases((a) => [...a, { id: newId("sb"), name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
   const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: newId("sl"), name: it.name, kcal: it.kcal, p: it.p }]);
@@ -474,7 +477,7 @@ export default function PiocheRepas() {
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
-            onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)}
+            onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)} onConfirm={confirmMeal}
             onSurprise={surprise} onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip}
             onAddExtra={addExtra} onRemoveExtra={removeExtra} onOpenExtras={openExtras} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
@@ -503,7 +506,7 @@ export default function PiocheRepas() {
             targetKcal={settings.kcal} targetP={settings.protein} days={days}
             favorites={assistFavorites} knownFoods={assistKnownFoods}
             pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
-            onLogToDate={logToDate} onSaveRecipe={saveSuggestion} />
+            onPlanDay={planDay} onSaveRecipe={saveSuggestion} />
         )}
         </Suspense>
       </div>

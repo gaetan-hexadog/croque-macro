@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck } from "lucide-react";
-import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, dayTotals, EMPTY_DAY, picksKey } from "./core.js";
+import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey } from "./core.js";
 import { askAssistant, AssistantError } from "./assistant.js";
 import { PantrySheet } from "./PantrySheet.jsx";
 
@@ -46,7 +46,7 @@ export default function PlanScreen({
   targetKcal = 1850, targetP = 150, days = {},
   favorites = [], knownFoods = [],
   pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
-  onLogToDate, onSaveRecipe,
+  onPlanDay, onSaveRecipe,
 }) {
   const [mode, setMode] = useState("day");
   const [date, setDate] = useState(TODAY);
@@ -56,7 +56,8 @@ export default function PlanScreen({
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState({});   // `${di}-${slot}` → index (−1 = aucun)
   const [savedKeys, setSavedKeys] = useState(() => new Set());
-  const [committed, setCommitted] = useState(false);
+  const [committedDays, setCommittedDays] = useState(() => new Set()); // dayIndex déjà planifiés
+  const [activeDay, setActiveDay] = useState(0);  // jour affiché (mode semaine)
 
   const loggedOf = (iso) => dayTotals(days[iso] || EMPTY_DAY());
   const filledSlots = (iso) => SLOT_ORDER.map(([s]) => s).filter((s) => ((days[iso]?.picks?.[picksKey(s)]) || []).length > 0);
@@ -71,7 +72,7 @@ export default function PlanScreen({
   const avoid = pantry.filter((x) => x.out).map((x) => x.name);
 
   const ask = async () => {
-    setBusy(true); setError(null); setResults(null); setSelected({}); setCommitted(false);
+    setBusy(true); setError(null); setResults(null); setSelected({}); setCommittedDays(new Set()); setActiveDay(0);
     try {
       let payload;
       if (mode === "day") {
@@ -93,7 +94,10 @@ export default function PlanScreen({
   const save = (m, di, s, i) => { onSaveRecipe?.(m); setSavedKeys((x) => new Set(x).add(keyOf(m, di, s, i))); };
   const selK = (di, s) => `${di}-${s}`;
   const selIdx = (di, s) => (selected[selK(di, s)] ?? 0);
-  const toggleSel = (di, s, i) => { setCommitted(false); setSelected((m) => ({ ...m, [selK(di, s)]: (m[selK(di, s)] ?? 0) === i ? -1 : i })); };
+  const toggleSel = (di, s, i) => {
+    setCommittedDays((x) => { if (!x.has(di)) return x; const n = new Set(x); n.delete(di); return n; }); // choix modifié → jour à revalider
+    setSelected((m) => ({ ...m, [selK(di, s)]: (m[selK(di, s)] ?? 0) === i ? -1 : i }));
+  };
 
   const plan = useMemo(() => {
     if (!results) return null;
@@ -102,20 +106,16 @@ export default function PlanScreen({
     return Object.entries(byDay).sort((a, b) => a[0] - b[0]).map(([di, slotsObj]) => ({ di: Number(di), slotsObj }));
   }, [results, mode]);
 
-  const chosenCount = useMemo(() => {
-    if (!plan) return 0;
-    let n = 0;
-    plan.forEach(({ di, slotsObj }) => SLOT_ORDER.forEach(([s]) => { if (slotsObj[s] && selIdx(di, s) >= 0) n++; }));
-    return n;
-  }, [plan, selected]);
-
-  const commit = () => {
-    plan.forEach(({ di, slotsObj }) => SLOT_ORDER.forEach(([s]) => {
-      const opts = slotsObj[s]; if (!opts) return;
-      const idx = selIdx(di, s); if (idx < 0) return;
-      const m = opts[idx]; if (m) onLogToDate?.(mode === "week" ? addDays(date, di) : date, s, m);
-    }));
-    setCommitted(true);
+  const slotsIn = (slotsObj) => SLOT_ORDER.filter(([s]) => slotsObj[s]?.length);
+  const chosenDay = (di, slotsObj) => slotsIn(slotsObj).filter(([s]) => selIdx(di, s) >= 0).length;
+  const commitDay = (di, slotsObj) => {
+    const iso = mode === "week" ? addDays(date, di) : date;
+    const entries = [];
+    slotsIn(slotsObj).forEach(([s]) => { const idx = selIdx(di, s); if (idx < 0) return; const m = slotsObj[s][idx]; if (m) entries.push({ slot: s, meal: m }); });
+    onPlanDay?.(iso, entries);
+    setCommittedDays((x) => new Set(x).add(di));
+    // mode semaine : avance au prochain jour non encore planifié
+    if (mode === "week" && plan) { const next = plan.find((p) => p.di > di && !committedDays.has(p.di)); if (next) setActiveDay(next.di); }
   };
 
   return (
@@ -171,31 +171,49 @@ export default function PlanScreen({
         </div>
       )}
 
-      {/* Options par repas */}
-      {plan && (
-        <div className="space-y-4">
-          {plan.map(({ di, slotsObj }) => (
-            <div key={di} className="space-y-3">
-              {mode === "week" && <h3 className="pt-1 text-sm font-extrabold" style={{ color: C.ink }}>{capitalize(fmtFull(addDays(date, di)))}</h3>}
-              {SLOT_ORDER.filter(([s]) => slotsObj[s]?.length).map(([s, label]) => (
-                <div key={s}>
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{label}{selIdx(di, s) < 0 && " · ignoré"}</p>
-                  <div className="space-y-2">
-                    {slotsObj[s].map((m, i) => (
-                      <OptionCard key={keyOf(m, di, s, i)} meal={m} selected={selIdx(di, s) === i} onSelect={() => toggleSel(di, s, i)} onSave={() => save(m, di, s, i)} saved={savedKeys.has(keyOf(m, di, s, i))} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
+      {/* Options par repas — un jour à la fois (pager en mode semaine) */}
+      {plan && (() => {
+        const weekDays = plan.map((p) => p.di);
+        const curDi = mode === "week" ? (weekDays.includes(activeDay) ? activeDay : weekDays[0]) : plan[0].di;
+        const cur = plan.find((p) => p.di === curDi);
+        return (
+          <div className="space-y-4">
+            {/* Pager de jours (semaine) */}
+            {mode === "week" && (
+              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                {plan.map(({ di, slotsObj }) => {
+                  const total = slotsIn(slotsObj).length, chosen = chosenDay(di, slotsObj), done = committedDays.has(di), on = curDi === di;
+                  return (
+                    <button key={di} onClick={() => setActiveDay(di)} className="shrink-0 rounded-xl px-3 py-1.5 text-center active:scale-95" style={{ backgroundColor: on ? C.ink : C.card, border: `1px solid ${done ? C.green : C.line}` }}>
+                      <span className="block text-xs font-bold" style={{ color: on ? C.bg : C.ink }}>{capitalize(fmtShort(addDays(date, di)))}</span>
+                      <span className="block text-[10px] font-semibold" style={{ color: done ? C.green : (on ? C.bg : C.muted) }}>{done ? "✓ planifié" : `${chosen}/${total}`}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-          {/* Valider la sélection */}
-          <button onClick={commit} disabled={chosenCount === 0} className="sticky bottom-24 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: committed ? C.green : (chosenCount ? C.accent : C.line), boxShadow: `0 8px 22px -8px ${C.accent}` }}>
-            {committed ? <><Check size={17} /> Planifié ✓</> : <><CalendarCheck size={17} /> Planifier {mode === "day" ? "ma journée" : "ma semaine"} ({chosenCount})</>}
-          </button>
-        </div>
-      )}
+            {cur && (
+              <div className="space-y-3">
+                {slotsIn(cur.slotsObj).map(([s, label]) => (
+                  <div key={s}>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{label}{selIdx(cur.di, s) < 0 && " · ignoré"}</p>
+                    <div className="space-y-2">
+                      {cur.slotsObj[s].map((m, i) => (
+                        <OptionCard key={keyOf(m, cur.di, s, i)} meal={m} selected={selIdx(cur.di, s) === i} onSelect={() => toggleSel(cur.di, s, i)} onSave={() => save(m, cur.di, s, i)} saved={savedKeys.has(keyOf(m, cur.di, s, i))} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                <button onClick={() => commitDay(cur.di, cur.slotsObj)} disabled={chosenDay(cur.di, cur.slotsObj) === 0} className="sticky bottom-24 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: committedDays.has(cur.di) ? C.green : (chosenDay(cur.di, cur.slotsObj) ? C.accent : C.line), boxShadow: `0 8px 22px -8px ${C.accent}` }}>
+                  {committedDays.has(cur.di) ? <><Check size={17} /> {mode === "week" ? "Jour planifié ✓" : "Planifié ✓"}</> : <><CalendarCheck size={17} /> Planifier {mode === "week" ? "ce jour" : "ma journée"} ({chosenDay(cur.di, cur.slotsObj)})</>}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {pantryOpen && <PantrySheet pantry={pantry} onAdd={onAddPantry} onToggle={onTogglePantry} onUpdate={onUpdatePantry} onRemove={onRemovePantry} onClose={() => setPantryOpen(false)} />}
     </div>
