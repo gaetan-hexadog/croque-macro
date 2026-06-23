@@ -12,6 +12,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
+  const canFwd = activeDate < addDays(TODAY, 14); // on peut avancer jusqu'à +14 j (voir les repas planifiés)
   // Résumé hebdo compact, intégré à la carte jauge (visible sans scroller).
   const wstats = weekStats(days, settings, activeDate, 7);
   const wcoach = weekCoach(wstats, settings, weights, activeDate);
@@ -68,9 +69,10 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         <button onClick={() => setActiveDate(addDays(activeDate, -1))} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: C.sub }}><ChevronLeft size={20} /></button>
         <div className="flex items-center gap-2 text-center">
           <span className="text-sm font-bold capitalize" style={{ color: C.ink }}>{fmtFull(activeDate)}</span>
+          {activeDate > TODAY && <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>à venir</span>}
           {!isToday && <button onClick={() => setActiveDate(TODAY)} className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>Aujourd'hui</button>}
         </div>
-        <button onClick={() => !isToday && setActiveDate(addDays(activeDate, 1))} disabled={isToday} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: isToday ? C.line : C.sub }}><ChevronRight size={20} /></button>
+        <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 1))} disabled={!canFwd} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: canFwd ? C.sub : C.line }}><ChevronRight size={20} /></button>
       </div>
 
       {/* Jauge du jour — double anneau (kcal + protéines). Training = chip discret en coin. */}
