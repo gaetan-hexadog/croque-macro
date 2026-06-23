@@ -1,15 +1,47 @@
 import React, { useMemo, useState } from "react";
-import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check } from "lucide-react";
-import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, dayTotals, EMPTY_DAY } from "./core.js";
+import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck } from "lucide-react";
+import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, dayTotals, EMPTY_DAY, picksKey } from "./core.js";
 import { askAssistant, AssistantError } from "./assistant.js";
-import MealCard from "./MealCard.jsx";
 import { PantrySheet } from "./PantrySheet.jsx";
 
 const MODES = [{ k: "day", l: "Une journée" }, { k: "week", l: "Une semaine" }];
+const SLOT_ORDER = [["pdj", "Petit-déjeuner"], ["dej", "Déjeuner"], ["diner", "Dîner"], ["snack", "En-cas"]];
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim();
 
-// Planification anticipée : une journée ou une semaine, à partir d'une date choisie.
-// Part du RESTANT réel (re-planif) et logge chaque repas dans la bonne date.
+// Carte d'OPTION sélectionnable (radio). Tap = choisir/désélectionner ce repas.
+function OptionCard({ meal, selected, onSelect, onSave, saved }) {
+  const [open, setOpen] = useState(false);
+  const detail = meal.ingredients?.length || meal.steps?.length;
+  return (
+    <div onClick={onSelect} role="button" className="cursor-pointer rounded-2xl p-3" style={{ ...cardStyle(), outline: selected ? `2px solid ${C.green}` : `1px solid transparent`, outlineOffset: -1 }}>
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ border: `2px solid ${selected ? C.green : C.muted}`, backgroundColor: selected ? C.green : "transparent" }}>{selected && <Check size={12} className="text-white" />}</span>
+        <span className="text-xl leading-none">{meal.emoji || "🍽️"}</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-tight" style={{ color: C.ink }}>{meal.title}</p>
+          <p className="mt-0.5 text-xs" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{Math.round(meal.kcal)}</span> kcal · <span className="font-semibold" style={{ color: C.protein }}>{Math.round(meal.protein)} g</span></p>
+          {meal.note && <p className="mt-0.5 text-[11px] italic" style={{ color: C.muted }}>{meal.note}</p>}
+        </div>
+        <button onClick={(ev) => { ev.stopPropagation(); onSave(); }} disabled={saved} className="shrink-0 p-1" style={{ color: saved ? C.green : C.muted }} aria-label="Enregistrer dans ma cuisine">{saved ? <Check size={15} /> : <BookmarkPlus size={15} />}</button>
+      </div>
+      {detail ? (
+        <button onClick={(ev) => { ev.stopPropagation(); setOpen((o) => !o); }} className="mt-1.5 flex items-center gap-1 pl-8 text-[11px] font-medium" style={{ color: C.sub }}>
+          <ChevronDown size={12} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} /> {open ? "Masquer" : "Recette"}
+        </button>
+      ) : null}
+      {open && (
+        <div className="mt-1.5 space-y-1 border-t pl-8 pt-1.5" style={{ borderColor: C.line }}>
+          {meal.ingredients?.map((i, n) => <p key={`i${n}`} className="text-xs" style={{ color: C.sub }}>• {ingLine(i)}</p>)}
+          {meal.steps?.map((s, n) => <p key={`s${n}`} className="text-xs" style={{ color: C.sub }}>{n + 1}. {s}</p>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Planification : propose des OPTIONS par repas (créneaux restants si jour en
+// cours, tous sinon). On en sélectionne une par repas, puis « Planifier » valide tout.
 export default function PlanScreen({
   targetKcal = 1850, targetP = 150, days = {},
   favorites = [], knownFoods = [],
@@ -17,34 +49,39 @@ export default function PlanScreen({
   onLogToDate, onSaveRecipe,
 }) {
   const [mode, setMode] = useState("day");
-  const [date, setDate] = useState(TODAY);   // jour mode : date cible ; semaine mode : date de départ
+  const [date, setDate] = useState(TODAY);
   const [pantryOpen, setPantryOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
+  const [selected, setSelected] = useState({});   // `${di}-${slot}` → index (−1 = aucun)
   const [savedKeys, setSavedKeys] = useState(() => new Set());
-  const [doneDays, setDoneDays] = useState(() => new Set());
+  const [committed, setCommitted] = useState(false);
 
-  // Restant réel pour la date (jour mode) et consommé par jour (semaine mode).
   const loggedOf = (iso) => dayTotals(days[iso] || EMPTY_DAY());
+  const filledSlots = (iso) => SLOT_ORDER.map(([s]) => s).filter((s) => ((days[iso]?.picks?.[picksKey(s)]) || []).length > 0);
+  const emptySlots = (iso) => SLOT_ORDER.map(([s]) => s).filter((s) => !filledSlots(iso).includes(s));
   const dayRem = useMemo(() => { const t = loggedOf(date); return { kcal: targetKcal - t.kcal, p: targetP - t.p }; }, [date, days, targetKcal, targetP]);
-  const weekLogged = useMemo(() => Array.from({ length: 7 }, (_, i) => loggedOf(addDays(date, i))), [date, days]);
 
   const quick = mode === "day"
     ? [{ iso: TODAY, l: "Aujourd'hui" }, { iso: addDays(TODAY, 1), l: "Demain" }]
     : [{ iso: TODAY, l: "Dès aujourd'hui" }, { iso: addDays(TODAY, 1), l: "Dès demain" }];
 
+  const have = pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 }));
+  const avoid = pantry.filter((x) => x.out).map((x) => x.name);
+
   const ask = async () => {
-    setBusy(true); setError(null); setResults(null);
+    setBusy(true); setError(null); setResults(null); setSelected({}); setCommitted(false);
     try {
-      const payload = mode === "day"
-        ? { mode: "day", remKcal: dayRem.kcal, remP: dayRem.p, targetKcal, targetP, dateLabel: fmtFull(date) }
-        : { mode: "week", targetKcal, targetP, startLabel: fmtFull(date), loggedByDay: weekLogged };
-      const { system, prompt, mode: m } = buildAssistantPrompt({
-        ...payload, favorites, knownFoods,
-        have: pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
-        avoid: pantry.filter((x) => x.out).map((x) => x.name),
-      });
+      let payload;
+      if (mode === "day") {
+        const sl = emptySlots(date);
+        if (!sl.length) { setError(new AssistantError("Journée déjà complète — tous les repas sont loggés.")); setBusy(false); return; }
+        payload = { mode: "day", remKcal: dayRem.kcal, remP: dayRem.p, targetKcal, targetP, dateLabel: fmtFull(date), slots: sl };
+      } else {
+        payload = { mode: "week", targetKcal, targetP, startLabel: fmtFull(date), filledByDay: Array.from({ length: 7 }, (_, i) => filledSlots(addDays(date, i))) };
+      }
+      const { system, prompt, mode: m } = buildAssistantPrompt({ ...payload, favorites, knownFoods, have, avoid });
       const { meals } = await askAssistant({ system, prompt, mode: m });
       setResults(meals);
     } catch (e) {
@@ -52,22 +89,38 @@ export default function PlanScreen({
     } finally { setBusy(false); }
   };
 
-  const keyOf = (m, i) => `${m.dayIndex ?? 0}-${m.slot}-${m.title}-${i}`;
-  const save = (m, i) => { onSaveRecipe?.(m); setSavedKeys((s) => new Set(s).add(keyOf(m, i))); };
-  const isoFor = (m) => (mode === "week" ? addDays(date, m.dayIndex || 0) : date);
-  const logOne = (m, i) => onLogToDate?.(isoFor(m), m.slot, m);
-  const logDay = (meals, di) => { meals.forEach((m) => onLogToDate?.(addDays(date, di), m.slot, m)); setDoneDays((s) => new Set(s).add(di)); };
+  const keyOf = (m, di, s, i) => `${di}-${s}-${i}-${m.title}`;
+  const save = (m, di, s, i) => { onSaveRecipe?.(m); setSavedKeys((x) => new Set(x).add(keyOf(m, di, s, i))); };
+  const selK = (di, s) => `${di}-${s}`;
+  const selIdx = (di, s) => (selected[selK(di, s)] ?? 0);
+  const toggleSel = (di, s, i) => { setCommitted(false); setSelected((m) => ({ ...m, [selK(di, s)]: (m[selK(di, s)] ?? 0) === i ? -1 : i })); };
 
-  const grouped = useMemo(() => {
+  const plan = useMemo(() => {
     if (!results) return null;
-    const by = {};
-    results.forEach((m) => { const k = mode === "week" ? (m.dayIndex ?? 0) : 0; (by[k] ||= []).push(m); });
-    return Object.entries(by).sort((a, b) => a[0] - b[0]);
+    const byDay = {};
+    results.forEach((m) => { const di = mode === "week" ? (m.dayIndex ?? 0) : 0; const s = m.slot || "dej"; ((byDay[di] ||= {})[s] ||= []).push(m); });
+    return Object.entries(byDay).sort((a, b) => a[0] - b[0]).map(([di, slotsObj]) => ({ di: Number(di), slotsObj }));
   }, [results, mode]);
+
+  const chosenCount = useMemo(() => {
+    if (!plan) return 0;
+    let n = 0;
+    plan.forEach(({ di, slotsObj }) => SLOT_ORDER.forEach(([s]) => { if (slotsObj[s] && selIdx(di, s) >= 0) n++; }));
+    return n;
+  }, [plan, selected]);
+
+  const commit = () => {
+    plan.forEach(({ di, slotsObj }) => SLOT_ORDER.forEach(([s]) => {
+      const opts = slotsObj[s]; if (!opts) return;
+      const idx = selIdx(di, s); if (idx < 0) return;
+      const m = opts[idx]; if (m) onLogToDate?.(mode === "week" ? addDays(date, di) : date, s, m);
+    }));
+    setCommitted(true);
+  };
 
   return (
     <div className="space-y-4">
-      <p className="text-sm" style={{ color: C.sub }}>Anticipe tes repas. Je pars de ce que tu as déjà loggé pour ne proposer que le reste, et chaque repas s'ajoute à la bonne date.</p>
+      <p className="text-sm" style={{ color: C.sub }}>Génère des options par repas, choisis celles qui te plaisent, puis planifie-les. Sur le jour en cours, seuls les repas pas encore faits sont proposés.</p>
 
       {/* Mode */}
       <div className="flex gap-1.5 rounded-2xl p-1" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
@@ -102,9 +155,9 @@ export default function PlanScreen({
       </div>
 
       {/* Générer */}
-      <button onClick={ask} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}>
+      <button onClick={ask} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold active:scale-95" style={{ backgroundColor: results ? "transparent" : C.green, color: results ? C.green : "#fff", border: `1.5px solid ${C.green}` }}>
         {busy ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-        {busy ? "L'assistant réfléchit…" : results ? "Régénérer" : mode === "day" ? "Planifier la journée" : "Planifier la semaine"}
+        {busy ? "L'assistant réfléchit…" : results ? "Régénérer des options" : mode === "day" ? "Proposer des repas" : "Proposer ma semaine"}
       </button>
 
       {error && (
@@ -118,21 +171,29 @@ export default function PlanScreen({
         </div>
       )}
 
-      {grouped && (
-        <div className="space-y-3">
-          {grouped.map(([di, meals]) => (
-            <div key={di} className="space-y-2">
-              {mode === "week" && (
-                <div className="flex items-center justify-between pt-1">
-                  <p className="text-xs font-bold" style={{ color: C.ink }}>{capitalize(fmtFull(addDays(date, Number(di))))}</p>
-                  <button onClick={() => logDay(meals, Number(di))} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: doneDays.has(Number(di)) ? C.green : C.card, color: doneDays.has(Number(di)) ? "#fff" : C.sub, border: `1px solid ${C.line}` }}>
-                    {doneDays.has(Number(di)) ? <span className="flex items-center gap-1"><Check size={12} /> Ajouté</span> : "Ajouter le jour"}
-                  </button>
+      {/* Options par repas */}
+      {plan && (
+        <div className="space-y-4">
+          {plan.map(({ di, slotsObj }) => (
+            <div key={di} className="space-y-3">
+              {mode === "week" && <h3 className="pt-1 text-sm font-extrabold" style={{ color: C.ink }}>{capitalize(fmtFull(addDays(date, di)))}</h3>}
+              {SLOT_ORDER.filter(([s]) => slotsObj[s]?.length).map(([s, label]) => (
+                <div key={s}>
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{label}{selIdx(di, s) < 0 && " · ignoré"}</p>
+                  <div className="space-y-2">
+                    {slotsObj[s].map((m, i) => (
+                      <OptionCard key={keyOf(m, di, s, i)} meal={m} selected={selIdx(di, s) === i} onSelect={() => toggleSel(di, s, i)} onSave={() => save(m, di, s, i)} saved={savedKeys.has(keyOf(m, di, s, i))} />
+                    ))}
+                  </div>
                 </div>
-              )}
-              {meals.map((m, i) => <MealCard key={keyOf(m, i)} meal={m} logLabel={mode === "day" ? "Ajouter" : "Ce repas"} onLog={() => logOne(m, i)} onSave={() => save(m, i)} saved={savedKeys.has(keyOf(m, i))} />)}
+              ))}
             </div>
           ))}
+
+          {/* Valider la sélection */}
+          <button onClick={commit} disabled={chosenCount === 0} className="sticky bottom-24 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: committed ? C.green : (chosenCount ? C.accent : C.line), boxShadow: `0 8px 22px -8px ${C.accent}` }}>
+            {committed ? <><Check size={17} /> Planifié ✓</> : <><CalendarCheck size={17} /> Planifier {mode === "day" ? "ma journée" : "ma semaine"} ({chosenCount})</>}
+          </button>
         </div>
       )}
 

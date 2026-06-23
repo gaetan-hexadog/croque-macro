@@ -437,7 +437,9 @@ function buildAssistantPrompt({
   knownFoods = [],           // [{name, kcal, p, unit}] macros EXACTES à réutiliser
   have = [],                 // aliments disponibles (frigo/placard)
   avoid = [],                // aliments à exclure (pas dispo / pas envie aujourd'hui)
-  loggedByDay = [],          // semaine : [{kcal,p}] déjà consommés par jour (index = dayIndex) → re-planif du reste
+  loggedByDay = [],          // semaine : [{kcal,p}] déjà consommés par jour (index = dayIndex)
+  slots = [],                // jour : créneaux RESTANT à planifier (les autres sont déjà loggés)
+  filledByDay = [],          // semaine : [[slots déjà faits]] par jour
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -476,27 +478,28 @@ function buildAssistantPrompt({
 
   const budget = Number.isFinite(remKcal) && Number.isFinite(remP);
   if (mode === "week") {
-    L.push(`Planifie 7 jours (dayIndex 0 à 6${startLabel ? `, jour 0 = ${startLabel}` : ""}). Chaque jour doit totaliser environ ${r0(targetKcal)} kcal et au moins ${r0(targetP)} g de protéines, répartis entre petit-déjeuner, déjeuner, dîner et un en-cas si pertinent.`);
-    L.push("Varie les repas sur la semaine. Indique le slot et le dayIndex de chaque repas.");
-    const logged = (loggedByDay || []).map((d, i) => ({ i, kcal: d?.kcal || 0, p: d?.p || 0 })).filter((d) => d.kcal > 0);
-    if (logged.length) {
-      L.push("");
-      L.push("Certains jours ont DÉJÀ des repas loggés — ne les replanifie pas, complète seulement le reste pour atteindre la cible :");
-      logged.forEach((d) => L.push(`- Jour ${d.i + 1} : déjà ${r0(d.kcal)} kcal / ${r0(d.p)} g consommés → propose seulement le complément.`));
+    L.push(`Planifie 7 jours (dayIndex 0 à 6${startLabel ? `, jour 0 = ${startLabel}` : ""}). Pour CHAQUE jour : petit-déjeuner, déjeuner, dîner et un en-cas. Pour CHAQUE repas, propose 2 OPTIONS différentes au choix (même \`slot\` ET même \`dayIndex\`).`);
+    L.push(`Vise ~${r0(targetKcal)} kcal et au moins ${r0(targetP)} g de protéines par jour. Varie les repas d'un jour à l'autre.`);
+    const fb = (filledByDay || []).map((arr, i) => ({ i, arr: arr || [] })).filter((x) => x.arr.length);
+    if (fb.length) {
+      L.push("Repas DÉJÀ faits (ne les propose PAS) :");
+      fb.forEach((x) => L.push(`- Jour ${x.i + 1} : ${x.arr.map((s) => SLOT_LABELS[s] || s).join(", ")} déjà fait${x.arr.length > 1 ? "s" : ""}.`));
     }
   } else if (mode === "day") {
-    const k = budget ? Math.max(0, remKcal) : targetKcal;
-    const p = budget ? Math.max(0, remP) : targetP;
-    L.push(`Planifie ${budget ? "le reste de ma" : "une"} journée (petit-déjeuner, déjeuner, dîner, + en-cas si utile) totalisant environ ${r0(k)} kcal et au moins ${r0(p)} g de protéines. Indique le slot de chaque repas.`);
+    const sl = slots.length ? slots : ["pdj", "dej", "diner", "snack"];
+    L.push(`Propose mon plan du jour${dateLabel ? ` (${dateLabel})` : ""}. Repas à proposer${sl.length < 4 ? " (les autres sont déjà faits aujourd'hui)" : ""} : ${sl.map((s) => SLOT_LABELS[s] || s).join(", ")}.`);
+    L.push(`Budget RESTANT à couvrir avec ces repas : ${r0(Math.max(0, remKcal))} kcal et au moins ${r0(Math.max(0, remP))} g de protéines.`);
+    L.push("Pour CHAQUE repas ci-dessus, propose 3 OPTIONS différentes au choix (même `slot`).");
   } else {
     const slotTxt = SLOT_LABELS[slot] || "repas";
     L.push(budget
       ? `Propose-moi 3 options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
       : `Propose-moi 3 options de ${slotTxt}, équilibrées et protéinées.`);
-    if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…). Privilégie ce que j'ai dans mon frigo, en portions.");
-    else L.push("Privilégie ce que j'ai dans mon frigo, en indiquant les portions utilisées.");
+    if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
   }
+  if (mode === "day" || mode === "week") L.push("Garde chaque option CONCISE : titre, macros, courte description (ingrédients principaux) ; étapes facultatives.");
+  L.push("Privilégie mon frigo (en portions) MAIS sans t'y limiter : complète librement avec d'autres aliments courants pour varier et atteindre les cibles.");
 
   return { mode, system: sys, prompt: L.join("\n") };
 }
