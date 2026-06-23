@@ -119,7 +119,7 @@ export default function AssistantScreen({
       .map((r) => ({ title: r.name, emoji: r.emoji, kcal: r.kcal, protein: r.p, slot, ingredients: r.ingredients?.map((s) => (typeof s === "string" ? { name: s } : s)) || [], steps: r.steps || [], _local: true }));
   }, [mode, slot, remKcal, localIdeas]);
 
-  const thin = local.length < 3; // peu de matchs → on met en avant Claude
+  const thin = local.length < 3; // peu de matchs → on met en avant l'assistant
 
   const ask = async () => {
     setBusy(true); setError(null);
@@ -154,7 +154,7 @@ export default function AssistantScreen({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm" style={{ color: C.sub }}>Dis-moi ce que tu cherches — je pioche d'abord dans tes idées, et Claude complète à la demande.</p>
+      <p className="text-sm" style={{ color: C.sub }}>Dis-moi ce que tu cherches — je pioche d'abord dans tes idées, et l'assistant complète à la demande.</p>
 
       {/* Mode */}
       <div className="flex gap-1.5 rounded-2xl p-1" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
@@ -196,11 +196,11 @@ export default function AssistantScreen({
         </div>
       )}
 
-      {/* Bouton Claude */}
+      {/* Bouton assistant */}
       <button onClick={ask} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold active:scale-95"
         style={{ backgroundColor: thin || results ? C.green : "transparent", color: thin || results ? "#fff" : C.green, border: `1.5px solid ${C.green}` }}>
         {busy ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-        {busy ? "Claude réfléchit…" : results ? "Régénérer" : mode === "meal" ? (thin ? "Peu d'idées ici — demander à Claude" : "Demander à Claude") : mode === "day" ? "Planifier ma journée" : "Planifier ma semaine"}
+        {busy ? "L'assistant réfléchit…" : results ? "Régénérer" : mode === "meal" ? (thin ? "Peu d'idées ici — demander à l'assistant" : "Demander à l'assistant") : mode === "day" ? "Planifier ma journée" : "Planifier ma semaine"}
       </button>
 
       {/* Erreur */}
@@ -218,7 +218,7 @@ export default function AssistantScreen({
       {/* Résultats générés */}
       {results && (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Proposé par Claude</p>
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Proposé par l'assistant</p>
           {grouped ? (
             grouped.map(([di, meals]) => (
               <div key={di} className="space-y-2">

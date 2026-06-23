@@ -44,7 +44,7 @@ export async function askAssistant(payload, { signal } = {}) {
 
   let out;
   try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError(out?.error || `Erreur assistant (${res.status}).`, { status: res.status, kind: "server" });
+  if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
   if (!out || !Array.isArray(out.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
   return out;
 }
