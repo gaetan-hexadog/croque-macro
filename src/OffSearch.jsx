@@ -143,6 +143,8 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
       name: `${selected.name}${selected.brand ? ` · ${selected.brand}` : ""} (${fmt(g)} ${unit})`,
       kcal: calc.kcal, p: calc.p, c: calc.c, f: calc.f,
       qty: 1, off: true, code: selected.code,
+      // Données de référence (pour un usage « stock » : frigo) : densité /100 + unité + format du paquet.
+      unit, grams: g, per100: { kcal: Math.round(pf(macros.kcal)), p: Math.round(pf(macros.p) * 10) / 10 }, pkgQty: selected.quantity || "",
     });
   }
 

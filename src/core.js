@@ -461,7 +461,17 @@ function buildAssistantPrompt({
     L.push("");
   }
   if (favorites.length) { L.push(`Mes favoris (à privilégier) : ${favorites.slice(0, 30).join(", ")}.`); L.push(""); }
-  if (have.length) { L.push(`Disponible dans mon frigo/placard aujourd'hui : ${have.slice(0, 60).join(", ")}.`); L.push(""); }
+  if (have.length) {
+    L.push("Disponible dans mon frigo/placard (tu peux n'en utiliser qu'une PARTIE — ne consomme pas forcément tout le paquet) :");
+    have.slice(0, 60).forEach((h) => {
+      if (typeof h === "string") { L.push(`- ${h}`); return; }
+      const u = h.unit || "g";
+      const stock = h.qty ? ` (${h.qty} ${u} dispo)` : "";
+      const macro = (h.kcal100 || h.p100) ? ` — ${r0(h.kcal100 || 0)} kcal, ${h.p100 ?? "?"} g prot. pour 100 ${u}` : "";
+      L.push(`- ${h.name}${stock}${macro}`);
+    });
+    L.push("");
+  }
   if (avoid.length) { L.push(`À NE PAS utiliser aujourd'hui : ${avoid.slice(0, 40).join(", ")}.`); L.push(""); }
 
   const budget = Number.isFinite(remKcal) && Number.isFinite(remP);

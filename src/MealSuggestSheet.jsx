@@ -41,7 +41,7 @@ export function MealSuggestSheet({
     try {
       const { system, prompt, mode } = buildAssistantPrompt({
         mode: "meal", slot, remKcal, remP, favorites, knownFoods,
-        have: pantry.filter((x) => !x.out).map((x) => x.name),
+        have: pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...exclude.split(",").map((s) => s.trim()).filter(Boolean)],
         dateLabel,
       });

@@ -42,7 +42,7 @@ export default function PlanScreen({
         : { mode: "week", targetKcal, targetP, startLabel: fmtFull(date), loggedByDay: weekLogged };
       const { system, prompt, mode: m } = buildAssistantPrompt({
         ...payload, favorites, knownFoods,
-        have: pantry.filter((x) => !x.out).map((x) => x.name),
+        have: pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: pantry.filter((x) => x.out).map((x) => x.name),
       });
       const { meals } = await askAssistant({ system, prompt, mode: m });

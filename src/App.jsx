@@ -235,10 +235,7 @@ export default function PiocheRepas() {
     const favNames = favs.map((id) => (library.recipes.find((r) => r.id === id) || customRecipes.find((r) => r.id === id))?.name).filter(Boolean);
     return Array.from(new Set([...favNames, ...fromUsage]));
   }, [usage, favs, library.recipes, customRecipes]);
-  const assistKnownFoods = useMemo(() => [
-    ...customMeals.map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, unit: m.unit || m.qtyUnit })),
-    ...pantry.filter((x) => x.kcal || x.p).map((x) => ({ name: x.name, kcal: x.kcal, p: x.p })),
-  ], [customMeals, pantry]);
+  const assistKnownFoods = useMemo(() => customMeals.map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, unit: m.unit || m.qtyUnit })), [customMeals]);
 
   // Ajustement adaptatif de la cible : ancré sur ta maintenance OBSERVÉE (pas une
   // formule figée), pour forcer la continuité de perte, avec garde-fous (BMI/BMR/rythme).
@@ -318,11 +315,17 @@ export default function PiocheRepas() {
   const updateRecipe = (id, patch) => setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   // Frigo/placard : staples avec interrupteur dispo (out=true → pas dispo aujourd'hui)
   // + macros optionnelles (kcal/p) renseignables au scan, éditables.
-  const addPantry = (name, macros) => setPantry((cur) => {
+  // data : { unit, qty (stock total), kcal100, p100 (densité /100 unité) }
+  const addPantry = (name, data) => setPantry((cur) => {
     const n = String(name || "").trim();
     if (!n || cur.some((x) => x.name.toLowerCase() === n.toLowerCase())) return cur;
     const extra = {};
-    if (macros) { const k = Math.round(macros.kcal); const p = Math.round((macros.p || 0) * 10) / 10; if (k > 0) extra.kcal = k; if (p > 0) extra.p = p; }
+    if (data) {
+      if (data.unit) extra.unit = data.unit;
+      const q = Math.round((data.qty || 0) * 10) / 10; if (q > 0) extra.qty = q;
+      const k = Math.round(data.kcal100 || 0); if (k > 0) extra.kcal100 = k;
+      const p = Math.round((data.p100 || 0) * 10) / 10; if (p > 0) extra.p100 = p;
+    }
     return [{ id: newId("pan"), name: n, out: false, ...extra }, ...cur].slice(0, 120);
   });
   const togglePantry = (id) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, out: !x.out } : x));
