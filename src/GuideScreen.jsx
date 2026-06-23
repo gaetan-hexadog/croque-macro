@@ -85,10 +85,7 @@ export function GuideScreen({ onAddExtra, dateLabel, settings }) {
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Guide</h1>
-        <p className="text-sm" style={{ color: C.sub }}>Méthode, antisèches et outils pour s'y retrouver — surtout en vacances.</p>
-      </div>
+      <p className="mb-4 text-sm" style={{ color: C.sub }}>Méthode, antisèches et outils pour s'y retrouver — surtout en vacances.</p>
 
       <div className="mb-2 flex flex-wrap gap-1.5">
         {SECTIONS.map(([id, label]) => (

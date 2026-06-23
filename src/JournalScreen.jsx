@@ -28,9 +28,6 @@ export function JournalScreen({ days, weights, settings, onOpen, activeDate }) {
 
   return (
     <div>
-      <div className="mb-1">
-        <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui", }}>Journal</h1>
-      </div>
       <p className="mb-4 text-sm" style={{ color: C.sub, fontVariantNumeric: "tabular-nums" }}>
         {nLogged > 0
           ? <>{nLogged} jour{nLogged > 1 ? "s" : ""} noté{nLogged > 1 ? "s" : ""} · moy. <span style={{ color: C.ink, fontWeight: 600 }}>{avgK} kcal</span> · <span style={{ color: C.protein, fontWeight: 600 }}>{avgP} g prot.</span></>

@@ -52,10 +52,6 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
   const DEFICITS = [{ v: 0, l: "Maintien" }, { v: 0.12, l: "Perte douce" }, { v: 0.18, l: "Perte" }, { v: 0.25, l: "Perte rapide" }];
   return (
     <div className="px-1">
-      <div className="mb-3 flex items-center gap-2">
-        <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Retour"><ChevronLeft size={20} /></button>
-        <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Réglages</h1>
-      </div>
         <p className="mb-4 text-sm" style={{ color: C.sub }}>Règle tes cibles à la main, ou laisse le calculateur les estimer.</p>
 
         <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>

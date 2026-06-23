@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup, ScanLine } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup, ScanLine, ChevronLeft } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -379,16 +379,23 @@ export default function PiocheRepas() {
   return (
     <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
       <div className="mx-auto w-full max-w-md px-4 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}>
-        {/* Marque */}
-        <header className="mb-5 flex items-center justify-between">
-          <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-          <div className="flex items-center gap-2">
+        {/* TopBar unifié : titre de la page + actions (scan / réglages), retour pour les sous-écrans */}
+        <header className="mb-4 flex items-center gap-2.5">
+          {(view === "guide" || view === "reglages") && (
+            <button onClick={navBack} aria-label="Retour" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><ChevronLeft size={20} /></button>
+          )}
+          {view === "jour"
+            ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
+            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Idées", guide: "Guide", reglages: "Réglages" }[view]}</h1>}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
               <ScanLine size={18} />
             </button>
-            <button onClick={openSettings} aria-label="Réglages" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-              <Settings2 size={18} />
-            </button>
+            {view !== "reglages" && (
+              <button onClick={openSettings} aria-label="Réglages" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+                <Settings2 size={18} />
+              </button>
+            )}
           </div>
         </header>
 

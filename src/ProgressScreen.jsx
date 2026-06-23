@@ -24,7 +24,7 @@ export function ProgressScreen({ days, weights, settings }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui", }}>Progrès</h1>
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Période</span>
         <SegToggle options={PERIODS} value={period} onChange={setPeriod} />
       </div>
 

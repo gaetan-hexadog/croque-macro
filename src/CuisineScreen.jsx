@@ -33,11 +33,6 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
 
   return (
     <div className="px-1">
-      <div className="mb-3 flex items-center gap-2">
-        <ChefHat size={22} style={{ color: C.ink }} />
-        <h1 className="text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Ma cuisine</h1>
-        <span className="ml-auto text-xs font-semibold" style={{ color: C.muted }}>{list.length}</span>
-      </div>
 
       <div className="relative mb-3">
         <Search size={16} style={{ color: C.muted, position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
