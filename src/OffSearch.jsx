@@ -13,6 +13,8 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [grams, setGrams] = useState("100");
+  const [macros, setMacros] = useState(null); // {kcal,p,c,f,s} pour 100 g/ml — éditables (données OFF souvent fausses)
+  const [editing, setEditing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [saved, setSaved] = useState(false);
   const videoRef = useRef(null);
@@ -23,6 +25,8 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   useEffect(() => { if (initialQuery && initialQuery.trim()) runSearch(); /* lance la recherche en ligne avec la requête héritée */ }, []);
 
   const fmt = (v) => (v == null ? "—" : Number.isInteger(v) ? String(v) : String(Math.round(v * 10) / 10).replace(".", ","));
+  // Sélection d'un produit → on copie ses macros dans un état éditable (pour 100 g/ml).
+  const pick = (p) => { setSelected(p); setGrams("100"); setEditing(false); setMacros({ kcal: p.per100.kcal ?? "", p: p.per100.p ?? "", c: p.per100.c ?? "", f: p.per100.f ?? "", s: p.per100.s ?? "" }); };
   // Scan dispo si l'API native existe (Android/Chrome) OU si on a accès caméra (iOS → fallback ZXing).
   const hasNativeDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
   const supported = typeof navigator !== "undefined" && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -108,8 +112,8 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
     try {
       const p = await fetchProductByBarcode(code);
       if (!p) setError(`Code ${code} introuvable dans Open Food Facts.`);
-      else if (p.per100.kcal == null) setError("Produit trouvé mais sans valeurs nutritionnelles.");
-      else { setSelected(p); setGrams("100"); }
+      else if (p.per100.kcal == null) setError("Produit trouvé mais sans valeurs nutritionnelles — saisis-les à la main après sélection.");
+      else { pick(p); }
     } catch (e) {
       setError("Lecture indisponible (réseau).");
     } finally {
@@ -119,13 +123,16 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
 
   useEffect(() => () => { stopScan(); if (abortRef.current) abortRef.current.abort(); }, []);
 
+  const pf = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
+  const pfn = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : null; };
+  const unit = selected?.liquid ? "ml" : "g"; // ml pour les boissons, g sinon
   const g = Math.max(0, parseFloat((grams || "").replace(",", ".")) || 0);
-  const calc = selected
+  const calc = selected && macros
     ? {
-        kcal: Math.round((selected.per100.kcal || 0) * g / 100),
-        p: Math.round((selected.per100.p || 0) * g / 10) / 10,
-        c: selected.per100.c != null ? Math.round(selected.per100.c * g / 10) / 10 : null,
-        f: selected.per100.f != null ? Math.round(selected.per100.f * g / 10) / 10 : null,
+        kcal: Math.round(pf(macros.kcal) * g / 100),
+        p: Math.round(pf(macros.p) * g / 10) / 10,
+        c: macros.c !== "" && macros.c != null ? Math.round(pf(macros.c) * g / 10) / 10 : null,
+        f: macros.f !== "" && macros.f != null ? Math.round(pf(macros.f) * g / 10) / 10 : null,
       }
     : null;
 
@@ -133,7 +140,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
     if (!selected || !calc || g <= 0) return;
     onChoose({
       id: `off-${selected.code}-${Date.now()}`,
-      name: `${selected.name}${selected.brand ? ` · ${selected.brand}` : ""} (${fmt(g)} g)`,
+      name: `${selected.name}${selected.brand ? ` · ${selected.brand}` : ""} (${fmt(g)} ${unit})`,
       kcal: calc.kcal, p: calc.p, c: calc.c, f: calc.f,
       qty: 1, off: true, code: selected.code,
     });
@@ -143,10 +150,10 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
     if (!selected || !calc || g <= 0 || !onSave) return;
     onSave({
       id: `off-${selected.code}`,
-      name: `${selected.name}${selected.brand ? ` · ${selected.brand}` : ""} (${fmt(g)} g)`,
+      name: `${selected.name}${selected.brand ? ` · ${selected.brand}` : ""} (${fmt(g)} ${unit})`,
       kcal: calc.kcal, p: calc.p, c: calc.c, f: calc.f,
       slots: ["pdj", "dej", "diner", "snack"], tags: [],
-      desc: `${fmt(g)} g · Open Food Facts`, custom: true, off: true, code: selected.code,
+      desc: `${fmt(g)} ${unit} · Open Food Facts`, custom: true, off: true, code: selected.code, unit,
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -167,7 +174,14 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
 
   // ── Vue produit sélectionné (saisie grammes) ──
   if (selected) {
-    const verdict = scoreProduct({ kcal: selected.per100.kcal, p: selected.per100.p, fat: selected.per100.f, sugar: selected.per100.s });
+    const verdict = scoreProduct({ kcal: pf(macros.kcal), p: pf(macros.p), fat: pfn(macros.f), sugar: pfn(macros.s) });
+    const setM = (k) => (e) => setMacros((m) => ({ ...m, [k]: e.target.value }));
+    const mField = (k, label) => (
+      <label className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium" style={{ color: C.muted }}>{label}</span>
+        <input value={macros[k]} onChange={setM(k)} inputMode="decimal" className="w-full rounded-lg px-2 py-1.5 text-center text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+      </label>
+    );
     return (
       <div className="rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
         <div className="mb-1 flex items-start justify-between gap-2">
@@ -177,14 +191,26 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
           </div>
           <button onClick={() => setSelected(null)} className="shrink-0 rounded-full p-1.5 active:scale-90" style={{ color: C.muted }}><X size={16} /></button>
         </div>
-        <p className="mb-2 text-xs" style={{ color: C.muted }}>Pour 100 g : {fmt(selected.per100.kcal)} kcal · {fmt(selected.per100.p)} g prot.</p>
+        <button onClick={() => setEditing((v) => !v)} className="mb-2 text-xs underline-offset-2 hover:underline" style={{ color: C.muted }}>
+          Pour 100 {unit} : {fmt(pf(macros.kcal))} kcal · {fmt(pf(macros.p))} g prot. · <span style={{ color: C.protein }}>{editing ? "fermer" : "ajuster"}</span>
+        </button>
+
+        {editing && (
+          <div className="mb-3 grid grid-cols-4 gap-2 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+            <p className="col-span-4 -mb-1 text-[11px]" style={{ color: C.sub }}>Valeurs pour 100 {unit} (corrige si OFF se trompe) :</p>
+            {mField("kcal", "kcal")}
+            {mField("p", "prot.")}
+            {mField("c", "gluc.")}
+            {mField("f", "lip.")}
+          </div>
+        )}
 
         {verdict && <div className="mb-3"><ProductVerdict C={C} verdict={verdict} /></div>}
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold" style={{ color: C.sub }}>Quantité</span>
           <input value={grams} onChange={(e) => setGrams(e.target.value)} inputMode="decimal" className="w-24 rounded-xl px-3 py-2 text-center text-sm font-bold outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <span className="text-sm" style={{ color: C.muted }}>g</span>
+          <span className="text-sm" style={{ color: C.muted }}>{unit}</span>
         </div>
 
         <div className="mt-3 flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
@@ -230,10 +256,10 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
       {!loading && results.length > 0 && (
         <div className="space-y-2">
           {results.map((p) => (
-            <button key={p.code} onClick={() => { setSelected(p); setGrams("100"); }} className="flex w-full items-center gap-3 rounded-2xl p-3 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+            <button key={p.code} onClick={() => pick(p)} className="flex w-full items-center gap-3 rounded-2xl p-3 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{p.name}</p>
-                <p className="truncate text-xs" style={{ color: C.sub }}>{p.brand || "—"} · <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(p.per100.kcal)} kcal / 100 g</span></p>
+                <p className="truncate text-xs" style={{ color: C.sub }}>{p.brand || "—"} · <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(p.per100.kcal)} kcal / 100 {p.liquid ? "ml" : "g"}</span></p>
               </div>
               <Check size={16} style={{ color: C.line }} />
             </button>

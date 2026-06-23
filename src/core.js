@@ -422,8 +422,68 @@ function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) 
   return L.join("\n");
 }
 
+// ── Assistant repas (API Claude) ─────────────────────────────────────────────
+// Construit { system, prompt, mode } pour la Netlify Function. Le system porte
+// les règles diététiques NON négociables ; le prompt porte le contexte du jour
+// (budget réel, frigo, favoris, macros exactes des produits connus).
+const SLOT_LABELS = { pdj: "petit-déjeuner", dej: "déjeuner", diner: "dîner", snack: "en-cas" };
+
+function buildAssistantPrompt({
+  mode = "meal",            // "meal" | "day" | "week"
+  slot,                      // créneau visé (mode meal)
+  remKcal, remP,             // budget RESTANT réel (mode meal/day) — déjà calculé depuis le log
+  targetKcal = 1850, targetP = 150, // cibles journalières (mode day/week)
+  favorites = [],            // noms d'aliments/plats préférés
+  knownFoods = [],           // [{name, kcal, p, unit}] macros EXACTES à réutiliser
+  have = [],                 // aliments disponibles (frigo/placard)
+  avoid = [],                // aliments à exclure (pas dispo / pas envie aujourd'hui)
+  dateLabel,
+} = {}) {
+  const sys = [
+    "Tu es l'assistant nutrition personnel de Bob. Tu proposes des repas végétariens, simples et réalistes. Réponds en français.",
+    "Règles diététiques STRICTES, non négociables :",
+    "- Végétarien. Œufs et fromages au lait de VACHE uniquement (jamais chèvre ni brebis).",
+    "- Bob ne boit pas de lait de vache. Lait végétal par défaut = lait d'AMANDE non sucré (~1 g de protéines/250 ml).",
+    "- La protéine vient des aliments protéinés et de la poudre de protéine, pas du lait.",
+    "- Objectif : perte de gras. Cibles ~1850 kcal / ~150 g de protéines par jour. Repas protéinés.",
+    "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker, portable).",
+    "Consignes de calcul :",
+    "- Réutilise les MACROS EXACTES fournies pour les produits connus. Pour le reste, estime de façon CONSERVATRICE (arrondis les kcal vers le haut).",
+    "- Utilise en priorité les aliments disponibles et les favoris fournis. N'utilise jamais un aliment listé comme à exclure.",
+    "- Donne des quantités précises (g, ml, dose, pièce). Renvoie toujours via l'outil `propose`.",
+  ].join("\n");
+
+  const L = [];
+  if (knownFoods.length) {
+    L.push("Mes produits connus (macros exactes par portion, à réutiliser tels quels) :");
+    knownFoods.slice(0, 40).forEach((m) => L.push(`- ${m.name} : ${r0(m.kcal)} kcal, ${r0(m.p)} g protéines${m.unit ? ` (${m.unit})` : ""}`));
+    L.push("");
+  }
+  if (favorites.length) { L.push(`Mes favoris (à privilégier) : ${favorites.slice(0, 30).join(", ")}.`); L.push(""); }
+  if (have.length) { L.push(`Disponible dans mon frigo/placard aujourd'hui : ${have.slice(0, 60).join(", ")}.`); L.push(""); }
+  if (avoid.length) { L.push(`À NE PAS utiliser aujourd'hui : ${avoid.slice(0, 40).join(", ")}.`); L.push(""); }
+
+  const budget = Number.isFinite(remKcal) && Number.isFinite(remP);
+  if (mode === "week") {
+    L.push(`Planifie 7 jours (dayIndex 0 à 6). Chaque jour doit totaliser environ ${r0(targetKcal)} kcal et au moins ${r0(targetP)} g de protéines, répartis entre petit-déjeuner, déjeuner, dîner et un en-cas si pertinent.`);
+    L.push("Varie les repas sur la semaine. Indique le slot et le dayIndex de chaque repas.");
+  } else if (mode === "day") {
+    const k = budget ? Math.max(0, remKcal) : targetKcal;
+    const p = budget ? Math.max(0, remP) : targetP;
+    L.push(`Planifie ${budget ? "le reste de ma" : "une"} journée (petit-déjeuner, déjeuner, dîner, + en-cas si utile) totalisant environ ${r0(k)} kcal et au moins ${r0(p)} g de protéines. Indique le slot de chaque repas.`);
+  } else {
+    const slotTxt = SLOT_LABELS[slot] || "repas";
+    L.push(budget
+      ? `Propose-moi 3 options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
+      : `Propose-moi 3 options de ${slotTxt}, équilibrées et protéinées.`);
+    L.push(`Toutes pour le slot "${slot || "dej"}".`);
+  }
+
+  return { mode, system: sys, prompt: L.join("\n") };
+}
+
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

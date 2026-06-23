@@ -5,7 +5,16 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 const BASE = "https://world.openfoodfacts.org";
-const FIELDS = "code,product_name,product_name_fr,brands,nutriments,quantity,image_small_url";
+const FIELDS = "code,product_name,product_name_fr,brands,nutriments,quantity,categories_tags,image_small_url";
+
+// Détecte un produit liquide (→ saisie en ml plutôt qu'en g) : catégorie boisson
+// ou format exprimé en ml/cl/L.
+function isLiquid(p) {
+  const tags = (p.categories_tags || []).join(" ");
+  if (/beverage|boisson|drink|jus|juice|soda|eau|water|lait|milk|the|thé|tea|cafe|coffee/i.test(tags)) return true;
+  if (/\b\d+\s?(ml|cl|l|litre)\b/i.test(p.quantity || "")) return true;
+  return false;
+}
 
 const num = (v) => {
   const n = parseFloat(v);
@@ -37,6 +46,7 @@ function toProduct(p) {
     name,
     brand: (p.brands || "").split(",")[0].trim(),
     quantity: p.quantity || "",
+    liquid: isLiquid(p),
     image: p.image_small_url || "",
     per100: nutriPer100(p.nutriments),
   };

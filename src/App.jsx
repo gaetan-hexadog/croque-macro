@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, ChefHat, Soup, ScanLine, ChevronLeft } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, Sparkles, Soup, ScanLine, ChevronLeft } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -15,7 +15,7 @@ import { AuthGate } from "./AuthGate.jsx";
 const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
 const GuideScreen = lazy(() => import("./GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
-const IdeasScreen = lazy(() => import("./IdeasScreen.jsx").then((m) => ({ default: m.IdeasScreen })));
+const AssistantScreen = lazy(() => import("./AssistantScreen.jsx"));
 const CuisineScreen = lazy(() => import("./CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
 const SettingsSheet = lazy(() => import("./Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
 const AccountSheet = lazy(() => import("./AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
@@ -33,6 +33,7 @@ export default function PiocheRepas() {
   const [comboSeed, setComboSeed] = useState(0);        // version des presets installés
   const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
   const [customRecipes, setCustomRecipes] = useState([]); // recettes perso (écran Idées), fusionnées à la bibliothèque
+  const [pantry, setPantry] = useState([]);             // frigo/placard : [{ id, name, out }] — out=true = pas dispo aujourd'hui
   const [library, setLibrary] = useState(getLibrarySync); // { presets, recipes } — cache → Supabase
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
@@ -72,7 +73,7 @@ export default function PiocheRepas() {
   const stateRef = useRef({});
   const lastSynced = useRef({ days: {}, weights: {}, appState: "" });
   const syncTimer = useRef(null);
-  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes }; }, []);
+  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes, pantry: s.pantry }; }, []);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -99,6 +100,7 @@ export default function PiocheRepas() {
         if (Array.isArray(d.shakeLiquids)) setShakeLiquids(d.shakeLiquids);
         if (Array.isArray(d.favs)) setFavs(d.favs);
         if (Array.isArray(d.customRecipes)) setCustomRecipes(d.customRecipes);
+        if (Array.isArray(d.pantry)) setPantry(d.pantry);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       } else {
         setCombos(DEFAULT_COMBOS);
@@ -107,11 +109,11 @@ export default function PiocheRepas() {
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, hydrated]);
 
   // ── Synchronisation Supabase (offline-first, local-first) ──────────────────
   // Miroir de l'état courant pour lire des valeurs fraîches dans les callbacks async
-  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes }; });
+  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry }; });
 
   // Abonnement à la session Supabase
   useEffect(() => {
@@ -135,6 +137,7 @@ export default function PiocheRepas() {
       setTemplates(merged.templates);
       setCustomMeals(merged.customMeals);
       setCustomRecipes(merged.customRecipes);
+      setPantry(merged.pantry);
       setUsage(merged.usage);
       setCombos(merged.combos);
       setShakeBases(merged.shakeBases);
@@ -182,7 +185,7 @@ export default function PiocheRepas() {
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => pushChanges(session.user.id), 2000);
     return () => clearTimeout(syncTimer.current);
-  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, session, syncReady, pushChanges]);
+  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, session, syncReady, pushChanges]);
 
   useEffect(() => {
     const onOnline = () => { if (session && syncReady) pushChanges(session.user.id); };
@@ -218,6 +221,13 @@ export default function PiocheRepas() {
   const totals = useMemo(() => dayTotals(day), [day]);
   const remKcal = settings.kcal - totals.kcal;
   const remP = settings.protein - totals.p;
+  // Contexte pour l'assistant : favoris (fréquence d'usage + recettes favorites) et produits à macros exactes.
+  const assistFavorites = useMemo(() => {
+    const fromUsage = Object.entries(usage).sort((a, b) => (b[1]?.count || 0) - (a[1]?.count || 0)).slice(0, 20).map(([n]) => n);
+    const favNames = favs.map((id) => (library.recipes.find((r) => r.id === id) || customRecipes.find((r) => r.id === id))?.name).filter(Boolean);
+    return Array.from(new Set([...favNames, ...fromUsage]));
+  }, [usage, favs, library.recipes, customRecipes]);
+  const assistKnownFoods = useMemo(() => customMeals.map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, unit: m.unit || m.qtyUnit })), [customMeals]);
 
   // Ajustement adaptatif de la cible : ancré sur ta maintenance OBSERVÉE (pas une
   // formule figée), pour forcer la continuité de perte, avec garde-fous (BMI/BMR/rythme).
@@ -295,6 +305,10 @@ export default function PiocheRepas() {
   const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: newId("rec"), custom: true }, ...cur].slice(0, 200));
   const deleteRecipe = (id) => setCustomRecipes((cur) => cur.filter((x) => x.id !== id));
   const updateRecipe = (id, patch) => setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
+  // Frigo/placard : staples avec interrupteur dispo (out=true → pas dispo aujourd'hui)
+  const addPantry = (name) => setPantry((cur) => { const n = String(name || "").trim(); if (!n || cur.some((x) => x.name.toLowerCase() === n.toLowerCase())) return cur; return [{ id: newId("pan"), name: n, out: false }, ...cur].slice(0, 120); });
+  const togglePantry = (id) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, out: !x.out } : x));
+  const removePantry = (id) => setPantry((cur) => cur.filter((x) => x.id !== id));
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
   const meals = useMemo(() => [
     ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
@@ -314,6 +328,18 @@ export default function PiocheRepas() {
     setDay((d) => { const arr = [...(d.picks[key] || []), item]; return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[slot] || 8) } }; });
     bumpUsage(idea.name);
   };
+  // Assistant : logguer une suggestion dans un créneau, ou l'enregistrer en recette.
+  const logSuggestion = (m, slot) => {
+    const s = slot || m.slot || "dej", key = picksKey(s);
+    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { name: m.title, kcal: Math.round(m.kcal), p: Math.round(m.protein), qty: 1 }].slice(0, CAP[s] || 8) } }));
+    bumpUsage(m.title);
+  };
+  const saveSuggestion = (m) => addRecipe({
+    cat: m.slot || "dej", name: m.title, emoji: m.emoji || "",
+    kcal: Math.round(m.kcal), p: Math.round(m.protein),
+    ingredients: (m.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim())),
+    steps: m.steps || [], desc: m.note || "",
+  });
   const addShakeBase = (it) => setShakeBases((a) => [...a, { id: newId("sb"), name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
   const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: newId("sl"), name: it.name, kcal: it.kcal, p: it.p }]);
@@ -376,6 +402,7 @@ export default function PiocheRepas() {
     if (obj.usage && typeof obj.usage === "object") setUsage((prev) => ({ ...prev, ...obj.usage }));
     if (Array.isArray(obj.favs)) setFavs((prev) => Array.from(new Set([...prev, ...obj.favs])));
     if (Array.isArray(obj.customRecipes)) setCustomRecipes((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customRecipes.filter((x) => !ids.has(x.id))]; });
+    if (Array.isArray(obj.pantry)) setPantry((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.pantry.filter((x) => !ids.has(x.id))]; });
   };
 
   // Multi-utilisateur : tant que la session n'est pas vérifiée, écran neutre ;
@@ -393,7 +420,7 @@ export default function PiocheRepas() {
           )}
           {view === "jour"
             ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Idées", guide: "Guide", reglages: "Réglages" }[view]}</h1>}
+            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Assistant", guide: "Guide", reglages: "Réglages" }[view]}</h1>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
               <ScanLine size={18} />
@@ -440,10 +467,12 @@ export default function PiocheRepas() {
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
         )}
         {view === "idees" && (
-          <IdeasScreen ideas={[...customRecipes, ...library.recipes]} favs={favs} onToggleFav={toggleFav} onUse={useIdea} onSave={(idea) => saveCombo(idea.cat, [{ name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 }], idea.name)}
-            onAddRecipe={addRecipe} onDeleteRecipe={deleteRecipe}
-            remKcal={remKcal} remP={remP} dateLabel={fmtFull(activeDate)}
-            claudePrompt={buildClaudePrompt({ customMeals, remKcal, remP, dateLabel: fmtFull(activeDate) })} />
+          <AssistantScreen
+            remKcal={remKcal} remP={remP} targetKcal={settings.kcal} targetP={settings.protein}
+            favorites={assistFavorites} knownFoods={assistKnownFoods}
+            localIdeas={[...customRecipes, ...library.recipes]}
+            pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onRemovePantry={removePantry}
+            onLog={logSuggestion} onSaveRecipe={saveSuggestion} dateLabel={fmtFull(activeDate)} />
         )}
         </Suspense>
       </div>
@@ -491,7 +520,7 @@ function TabBar({ view, setView }) {
     { k: "journal", l: "Journal", icon: CalendarDays },
     { k: "progres", l: "Progrès", icon: TrendingUp },
     { k: "cuisine", l: "Cuisine", icon: Soup },
-    { k: "idees", l: "Idées", icon: ChefHat },
+    { k: "idees", l: "Assistant", icon: Sparkles },
   ];
   return (
     <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>

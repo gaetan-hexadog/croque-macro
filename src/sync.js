@@ -64,6 +64,7 @@ export function mergeAppState(local = {}, remote) {
     templates: byId(local.templates, remote.templates),
     customMeals: byId(local.customMeals, remote.customMeals),
     customRecipes: byId(local.customRecipes, remote.customRecipes),
+    pantry: byId(local.pantry, remote.pantry),
     combos: byId(local.combos, remote.combos),
     shakeBases: byId(local.shakeBases, remote.shakeBases),
     shakeLiquids: byId(local.shakeLiquids, remote.shakeLiquids),
