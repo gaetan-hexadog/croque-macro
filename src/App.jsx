@@ -235,7 +235,10 @@ export default function PiocheRepas() {
     const favNames = favs.map((id) => (library.recipes.find((r) => r.id === id) || customRecipes.find((r) => r.id === id))?.name).filter(Boolean);
     return Array.from(new Set([...favNames, ...fromUsage]));
   }, [usage, favs, library.recipes, customRecipes]);
-  const assistKnownFoods = useMemo(() => customMeals.map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, unit: m.unit || m.qtyUnit })), [customMeals]);
+  const assistKnownFoods = useMemo(() => [
+    ...customMeals.map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, unit: m.unit || m.qtyUnit })),
+    ...pantry.filter((x) => x.kcal || x.p).map((x) => ({ name: x.name, kcal: x.kcal, p: x.p })),
+  ], [customMeals, pantry]);
 
   // Ajustement adaptatif de la cible : ancré sur ta maintenance OBSERVÉE (pas une
   // formule figée), pour forcer la continuité de perte, avec garde-fous (BMI/BMR/rythme).
@@ -314,8 +317,16 @@ export default function PiocheRepas() {
   const deleteRecipe = (id) => setCustomRecipes((cur) => cur.filter((x) => x.id !== id));
   const updateRecipe = (id, patch) => setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   // Frigo/placard : staples avec interrupteur dispo (out=true → pas dispo aujourd'hui)
-  const addPantry = (name) => setPantry((cur) => { const n = String(name || "").trim(); if (!n || cur.some((x) => x.name.toLowerCase() === n.toLowerCase())) return cur; return [{ id: newId("pan"), name: n, out: false }, ...cur].slice(0, 120); });
+  // + macros optionnelles (kcal/p) renseignables au scan, éditables.
+  const addPantry = (name, macros) => setPantry((cur) => {
+    const n = String(name || "").trim();
+    if (!n || cur.some((x) => x.name.toLowerCase() === n.toLowerCase())) return cur;
+    const extra = {};
+    if (macros) { const k = Math.round(macros.kcal); const p = Math.round((macros.p || 0) * 10) / 10; if (k > 0) extra.kcal = k; if (p > 0) extra.p = p; }
+    return [{ id: newId("pan"), name: n, out: false, ...extra }, ...cur].slice(0, 120);
+  });
   const togglePantry = (id) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, out: !x.out } : x));
+  const updatePantry = (id, patch) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   const removePantry = (id) => setPantry((cur) => cur.filter((x) => x.id !== id));
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
   const meals = useMemo(() => [
@@ -488,7 +499,7 @@ export default function PiocheRepas() {
           <PlanScreen
             targetKcal={settings.kcal} targetP={settings.protein} days={days}
             favorites={assistFavorites} knownFoods={assistKnownFoods}
-            pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onRemovePantry={removePantry}
+            pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
             onLogToDate={logToDate} onSaveRecipe={saveSuggestion} />
         )}
         </Suspense>
@@ -513,7 +524,7 @@ export default function PiocheRepas() {
         </Sheet>
       )}
       {frigoOpen && (
-        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onRemove={removePantry} onClose={navBack} />
+        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} />
       )}
       {fabOpen && (
         <Sheet open onClose={navBack} title="Actions rapides">
@@ -541,7 +552,7 @@ export default function PiocheRepas() {
           slot={ideaSlot} remKcal={remKcal} remP={remP}
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           localIdeas={[...customRecipes, ...library.recipes]}
-          pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onRemovePantry={removePantry}
+          pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
           onLog={logSuggestion} onSaveRecipe={saveSuggestion}
           dateLabel={fmtFull(activeDate)} onClose={() => setIdeaSlot(null)} />
       )}

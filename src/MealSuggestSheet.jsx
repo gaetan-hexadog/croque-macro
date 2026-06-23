@@ -13,7 +13,7 @@ const SLOT_LABELS = { pdj: "petit-déjeuner", dej: "déjeuner", diner: "dîner",
 export function MealSuggestSheet({
   slot = "dej", remKcal = 0, remP = 0,
   favorites = [], knownFoods = [], localIdeas = [],
-  pantry = [], onAddPantry, onTogglePantry, onRemovePantry,
+  pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
   onLog, onSaveRecipe, dateLabel, onClose,
 }) {
   const [exclude, setExclude] = useState("");
@@ -97,7 +97,7 @@ export function MealSuggestSheet({
         </div>
       )}
 
-      {pantryOpen && <PantrySheet pantry={pantry} onAdd={onAddPantry} onToggle={onTogglePantry} onRemove={onRemovePantry} onClose={() => setPantryOpen(false)} />}
+      {pantryOpen && <PantrySheet pantry={pantry} onAdd={onAddPantry} onToggle={onTogglePantry} onUpdate={onUpdatePantry} onRemove={onRemovePantry} onClose={() => setPantryOpen(false)} />}
     </Sheet>
   );
 }

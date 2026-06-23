@@ -13,7 +13,7 @@ const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export default function PlanScreen({
   targetKcal = 1850, targetP = 150, days = {},
   favorites = [], knownFoods = [],
-  pantry = [], onAddPantry, onTogglePantry, onRemovePantry,
+  pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
   onLogToDate, onSaveRecipe,
 }) {
   const [mode, setMode] = useState("day");
@@ -136,7 +136,7 @@ export default function PlanScreen({
         </div>
       )}
 
-      {pantryOpen && <PantrySheet pantry={pantry} onAdd={onAddPantry} onToggle={onTogglePantry} onRemove={onRemovePantry} onClose={() => setPantryOpen(false)} />}
+      {pantryOpen && <PantrySheet pantry={pantry} onAdd={onAddPantry} onToggle={onTogglePantry} onUpdate={onUpdatePantry} onRemove={onRemovePantry} onClose={() => setPantryOpen(false)} />}
     </div>
   );
 }
