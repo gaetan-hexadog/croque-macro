@@ -449,8 +449,8 @@ function buildAssistantPrompt({
     "- Objectif : perte de gras. Cibles ~1850 kcal / ~150 g de protéines par jour. Repas protéinés.",
     "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker, portable).",
     "Consignes de calcul :",
-    "- Réutilise les MACROS EXACTES fournies pour les produits connus. Pour le reste, estime de façon CONSERVATRICE (arrondis les kcal vers le haut).",
-    "- Utilise en priorité les aliments disponibles et les favoris fournis. N'utilise jamais un aliment listé comme à exclure.",
+    "- PRIORITÉ AU FRIGO : quand des aliments « disponibles » sont fournis, compose les repas D'ABORD avec eux. Pour chaque aliment du frigo utilisé, indique la PORTION (quantité en g/ml) et déduis ses macros de la densité /100 donnée. Tu peux n'en utiliser qu'une partie (ex. 100 g sur 500 g de compote).",
+    "- Complète si besoin avec mes produits connus (macros exactes à réutiliser) et mes favoris. Estime le reste de façon CONSERVATRICE (arrondis les kcal vers le haut). N'utilise JAMAIS un aliment listé comme à exclure.",
     "- Donne des quantités précises (g, ml, dose, pièce). Renvoie toujours via l'outil `propose`.",
   ].join("\n");
 
@@ -493,6 +493,8 @@ function buildAssistantPrompt({
     L.push(budget
       ? `Propose-moi 3 options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
       : `Propose-moi 3 options de ${slotTxt}, équilibrées et protéinées.`);
+    if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…). Privilégie ce que j'ai dans mon frigo, en portions.");
+    else L.push("Privilégie ce que j'ai dans mon frigo, en indiquant les portions utilisées.");
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
   }
 

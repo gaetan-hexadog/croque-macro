@@ -14,6 +14,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   const [selected, setSelected] = useState(null);
   const [grams, setGrams] = useState("100");
   const [macros, setMacros] = useState(null); // {kcal,p,c,f,s} pour 100 g/ml — éditables (données OFF souvent fausses)
+  const [unit, setUnit] = useState("g");      // g/ml — défaut auto (boisson), basculable à la main
   const [editing, setEditing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -26,7 +27,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
 
   const fmt = (v) => (v == null ? "—" : Number.isInteger(v) ? String(v) : String(Math.round(v * 10) / 10).replace(".", ","));
   // Sélection d'un produit → on copie ses macros dans un état éditable (pour 100 g/ml).
-  const pick = (p) => { setSelected(p); setGrams("100"); setEditing(false); setMacros({ kcal: p.per100.kcal ?? "", p: p.per100.p ?? "", c: p.per100.c ?? "", f: p.per100.f ?? "", s: p.per100.s ?? "" }); };
+  const pick = (p) => { setSelected(p); setGrams("100"); setEditing(false); setUnit(p.liquid ? "ml" : "g"); setMacros({ kcal: p.per100.kcal ?? "", p: p.per100.p ?? "", c: p.per100.c ?? "", f: p.per100.f ?? "", s: p.per100.s ?? "" }); };
   // Scan dispo si l'API native existe (Android/Chrome) OU si on a accès caméra (iOS → fallback ZXing).
   const hasNativeDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
   const supported = typeof navigator !== "undefined" && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -125,7 +126,6 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
 
   const pf = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
   const pfn = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : null; };
-  const unit = selected?.liquid ? "ml" : "g"; // ml pour les boissons, g sinon
   const g = Math.max(0, parseFloat((grams || "").replace(",", ".")) || 0);
   const calc = selected && macros
     ? {
@@ -212,7 +212,11 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold" style={{ color: C.sub }}>Quantité</span>
           <input value={grams} onChange={(e) => setGrams(e.target.value)} inputMode="decimal" className="w-24 rounded-xl px-3 py-2 text-center text-sm font-bold outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <span className="text-sm" style={{ color: C.muted }}>{unit}</span>
+          <div className="flex gap-1">
+            {["g", "ml"].map((u) => (
+              <button key={u} onClick={() => setUnit(u)} className="rounded-lg px-2.5 py-1.5 text-sm font-semibold active:scale-95" style={unit === u ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{u}</button>
+            ))}
+          </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: C.paper }}>

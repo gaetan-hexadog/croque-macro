@@ -7,12 +7,14 @@
 const BASE = "https://world.openfoodfacts.org";
 const FIELDS = "code,product_name,product_name_fr,brands,nutriments,quantity,categories_tags,image_small_url";
 
-// Détecte un produit liquide (→ saisie en ml plutôt qu'en g) : catégorie boisson
-// ou format exprimé en ml/cl/L.
+// Détecte un produit liquide (→ saisie en ml plutôt qu'en g). Heuristique : ce
+// n'est qu'un DÉFAUT, l'utilisateur peut toujours basculer g/ml à la main.
 function isLiquid(p) {
   const tags = (p.categories_tags || []).join(" ");
-  if (/beverage|boisson|drink|jus|juice|soda|eau|water|lait|milk|the|thé|tea|cafe|coffee/i.test(tags)) return true;
-  if (/\b\d+\s?(ml|cl|l|litre)\b/i.test(p.quantity || "")) return true;
+  // Exclure d'abord ce qui est solide/semi-solide mais souvent mal tagué « beverage » chez OFF.
+  if (/compote|puree|pur[ée]e|yogurt|yaourt|dessert|cream|cr[èe]me|fromage|cheese|p[âa]te|spread/i.test(tags)) return false;
+  if (/beverage|boisson|drink|\bjus\b|juice|soda|smoothie|sirop|cola|\bwater\b|\beau\b|\bmilk\b|\blait\b|\btea\b|\bth[ée]\b|coffee|caf[ée]/i.test(tags)) return true;
+  if (/\b\d+\s?(ml|cl|litre)\b/i.test(p.quantity || "")) return true; // « 330 ml », « 75 cl »
   return false;
 }
 
