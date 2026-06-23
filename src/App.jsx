@@ -580,8 +580,8 @@ function TabBar({ view, setView, onFab }) {
         <Tab t={tabs[0]} />
         <Tab t={tabs[1]} />
         <div className="flex flex-1 justify-center">
-          <button onClick={onFab} aria-label="Actions rapides" className="flex h-14 w-14 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.accent, color: "#1b1206", marginTop: -26, border: `4px solid ${C.bg}`, boxShadow: `0 12px 28px -10px ${C.accent}` }}>
-            <Plus size={26} strokeWidth={2.6} />
+          <button onClick={onFab} aria-label="Actions rapides" className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.accent, color: "#fff", marginTop: -12, boxShadow: `0 8px 20px -6px ${C.accent}, 0 3px 8px rgba(0,0,0,0.22)` }}>
+            <Plus size={24} strokeWidth={2.6} />
           </button>
         </div>
         <Tab t={tabs[2]} />

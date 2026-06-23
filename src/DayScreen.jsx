@@ -138,7 +138,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
         <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onIdea={onIdea ? () => onIdea("pdj") : undefined} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} />
         <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onIdea={onIdea ? () => onIdea("dej") : undefined} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} />
         <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onIdea={onIdea ? () => onIdea("diner") : undefined} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} />
-        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onRemove={(i) => onClear("snack", i)} onQty={(i, nv) => onQty("snack", i, nv)} onEdit={(i, patch) => onEditItem("snack", i, patch)} empty="Un en-cas protéiné si un repas est juste." />
+        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onRemove={(i) => onClear("snack", i)} onQty={(i, nv) => onQty("snack", i, nv)} onEdit={(i, patch) => onEditItem("snack", i, patch)} empty="Un en-cas protéiné si un repas est juste." />
         <ExtrasSection extras={picks.extras || []} onOpen={onOpenExtras} onRemove={onRemoveExtra} onQty={(i, nv) => onQty("extras", i, nv)} onEdit={(i, patch) => onEditItem("extras", i, patch)} />
       </div>
 
@@ -221,7 +221,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onReplace
 }
 
 
-function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onRemove, onQty, onEdit, empty }) {
+function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onIdea, onRemove, onQty, onEdit, empty }) {
   return (
     <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
       <div className="mb-2.5 flex items-center justify-between">
@@ -233,7 +233,10 @@ function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onR
             <p className="text-sm font-semibold" style={{ color: C.ink }}>{title}</p>
           </div>
         </div>
-        {canAdd && <button onClick={onAdd} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>}
+        <div className="flex items-center gap-1.5">
+          {onIdea && <button onClick={onIdea} aria-label="Une idée (assistant)" className="flex h-8 w-8 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={15} /></button>}
+          {canAdd && <button onClick={onAdd} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>}
+        </div>
       </div>
       {items.length === 0 ? (
         <p className="pl-1 text-sm" style={{ color: C.muted }}>{empty}</p>
