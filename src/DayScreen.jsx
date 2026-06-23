@@ -8,7 +8,7 @@ import { Sheet } from "./Sheet.jsx";
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, onSurprise, onClear, onQty, onEditItem, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, onSurprise, onClear, onQty, onEditItem, onSkip, onAddExtra, onRemoveExtra, onOpenExtras, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -76,7 +76,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
       {/* Jauge du jour — double anneau (kcal + protéines). Training = chip discret en coin. */}
       <section className="relative mb-4 rounded-3xl p-5" style={cardStyle()}>
         <button onClick={onToggleTraining} aria-pressed={training} title="Jour d'entraînement" className="absolute right-3.5 top-3.5 z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={training ? { backgroundColor: `${C.weight}26`, color: C.weight } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}><Dumbbell size={12} /> Training</button>
-        <HeroRing kcal={totals.kcal} kcalTarget={settings.kcal} prot={totals.p} protTarget={settings.protein}>
+        <HeroRing kcal={totals.kcal} kcalTarget={settings.kcal} prot={totals.p} protTarget={settings.protein} kcalPlanned={planned.kcal} protPlanned={planned.p}>
           <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>{over ? "Dépassé de" : "Restant"}</p>
           <p className="leading-none" style={{ fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>
             <span className="text-6xl font-bold tracking-tight" style={{ color: over ? C.over : C.ink }}>{r0(Math.abs(remKcal))}</span>
@@ -89,6 +89,11 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, remKcal
           <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}><Flame size={12} /> {r0(totals.kcal)} / {settings.kcal}</span>
           <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Beef size={12} /> {r0(totals.p)} / {settings.protein} g</span>
         </div>
+        {(planned.kcal > 0 || planned.p > 0) && (
+          <p className="mt-2 text-center text-xs" style={{ color: C.muted }}>
+            <span className="inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: `${C.green}66` }} /> Prévu en plus : <span className="font-semibold" style={{ color: C.sub }}>{r0(planned.kcal)} kcal · {r0(planned.p)} g</span> → projeté {r0(totals.kcal + planned.kcal)} kcal
+          </p>
+        )}
 
         <div className="mt-4">
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>L'assiette</p>
@@ -440,7 +445,7 @@ function QtyStepper({ value, onChange, accent = C.ink }) {
 }
 
 
-function HeroRing({ kcal, kcalTarget, prot, protTarget, children }) {
+function HeroRing({ kcal, kcalTarget, prot, protTarget, kcalPlanned = 0, protPlanned = 0, children }) {
   const size = 220, cx = size / 2, cy = size / 2, sweep = 270, rot = 135;
   const s1 = 14, r1 = (size - s1) / 2;
   const s2 = 10, r2 = r1 - s1 / 2 - 7 - s2 / 2;
@@ -448,6 +453,8 @@ function HeroRing({ kcal, kcalTarget, prot, protTarget, children }) {
   const circ2 = 2 * Math.PI * r2, arc2 = circ2 * (sweep / 360);
   const kp = kcalTarget > 0 ? Math.min(1, kcal / kcalTarget) : 0;
   const pp = protTarget > 0 ? Math.min(1, prot / protTarget) : 0;
+  const kpAll = kcalTarget > 0 ? Math.min(1, (kcal + kcalPlanned) / kcalTarget) : 0; // réel + planifié
+  const ppAll = protTarget > 0 ? Math.min(1, (prot + protPlanned) / protTarget) : 0;
   const over = kcal > kcalTarget;
   const kColor = over ? C.over : kp > 0.85 ? "#f0b341" : C.green;
   const pColor = C.protein;
@@ -456,6 +463,10 @@ function HeroRing({ kcal, kcalTarget, prot, protTarget, children }) {
       <svg width={size} height={size} style={{ display: "block" }}>
         <circle cx={cx} cy={cy} r={r1} fill="none" stroke={C.track} strokeWidth={s1} strokeLinecap="round" strokeDasharray={`${arc1} ${circ1}`} transform={`rotate(${rot} ${cx} ${cy})`} />
         <circle cx={cx} cy={cy} r={r2} fill="none" stroke={C.track} strokeWidth={s2} strokeLinecap="round" strokeDasharray={`${arc2} ${circ2}`} transform={`rotate(${rot} ${cx} ${cy})`} />
+        {/* projection planifiée (pâle, sous le réel) */}
+        {kcalPlanned > 0 && <circle cx={cx} cy={cy} r={r1} fill="none" stroke={kColor} strokeOpacity={0.3} strokeWidth={s1} strokeLinecap="round" strokeDasharray={`${arc1 * kpAll} ${circ1}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease" }} />}
+        {protPlanned > 0 && <circle cx={cx} cy={cy} r={r2} fill="none" stroke={pColor} strokeOpacity={0.3} strokeWidth={s2} strokeLinecap="round" strokeDasharray={`${arc2 * ppAll} ${circ2}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease" }} />}
+        {/* réel consommé (solide) */}
         <circle cx={cx} cy={cy} r={r1} fill="none" stroke={kColor} strokeWidth={s1} strokeLinecap="round" strokeDasharray={`${arc1 * kp} ${circ1}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease, stroke 0.4s ease", filter: `drop-shadow(0 0 7px ${kColor}80)` }} />
         <circle cx={cx} cy={cy} r={r2} fill="none" stroke={pColor} strokeWidth={s2} strokeLinecap="round" strokeDasharray={`${arc2 * pp} ${circ2}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease", filter: `drop-shadow(0 0 6px ${pColor}70)` }} />
       </svg>

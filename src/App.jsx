@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, Plus, Lightbulb, Refrigerator } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
@@ -226,7 +226,8 @@ export default function PiocheRepas() {
     });
   }, [activeDate]);
 
-  const totals = useMemo(() => dayTotals(day), [day]);
+  const totals = useMemo(() => dayTotals(day), [day]);        // réel consommé (hors planifié)
+  const planned = useMemo(() => plannedTotals(day), [day]);   // forecast (repas planifiés)
   const remKcal = settings.kcal - totals.kcal;
   const remP = settings.protein - totals.p;
   // Contexte pour l'assistant : favoris (fréquence d'usage + recettes favorites) et produits à macros exactes.
@@ -472,7 +473,7 @@ export default function PiocheRepas() {
         {view === "jour" && (
           <DayScreen
             activeDate={activeDate} setActiveDate={setActiveDate}
-            settings={settings} totals={totals} remKcal={remKcal} remP={remP}
+            settings={settings} totals={totals} planned={planned} remKcal={remKcal} remP={remP}
             days={days} weights={weights} onOpenWeek={() => go("progres")} onSaveCombo={saveCombo}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}

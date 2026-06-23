@@ -60,7 +60,7 @@ export default function PlanScreen({
   const [activeDay, setActiveDay] = useState(0);  // jour affiché (mode semaine)
 
   const loggedOf = (iso) => dayTotals(days[iso] || EMPTY_DAY());
-  const filledSlots = (iso) => SLOT_ORDER.map(([s]) => s).filter((s) => ((days[iso]?.picks?.[picksKey(s)]) || []).length > 0);
+  const filledSlots = (iso) => SLOT_ORDER.map(([s]) => s).filter((s) => ((days[iso]?.picks?.[picksKey(s)]) || []).some((it) => !it.planned));
   const emptySlots = (iso) => SLOT_ORDER.map(([s]) => s).filter((s) => !filledSlots(iso).includes(s));
   const dayRem = useMemo(() => { const t = loggedOf(date); return { kcal: targetKcal - t.kcal, p: targetP - t.p }; }, [date, days, targetKcal, targetP]);
 
