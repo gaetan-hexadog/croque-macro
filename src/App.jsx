@@ -576,14 +576,14 @@ function TabBar({ view, setView, onFab }) {
   };
   return (
     <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="mx-auto flex max-w-md items-end">
+      {/* FAB flottant : pleinement visible au-dessus de la barre, dégradé + ombre */}
+      <button onClick={onFab} aria-label="Actions rapides" className="absolute left-1/2 flex h-14 w-14 items-center justify-center rounded-full active:scale-90"
+        style={{ top: 0, transform: "translate(-50%, -56%)", background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff", border: "1px solid rgba(255,255,255,0.22)", boxShadow: `0 10px 26px -6px ${C.accent}, 0 4px 12px rgba(0,0,0,0.32)`, transition: "transform .15s ease" }}>
+        <Plus size={26} strokeWidth={2.6} />
+      </button>
+      <div className="mx-auto flex max-w-md">
         <Tab t={tabs[0]} />
         <Tab t={tabs[1]} />
-        <div className="flex flex-1 justify-center">
-          <button onClick={onFab} aria-label="Actions rapides" className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.accent, color: "#fff", marginTop: -12, boxShadow: `0 8px 20px -6px ${C.accent}, 0 3px 8px rgba(0,0,0,0.22)` }}>
-            <Plus size={24} strokeWidth={2.6} />
-          </button>
-        </div>
         <Tab t={tabs[2]} />
         <Tab t={tabs[3]} />
       </div>
