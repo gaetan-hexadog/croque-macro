@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, addDays, TODAY, EMPTY_DAY } from "./core.js";
+import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY } from "./core.js";
 import { mergeAppState } from "./sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
@@ -113,6 +113,24 @@ describe("fixClearProteinHistory", () => {
     expect(fixed["2026-06-01"].picks.pdj[0]).toMatchObject({ kcal: 30, p: 7, qty: 2 });
     expect(fixed["2026-06-01"].picks.dej[0]).toMatchObject({ kcal: 90 }); // intact
     expect(fixClearProteinHistory(fixed)).toBe(fixed); // idempotent → renvoie l'objet tel quel
+  });
+});
+
+describe("scoreProduct", () => {
+  it("null sans protéines (règle non applicable)", () => {
+    expect(scoreProduct({ kcal: 200, p: 0 })).toBeNull();
+  });
+  it("feu vert pour un protéiné maigre (ratio 8, gras bas, peu de sucre)", () => {
+    expect(scoreProduct({ kcal: 160, p: 20, fat: 4, sugar: 2 }).flag).toBe("good");
+  });
+  it("feu rouge si trop calorique (ratio > 15)", () => {
+    expect(scoreProduct({ kcal: 400, p: 20, fat: 5, sugar: 2 }).flag).toBe("bad");
+  });
+  it("feu rouge si gras > prot (le piège fromage)", () => {
+    expect(scoreProduct({ kcal: 200, p: 15, fat: 18, sugar: 1 }).flag).toBe("bad");
+  });
+  it("orange si ratio moyen mais gras/sucre ok", () => {
+    expect(scoreProduct({ kcal: 200, p: 14, fat: 5, sugar: 10 }).flag).toBe("mid");
   });
 });
 

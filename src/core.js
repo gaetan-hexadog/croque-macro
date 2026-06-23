@@ -373,6 +373,33 @@ function fixClearProteinHistory(days = {}) {
   return changed ? out : days;
 }
 
+// ── Verdict « courses » (feu vert/orange/rouge) ─────────────────────────────
+// 3 règles sur la grille /100 g : kcal÷prot (règle reine), gras vs prot, sucre vs
+// prot. Statut par règle (good|mid|bad) + feu global = le pire des trois.
+// Renvoie null si pas de protéines (règle non applicable).
+function scoreProduct({ kcal, p, fat, sugar } = {}) {
+  const P = +p || 0;
+  if (P <= 0) return null;
+  const ratio = (+kcal || 0) / P;
+  const ORDER = { good: 0, mid: 1, bad: 2 };
+  const rules = [{
+    key: "kcalp", label: "kcal / prot",
+    status: ratio <= 12 ? "good" : ratio <= 15 ? "mid" : "bad",
+    value: ratio.toFixed(1),
+    hint: ratio <= 8 ? "excellent" : ratio <= 12 ? "correct" : ratio <= 15 ? "moyen" : "trop calorique",
+  }];
+  if (fat != null && !isNaN(fat)) {
+    const F = +fat;
+    rules.push({ key: "fatp", label: "gras vs prot", status: F <= P / 2 ? "good" : F <= P ? "mid" : "bad", value: `${r0(F)} / ${r0(P)} g`, hint: F <= P / 2 ? "maigre" : F <= P ? "mixte" : "gras" });
+  }
+  if (sugar != null && !isNaN(sugar)) {
+    const S = +sugar;
+    rules.push({ key: "sugp", label: "sucre vs prot", status: S <= P ? "good" : "bad", value: `${r0(S)} / ${r0(P)} g`, hint: S <= P ? "ok" : "sucré" });
+  }
+  const flag = rules.reduce((w, r) => (ORDER[r.status] > ORDER[w] ? r.status : w), "good");
+  return { flag, ratio, rules };
+}
+
 // Construit un prompt prêt à coller dans Claude.ai à partir de la base perso + budget du jour.
 function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) {
   const L = [];
@@ -398,5 +425,5 @@ function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

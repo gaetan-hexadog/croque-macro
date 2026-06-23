@@ -24,6 +24,7 @@ export function nutriPer100(nutriments = {}) {
     p: num(nutriments["proteins_100g"]),
     c: num(nutriments["carbohydrates_100g"]),
     f: num(nutriments["fat_100g"]),
+    s: num(nutriments["sugars_100g"]),
   };
 }
 
