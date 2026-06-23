@@ -16,6 +16,8 @@ body {
   text-rendering: optimizeLegibility;
   /* évite le flash blanc avant que le thème JS s'applique */
   background-color: #16120e;
+  /* empêche le pull-to-refresh / rebond qui rafraîchissait l'app au sur-swipe */
+  overscroll-behavior: none;
 }
 
 /* zone sûre pour la barre d'onglets sur mobile (encoches Android/iOS) */

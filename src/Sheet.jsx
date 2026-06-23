@@ -1,15 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { C } from "./core.js";
 
 const reduceMotion = () => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Bottom-sheet partagée : animation d'entrée (slide-up), poignée de glissement,
-// swipe-vers-le-bas pour fermer (sur la zone poignée/entête, pour ne pas voler le
-// scroll interne). Respecte prefers-reduced-motion. z permet d'empiler une sous-sheet.
+// Bottom-sheet partagée : slide-up, poignée, et SWIPE-VERS-LE-BAS pour fermer
+// depuis n'importe où tant que le contenu est en haut (sinon on scrolle). Le tap
+// sur le fond ferme aussi. overscroll-behavior empêche le pull-to-refresh.
 export function Sheet({ open, onClose, children, title, headerRight, stickyHeader, maxHeight = "92vh", z = 30 }) {
   const [shown, setShown] = useState(false);
   const [dragY, setDragY] = useState(0);
   const startRef = useRef(null);
+  const armedRef = useRef(false); // close-drag amorcé (contenu en haut au touchstart)
+  const scrollRef = useRef(null);
   const reduce = reduceMotion();
 
   useEffect(() => {
@@ -20,9 +23,16 @@ export function Sheet({ open, onClose, children, title, headerRight, stickyHeade
 
   if (!open) return null;
 
-  const onTouchStart = (e) => { startRef.current = e.touches[0].clientY; };
-  const onTouchMove = (e) => { if (startRef.current == null) return; const dy = e.touches[0].clientY - startRef.current; setDragY(dy > 0 ? dy : 0); };
-  const onTouchEnd = () => { if (dragY > 90) onClose(); setDragY(0); startRef.current = null; };
+  const atTop = () => (scrollRef.current ? scrollRef.current.scrollTop <= 0 : true);
+  const onTouchStart = (e) => { startRef.current = e.touches[0].clientY; armedRef.current = atTop(); };
+  const onTouchMove = (e) => {
+    if (startRef.current == null) return;
+    const dy = e.touches[0].clientY - startRef.current;
+    // ferme seulement si on tire vers le BAS et qu'on est (resté) en haut du scroll
+    if (dy > 0 && (armedRef.current || atTop())) { setDragY(dy); }
+    else if (dragY !== 0) { setDragY(0); }
+  };
+  const onTouchEnd = () => { if (dragY > 90) onClose(); setDragY(0); startRef.current = null; armedRef.current = false; };
 
   const translate = shown ? dragY : (reduce ? 0 : 640);
   return (
@@ -35,18 +45,22 @@ export function Sheet({ open, onClose, children, title, headerRight, stickyHeade
         className="flex w-full max-w-md flex-col rounded-t-3xl"
         style={{ maxHeight, backgroundColor: C.sheet, transform: `translateY(${translate}px)`, transition: dragY || reduce ? "none" : "transform .34s cubic-bezier(.22,1,.36,1)", boxShadow: `0 -24px 64px -32px ${C.shadow}` }}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
-        <div className="shrink-0 cursor-grab px-5 pt-3 active:cursor-grabbing" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        <div className="shrink-0 px-5 pt-3">
           <div className="mx-auto mb-2 h-1.5 w-10 rounded-full" style={{ backgroundColor: C.line }} />
-          {(title || headerRight) && (
-            <div className="mb-1 flex items-center justify-between gap-2">
-              {title ? <h2 className="text-base font-bold" style={{ color: C.ink }}>{title}</h2> : <span />}
+          <div className="mb-1 flex items-center justify-between gap-2">
+            {title ? <h2 className="text-base font-bold" style={{ color: C.ink }}>{title}</h2> : <span />}
+            <div className="flex items-center gap-2">
               {headerRight}
+              <button onClick={onClose} aria-label="Fermer" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><X size={16} /></button>
             </div>
-          )}
+          </div>
         </div>
         {stickyHeader && <div className="shrink-0 px-5 pb-2 pt-1">{stickyHeader}</div>}
-        <div className="flex-1 overflow-y-auto px-5 pb-5">{children}</div>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-5" style={{ overscrollBehavior: "contain" }}>{children}</div>
       </div>
     </div>
   );

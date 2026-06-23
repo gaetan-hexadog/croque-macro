@@ -64,8 +64,7 @@ function ServingPicker({ food, accent, onChoose, onClose }) {
   const fld = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
 
   return (
-    <Sheet open onClose={onClose} z={40} title={food.name}
-      headerRight={<button onClick={onClose} className="rounded-full p-1.5 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={16} /></button>}>
+    <Sheet open onClose={onClose} z={40} title={food.name}>
       {servings.length > 0 && !measured && (
         <>
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Format</p>
@@ -186,7 +185,6 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
         ) : (
           <button onClick={() => setPanel("main")} className="flex items-center gap-1.5 text-sm font-semibold active:scale-95" style={{ color: C.sub }}><ArrowLeft size={18} /> Retour</button>
         )}
-        <button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>
       </div>
     }>
         <div>
@@ -316,10 +314,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
     </Sheet>
 
       {/* Sous-sheet dédiée : saisie d'un aliment manuel (au lieu d'un accordion) */}
-      <Sheet open={customOpen} onClose={() => setCustomOpen(false)} z={40}
-        title="Saisir un aliment"
-        headerRight={<button onClick={() => setCustomOpen(false)} className="rounded-full p-1.5 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={16} /></button>}
-      >
+      <Sheet open={customOpen} onClose={() => setCustomOpen(false)} z={40} title="Saisir un aliment">
         <p className="mb-3 text-xs" style={{ color: C.muted }}>Pour un plat maison ou un produit hors base. Les macros s'ajoutent direct à ta journée.</p>
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide" style={{ color: C.sub }}>Nom</label>
         <input value={cName} onChange={(e) => setCName(e.target.value)} autoFocus placeholder="Ex. Mes 2 tacos œuf-fromage-avocat" className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />

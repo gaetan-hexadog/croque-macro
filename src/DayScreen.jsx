@@ -292,12 +292,9 @@ export function ExtrasSheet({ presets = [], onAdd, onClose }) {
   const chip = (active, color) => active ? { backgroundColor: color, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub };
   return (
     <Sheet open onClose={onClose}>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.extra}1a`, color: C.extra }}><Cookie size={17} /></span>
-          <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.extra }}>Hors base</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter un extra</p></div>
-        </div>
-        <button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.extra}1a`, color: C.extra }}><Cookie size={17} /></span>
+        <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.extra }}>Hors base</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter un extra</p></div>
       </div>
           <div className="mb-3 flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
             <Search size={16} style={{ color: C.muted }} />

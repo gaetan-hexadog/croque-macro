@@ -49,8 +49,7 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial }) {
   const field = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
   const lab = "mb-1 block text-xs font-semibold uppercase tracking-wide";
   return (
-    <Sheet open onClose={onClose} title={editing ? "Modifier la recette" : "Nouvelle recette"}
-      headerRight={<button onClick={onClose} className="rounded-full p-1.5 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={16} /></button>}>
+    <Sheet open onClose={onClose} title={editing ? "Modifier la recette" : "Nouvelle recette"}>
       <label className={lab} style={{ color: C.sub }}>Nom</label>
       <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ex. Bowl tofu cacahuète" className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
 

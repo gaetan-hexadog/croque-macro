@@ -41,8 +41,7 @@ export function AccountSheet({ session, status, onClose }) {
   }[status] || { icon: <Cloud size={14} />, label: "", color: C.muted };
 
   return (
-    <Sheet open onClose={onClose} title="Compte & synchronisation"
-      headerRight={<button onClick={onClose} className="rounded-full p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Fermer"><X size={18} /></button>}>
+    <Sheet open onClose={onClose} title="Compte & synchronisation">
         {session ? (
           <div className="space-y-4">
             <div className="rounded-2xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
