@@ -437,7 +437,8 @@ function buildAssistantPrompt({
   knownFoods = [],           // [{name, kcal, p, unit}] macros EXACTES à réutiliser
   have = [],                 // aliments disponibles (frigo/placard)
   avoid = [],                // aliments à exclure (pas dispo / pas envie aujourd'hui)
-  dateLabel,
+  loggedByDay = [],          // semaine : [{kcal,p}] déjà consommés par jour (index = dayIndex) → re-planif du reste
+  dateLabel, startLabel,
 } = {}) {
   const sys = [
     "Tu es l'assistant nutrition personnel de Bob. Tu proposes des repas végétariens, simples et réalistes. Réponds en français.",
@@ -465,8 +466,14 @@ function buildAssistantPrompt({
 
   const budget = Number.isFinite(remKcal) && Number.isFinite(remP);
   if (mode === "week") {
-    L.push(`Planifie 7 jours (dayIndex 0 à 6). Chaque jour doit totaliser environ ${r0(targetKcal)} kcal et au moins ${r0(targetP)} g de protéines, répartis entre petit-déjeuner, déjeuner, dîner et un en-cas si pertinent.`);
+    L.push(`Planifie 7 jours (dayIndex 0 à 6${startLabel ? `, jour 0 = ${startLabel}` : ""}). Chaque jour doit totaliser environ ${r0(targetKcal)} kcal et au moins ${r0(targetP)} g de protéines, répartis entre petit-déjeuner, déjeuner, dîner et un en-cas si pertinent.`);
     L.push("Varie les repas sur la semaine. Indique le slot et le dayIndex de chaque repas.");
+    const logged = (loggedByDay || []).map((d, i) => ({ i, kcal: d?.kcal || 0, p: d?.p || 0 })).filter((d) => d.kcal > 0);
+    if (logged.length) {
+      L.push("");
+      L.push("Certains jours ont DÉJÀ des repas loggés — ne les replanifie pas, complète seulement le reste pour atteindre la cible :");
+      logged.forEach((d) => L.push(`- Jour ${d.i + 1} : déjà ${r0(d.kcal)} kcal / ${r0(d.p)} g consommés → propose seulement le complément.`));
+    }
   } else if (mode === "day") {
     const k = budget ? Math.max(0, remKcal) : targetKcal;
     const p = budget ? Math.max(0, remP) : targetP;

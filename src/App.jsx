@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, Sparkles, Soup, ScanLine, ChevronLeft } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -11,11 +11,12 @@ import { Deck } from "./Deck.jsx";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { AuthGate } from "./AuthGate.jsx";
+import { MealSuggestSheet } from "./MealSuggestSheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
 const GuideScreen = lazy(() => import("./GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
-const AssistantScreen = lazy(() => import("./AssistantScreen.jsx"));
+const PlanScreen = lazy(() => import("./PlanScreen.jsx"));
 const CuisineScreen = lazy(() => import("./CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
 const SettingsSheet = lazy(() => import("./Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
 const AccountSheet = lazy(() => import("./AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
@@ -34,6 +35,7 @@ export default function PiocheRepas() {
   const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
   const [customRecipes, setCustomRecipes] = useState([]); // recettes perso (écran Idées), fusionnées à la bibliothèque
   const [pantry, setPantry] = useState([]);             // frigo/placard : [{ id, name, out }] — out=true = pas dispo aujourd'hui
+  const [ideaSlot, setIdeaSlot] = useState(null);       // créneau pour lequel l'idée contextuelle est ouverte (écran Jour)
   const [library, setLibrary] = useState(getLibrarySync); // { presets, recipes } — cache → Supabase
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
@@ -340,6 +342,16 @@ export default function PiocheRepas() {
     ingredients: (m.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim())),
     steps: m.steps || [], desc: m.note || "",
   });
+  // Planif : logger une suggestion dans une DATE précise (pas seulement le jour actif).
+  const logToDate = (iso, slot, m) => {
+    const s = slot || m.slot || "dej", key = picksKey(s);
+    setDays((prev) => {
+      const d = prev[iso] || EMPTY_DAY();
+      const arr = [...((d.picks && d.picks[key]) || []), { name: m.title, kcal: Math.round(m.kcal), p: Math.round(m.protein), qty: 1 }].slice(0, CAP[s] || 8);
+      return { ...prev, [iso]: { ...d, picks: { ...(d.picks || {}), [key]: arr } } };
+    });
+    bumpUsage(m.title);
+  };
   const addShakeBase = (it) => setShakeBases((a) => [...a, { id: newId("sb"), name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
   const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: newId("sl"), name: it.name, kcal: it.kcal, p: it.p }]);
@@ -420,7 +432,7 @@ export default function PiocheRepas() {
           )}
           {view === "jour"
             ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Assistant", guide: "Guide", reglages: "Réglages" }[view]}</h1>}
+            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages" }[view]}</h1>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
               <ScanLine size={18} />
@@ -442,7 +454,7 @@ export default function PiocheRepas() {
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
-            onPick={openPicker}
+            onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)}
             onSurprise={surprise} onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip}
             onAddExtra={addExtra} onRemoveExtra={removeExtra} onOpenExtras={openExtras} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
@@ -467,12 +479,11 @@ export default function PiocheRepas() {
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
         )}
         {view === "idees" && (
-          <AssistantScreen
-            remKcal={remKcal} remP={remP} targetKcal={settings.kcal} targetP={settings.protein}
+          <PlanScreen
+            targetKcal={settings.kcal} targetP={settings.protein} days={days}
             favorites={assistFavorites} knownFoods={assistKnownFoods}
-            localIdeas={[...customRecipes, ...library.recipes]}
             pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onRemovePantry={removePantry}
-            onLog={logSuggestion} onSaveRecipe={saveSuggestion} dateLabel={fmtFull(activeDate)} />
+            onLogToDate={logToDate} onSaveRecipe={saveSuggestion} />
         )}
         </Suspense>
       </div>
@@ -494,6 +505,15 @@ export default function PiocheRepas() {
           <p className="mb-3 text-xs" style={{ color: C.muted }}>Scanne ou cherche un produit pour voir son feu 🟢/🟠/🔴 et l'enregistrer dans ta base (« je consomme ça »).</p>
           <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={saveCustomMeal} />
         </Sheet>
+      )}
+      {ideaSlot && (
+        <MealSuggestSheet
+          slot={ideaSlot} remKcal={remKcal} remP={remP}
+          favorites={assistFavorites} knownFoods={assistKnownFoods}
+          localIdeas={[...customRecipes, ...library.recipes]}
+          pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onRemovePantry={removePantry}
+          onLog={logSuggestion} onSaveRecipe={saveSuggestion}
+          dateLabel={fmtFull(activeDate)} onClose={() => setIdeaSlot(null)} />
       )}
       <Suspense fallback={null}>
         {accountOpen && (
@@ -520,7 +540,7 @@ function TabBar({ view, setView }) {
     { k: "journal", l: "Journal", icon: CalendarDays },
     { k: "progres", l: "Progrès", icon: TrendingUp },
     { k: "cuisine", l: "Cuisine", icon: Soup },
-    { k: "idees", l: "Assistant", icon: Sparkles },
+    { k: "idees", l: "Planifier", icon: CalendarRange },
   ];
   return (
     <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
