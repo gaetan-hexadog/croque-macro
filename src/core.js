@@ -451,6 +451,7 @@ function buildAssistantPrompt({
   excludeTitles = [],        // mode meal : plats déjà proposés à NE PAS reproposer (régénérer un repas)
   dayContext = [],           // mode meal : repas DÉJÀ prévus/mangés ce jour-là (cohérence : compléter sans répéter)
   count, concise = false,    // mode meal : nb d'options (déf. 3) ; concise = sans étapes (planif séquentielle rapide)
+  recipe, instruction,       // mode adapt : recette de départ + consigne d'adaptation
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -513,6 +514,13 @@ function buildAssistantPrompt({
     L.push(`Planifie ces repas pour ${dateLabel || "la journée"}${sl.length < 4 ? " (les autres sont déjà faits)" : ""} : ${sl.map((s) => `${SLOT_LABELS[s]} (slot="${s}")`).join(", ")}.`);
     L.push(`Budget total à répartir sur l'ENSEMBLE de ces ${sl.length} repas : ${r0(Math.max(0, remKcal))} kcal et au moins ${r0(Math.max(0, remP))} g de protéines.`);
     L.push(`Pour CHACUN de ces ${sl.length} repas, donne 3 OPTIONS au choix. → Tu dois renvoyer ${sl.length * 3} repas au total (3 par slot). Renseigne le bon \`slot\` sur chaque option.`);
+  } else if (mode === "adapt") {
+    const r = recipe || {};
+    L.push(`Voici ma recette « ${r.name || "sans nom"} » (${r0(r.kcal || 0)} kcal, ${r0(r.p || 0)} g protéines) :`);
+    (r.ingredients || []).forEach((i) => L.push(`- ${typeof i === "string" ? i : `${i.qty ?? ""} ${i.unit ?? ""} ${i.name}`.trim()}`));
+    if ((r.steps || []).length) { L.push("Préparation :"); r.steps.forEach((s, n) => L.push(`${n + 1}. ${s}`)); }
+    L.push("");
+    L.push(`Adapte cette recette selon ma demande : « ${instruction || "améliore-la"} ». Garde l'esprit du plat. Renvoie UNE seule option (la version adaptée) avec tous les ingrédients chiffrés (qty + unit), les macros recalculées, et 1-2 variantes.`);
   } else {
     const n = count || 3;
     const slotTxt = SLOT_LABELS[slot] || "repas";

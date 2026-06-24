@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight, Globe, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight, Globe, Loader2, Wand2 } from "lucide-react";
 import { C, cardStyle } from "./core.js";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { importRecipeFromUrl } from "./assistant.js";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
+import { RecipeAdaptSheet } from "./RecipeAdaptSheet.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -27,10 +28,11 @@ const SLOT_CHOICES = [
   { k: "snack", l: "En-cas" },
 ];
 
-export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, pantry = [] }) {
+export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, pantry = [], favorites = [], knownFoods = [] }) {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [adapting, setAdapting] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [importBusy, setImportBusy] = useState(false);
@@ -111,7 +113,7 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
                 )}
               </div>
               <div className="space-y-2.5">
-                {items.map((m) => <Card key={`${m.kind}-${m.id}`} m={m} onUse={onUse} onDelete={onDelete} onEdit={(m.kind === "recette" && m.custom && onEditRecipe) ? () => setEditing(m) : undefined} />)}
+                {items.map((m) => <Card key={`${m.kind}-${m.id}`} m={m} onUse={onUse} onDelete={onDelete} onEdit={(m.kind === "recette" && m.custom && onEditRecipe) ? () => setEditing(m) : undefined} onAdapt={m.kind === "recette" ? () => setAdapting(m) : undefined} />)}
               </div>
             </div>
           );
@@ -123,6 +125,7 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
       {adding && <AddRecipeSheet onClose={() => setAdding(false)} onAdd={(r) => { onAddRecipe(r); setAdding(false); }} />}
       {editing && <AddRecipeSheet initial={editing} onClose={() => setEditing(null)} onAdd={(r) => { onEditRecipe(editing.id, r); setEditing(null); }} />}
       {imported && <AddRecipeSheet prefill={imported} onClose={() => setImported(null)} onAdd={(r) => { onAddRecipe(r); setImported(null); }} />}
+      {adapting && <RecipeAdaptSheet recipe={adapting} favorites={favorites} knownFoods={knownFoods} pantry={pantry} onReplace={(adapting.custom && onEditRecipe) ? (r) => onEditRecipe(adapting.id, r) : undefined} onSaveNew={(r) => onAddRecipe(r)} onClose={() => setAdapting(null)} />}
 
       {importOpen && (
         <Sheet open onClose={() => setImportOpen(false)} title="Importer une recette" subtitle="Depuis une URL" icon={<Globe size={18} />} iconColor={C.protein}>
@@ -138,7 +141,7 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
   );
 }
 
-function Card({ m, onUse, onDelete, onEdit }) {
+function Card({ m, onUse, onDelete, onEdit, onAdapt }) {
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [used, setUsed] = useState(false);
@@ -197,6 +200,7 @@ function Card({ m, onUse, onDelete, onEdit }) {
             <button onClick={() => setPicking(true)} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: meta.color }}>
               {used ? <><Check size={15} /> Ajouté</> : <><Plus size={15} /> Ajouter au repas</>}
             </button>
+            {onAdapt && <button onClick={onAdapt} className="flex items-center justify-center rounded-xl px-3 py-2 active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }} aria-label="Adapter avec l'assistant"><Wand2 size={15} /></button>}
             {onEdit && <button onClick={onEdit} className="flex items-center justify-center rounded-xl px-3 py-2 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={15} /></button>}
             <button onClick={() => onDelete(m)} className="flex items-center justify-center rounded-xl px-3 py-2 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={15} /></button>
           </div>
