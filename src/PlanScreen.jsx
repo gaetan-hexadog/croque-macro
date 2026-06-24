@@ -8,6 +8,7 @@ import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 const MODES = [{ k: "day", l: "Une journée" }, { k: "week", l: "Une semaine" }];
 const SLOT_ORDER = [["pdj", "Petit-déjeuner"], ["dej", "Déjeuner"], ["diner", "Dîner"], ["snack", "En-cas"]];
 const SLOT_SHARE = { pdj: 0.25, dej: 0.32, diner: 0.30, snack: 0.13 }; // budget approx. par créneau (régén. d'un repas)
+const SLOT_LABEL = Object.fromEntries(SLOT_ORDER);
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim();
 
@@ -55,7 +56,7 @@ export default function PlanScreen({
   const [mode, setMode] = useState("day");
   const [date, setDate] = useState(TODAY);
   const [pantryOpen, setPantryOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [genningDay, setGenningDay] = useState(null); // dayIndex en cours de génération (null = aucun)
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState({});   // `${di}-${slot}` → index (−1 = aucun)
@@ -77,24 +78,43 @@ export default function PlanScreen({
   const have = pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 }));
   const avoid = pantry.filter((x) => x.out).map((x) => x.name);
 
-  const ask = async () => {
-    setBusy(true); setError(null); setResults(null); setSelected({}); setVarSel({}); setCommittedDays(new Set()); setActiveDay(0);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => i).filter((di) => emptySlots(addDays(date, i)).length > 0), [date, days]);
+  const hasDay = (di) => !!results?.some((m) => (m.dayIndex ?? 0) === di);
+
+  // Génère UNE journée, créneau par créneau EN SÉQUENCE : chaque repas connaît les
+  // précédents (déjà loggés + déjà générés) → cohérence ; chaque appel reste petit
+  // (1 créneau, 2 options concises) → sous le timeout Netlify. Apparition progressive.
+  const genDay = async (di) => {
+    const iso = mode === "week" ? addDays(date, di) : date;
+    const sl = emptySlots(iso);
+    if (!sl.length) { setError(new AssistantError(mode === "week" ? "Ce jour est déjà complet." : "Journée déjà complète — tous les repas sont loggés.")); return; }
+    setGenningDay(di); setError(null);
+    // repart de zéro pour ce jour
+    setResults((rs) => (rs || []).filter((mm) => (mm.dayIndex ?? 0) !== di));
+    setSelected((sel) => { const n = { ...sel }; Object.keys(n).forEach((k) => { if (k.startsWith(`${di}-`)) delete n[k]; }); return n; });
+    setVarSel((m) => { const n = { ...m }; Object.keys(n).forEach((k) => { if (k.startsWith(`${di}-`)) delete n[k]; }); return n; });
+    setCommittedDays((x) => { if (!x.has(di)) return x; const n = new Set(x); n.delete(di); return n; });
     try {
-      let payload;
-      if (mode === "day") {
-        const sl = emptySlots(date);
-        if (!sl.length) { setError(new AssistantError("Journée déjà complète — tous les repas sont loggés.")); setBusy(false); return; }
-        payload = { mode: "day", remKcal: dayRem.kcal, remP: dayRem.p, targetKcal, targetP, dateLabel: fmtFull(date), slots: sl };
-      } else {
-        payload = { mode: "week", targetKcal, targetP, startLabel: fmtFull(date), filledByDay: Array.from({ length: 7 }, (_, i) => filledSlots(addDays(date, i))) };
-      }
       const weekBalance = Math.round(weekStats(days, { kcal: targetKcal }, TODAY, 7).balance);
-      const { system, prompt, mode: m } = buildAssistantPrompt({ ...payload, favorites, knownFoods, have, avoid, weekBalance });
-      const { meals } = await askAssistant({ system, prompt, mode: m });
-      setResults(meals);
+      const t = loggedOf(iso);
+      let remK = targetKcal - t.kcal, remP = targetP - t.p;
+      // contexte initial = repas réellement loggés ce jour-là
+      const ctx = SLOT_ORDER.flatMap(([s, label]) => ((days[iso]?.picks?.[picksKey(s)]) || []).filter((it) => !it.planned).map((it) => `${label} : ${it.name}`));
+      for (const s of sl) {
+        const remSlots = sl.slice(sl.indexOf(s));
+        const shareSum = remSlots.reduce((a, x) => a + (SLOT_SHARE[x] || 0.25), 0) || 1;
+        const sk = Math.max(0, Math.round(remK * (SLOT_SHARE[s] || 0.25) / shareSum));
+        const sp = Math.max(0, Math.round(remP * (SLOT_SHARE[s] || 0.25) / shareSum));
+        const { system, prompt, mode: m } = buildAssistantPrompt({ mode: "meal", slot: s, remKcal: sk, remP: sp, favorites, knownFoods, have, avoid, weekBalance, dayContext: ctx, count: 2, concise: true });
+        const { meals } = await askAssistant({ system, prompt, mode: m });
+        const tagged = meals.map((mm) => ({ ...mm, slot: s, dayIndex: di }));
+        setResults((rs) => [...(rs || []), ...tagged]); // apparition progressive
+        const first = meals[0];
+        if (first) { remK -= Math.round(first.kcal); remP -= Math.round(first.protein); ctx.push(`${SLOT_LABEL[s]} : ${first.title}`); }
+      }
     } catch (e) {
       setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
-    } finally { setBusy(false); }
+    } finally { setGenningDay(null); }
   };
 
   const keyOf = (m, di, s, i) => `${di}-${s}-${i}-${m.title}`;
@@ -196,11 +216,17 @@ export default function PlanScreen({
         </button>
       </div>
 
-      {/* Générer */}
-      <button onClick={ask} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold active:scale-95" style={{ backgroundColor: results ? "transparent" : C.green, color: results ? C.green : "#fff", border: `1.5px solid ${C.green}` }}>
-        {busy ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-        {busy ? "L'assistant réfléchit…" : results ? "Régénérer des options" : mode === "day" ? "Proposer des repas" : "Proposer ma semaine"}
-      </button>
+      {/* Générer le jour actif (séquentiel, apparition progressive) */}
+      {(() => {
+        const curDi = mode === "week" ? activeDay : 0;
+        const generated = hasDay(curDi), genning = genningDay !== null;
+        return (
+          <button onClick={() => { if (mode === "week") setActiveDay(0); genDay(mode === "week" ? 0 : 0); }} disabled={genning} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold active:scale-95 disabled:opacity-70" style={{ backgroundColor: generated ? "transparent" : C.green, color: generated ? C.green : "#fff", border: `1.5px solid ${C.green}` }}>
+            {genning ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
+            {genning ? "L'assistant prépare ta journée…" : generated ? "Régénérer ce jour" : (mode === "day" ? "Proposer ma journée" : "Proposer ma semaine")}
+          </button>
+        );
+      })()}
 
       {error && (
         <div className="flex items-start gap-2 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
@@ -213,49 +239,55 @@ export default function PlanScreen({
         </div>
       )}
 
-      {/* Options par repas — un jour à la fois (pager en mode semaine) */}
-      {plan && (() => {
-        const weekDays = plan.map((p) => p.di);
-        const curDi = mode === "week" ? (weekDays.includes(activeDay) ? activeDay : weekDays[0]) : plan[0].di;
-        const cur = plan.find((p) => p.di === curDi);
+      {/* Pager de jours (semaine) : génère à la demande */}
+      {mode === "week" && (results || genningDay !== null) && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          {weekDays.map((di) => {
+            const on = activeDay === di, done = committedDays.has(di), gen = hasDay(di), busy = genningDay === di;
+            return (
+              <button key={di} onClick={() => { setActiveDay(di); if (!gen && genningDay === null) genDay(di); }} className="shrink-0 rounded-xl px-3 py-1.5 text-center active:scale-95" style={{ backgroundColor: on ? C.ink : C.card, border: `1px solid ${done ? C.green : C.line}` }}>
+                <span className="block text-xs font-bold" style={{ color: on ? C.bg : C.ink }}>{capitalize(fmtShort(addDays(date, di)))}</span>
+                <span className="block text-[10px] font-semibold" style={{ color: done ? C.green : (on ? C.bg : C.muted) }}>{busy ? "…" : done ? "✓ planifié" : gen ? "prêt" : "à générer"}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Jour actif */}
+      {(() => {
+        const curDi = mode === "week" ? activeDay : 0;
+        const cur = plan?.find((p) => p.di === curDi);
+        const genningCur = genningDay === curDi;
+        if (!cur) {
+          if (genningCur) return <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin" style={{ color: C.green }} /></div>;
+          if (mode === "week" && results) return (
+            <button onClick={() => genDay(curDi)} disabled={genningDay !== null} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold active:scale-95 disabled:opacity-60" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+              <Sparkles size={15} /> Générer le {capitalize(fmtShort(addDays(date, curDi)))}
+            </button>
+          );
+          return null;
+        }
         return (
-          <div className="space-y-4">
-            {/* Pager de jours (semaine) */}
-            {mode === "week" && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                {plan.map(({ di, slotsObj }) => {
-                  const total = slotsIn(slotsObj).length, chosen = chosenDay(di, slotsObj), done = committedDays.has(di), on = curDi === di;
-                  return (
-                    <button key={di} onClick={() => setActiveDay(di)} className="shrink-0 rounded-xl px-3 py-1.5 text-center active:scale-95" style={{ backgroundColor: on ? C.ink : C.card, border: `1px solid ${done ? C.green : C.line}` }}>
-                      <span className="block text-xs font-bold" style={{ color: on ? C.bg : C.ink }}>{capitalize(fmtShort(addDays(date, di)))}</span>
-                      <span className="block text-[10px] font-semibold" style={{ color: done ? C.green : (on ? C.bg : C.muted) }}>{done ? "✓ planifié" : `${chosen}/${total}`}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {cur && (
-              <div className="space-y-3">
-                {slotsIn(cur.slotsObj).map(([s, label]) => (
-                  <div key={s}>
-                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{label}{selIdx(cur.di, s) < 0 && " · ignoré"}</p>
-                    <div className="space-y-2">
-                      {cur.slotsObj[s].map((m, i) => (
-                        <OptionCard key={keyOf(m, cur.di, s, i)} meal={m} selected={selIdx(cur.di, s) === i} onSelect={() => toggleSel(cur.di, s, i)} onSave={() => save(m, cur.di, s, i)} saved={savedKeys.has(keyOf(m, cur.di, s, i))} varSel={varSelOf(cur.di, s, i)} onToggleVar={(vi) => toggleVar(cur.di, s, i, vi)} />
-                      ))}
-                    </div>
-                    <button onClick={() => regenSlot(cur.di, s, cur.slotsObj)} disabled={regenKey === `${cur.di}-${s}`} className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold active:scale-95 disabled:opacity-60" style={{ color: C.sub }}>
-                      {regenKey === `${cur.di}-${s}` ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Autres idées pour ce repas
-                    </button>
-                  </div>
-                ))}
-
-                <button onClick={() => commitDay(cur.di, cur.slotsObj)} disabled={chosenDay(cur.di, cur.slotsObj) === 0} className="sticky bottom-24 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: committedDays.has(cur.di) ? C.green : (chosenDay(cur.di, cur.slotsObj) ? C.accent : C.line), boxShadow: `0 8px 22px -8px ${C.accent}` }}>
-                  {committedDays.has(cur.di) ? <><Check size={17} /> {mode === "week" ? "Jour planifié ✓" : "Planifié ✓"}</> : <><CalendarCheck size={17} /> Planifier {mode === "week" ? "ce jour" : "ma journée"} ({chosenDay(cur.di, cur.slotsObj)})</>}
+          <div className="space-y-3">
+            {slotsIn(cur.slotsObj).map(([s, label]) => (
+              <div key={s}>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{label}{selIdx(cur.di, s) < 0 && " · ignoré"}</p>
+                <div className="space-y-2">
+                  {cur.slotsObj[s].map((m, i) => (
+                    <OptionCard key={keyOf(m, cur.di, s, i)} meal={m} selected={selIdx(cur.di, s) === i} onSelect={() => toggleSel(cur.di, s, i)} onSave={() => save(m, cur.di, s, i)} saved={savedKeys.has(keyOf(m, cur.di, s, i))} varSel={varSelOf(cur.di, s, i)} onToggleVar={(vi) => toggleVar(cur.di, s, i, vi)} />
+                  ))}
+                </div>
+                <button onClick={() => regenSlot(cur.di, s, cur.slotsObj)} disabled={regenKey === `${cur.di}-${s}` || genningCur} className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold active:scale-95 disabled:opacity-60" style={{ color: C.sub }}>
+                  {regenKey === `${cur.di}-${s}` ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Autres idées pour ce repas
                 </button>
               </div>
-            )}
+            ))}
+            {genningCur && <div className="flex items-center justify-center gap-2 py-1 text-xs" style={{ color: C.muted }}><Loader2 size={14} className="animate-spin" /> Repas suivant…</div>}
+
+            <button onClick={() => commitDay(cur.di, cur.slotsObj)} disabled={chosenDay(cur.di, cur.slotsObj) === 0 || genningCur} className="sticky bottom-24 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95 disabled:opacity-60" style={{ backgroundColor: committedDays.has(cur.di) ? C.green : (chosenDay(cur.di, cur.slotsObj) ? C.accent : C.line), boxShadow: `0 8px 22px -8px ${C.accent}` }}>
+              {committedDays.has(cur.di) ? <><Check size={17} /> {mode === "week" ? "Jour planifié ✓" : "Planifié ✓"}</> : <><CalendarCheck size={17} /> Planifier {mode === "week" ? "ce jour" : "ma journée"} ({chosenDay(cur.di, cur.slotsObj)})</>}
+            </button>
           </div>
         );
       })()}

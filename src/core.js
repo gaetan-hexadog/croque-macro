@@ -449,6 +449,8 @@ function buildAssistantPrompt({
   filledByDay = [],          // semaine : [[slots déjà faits]] par jour
   weekBalance,               // marge hebdo en kcal (+ = sous le budget → marge plaisir ; − = au-dessus)
   excludeTitles = [],        // mode meal : plats déjà proposés à NE PAS reproposer (régénérer un repas)
+  dayContext = [],           // mode meal : repas DÉJÀ prévus/mangés ce jour-là (cohérence : compléter sans répéter)
+  count, concise = false,    // mode meal : nb d'options (déf. 3) ; concise = sans étapes (planif séquentielle rapide)
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -505,12 +507,15 @@ function buildAssistantPrompt({
     L.push(`Budget total à répartir sur l'ENSEMBLE de ces ${sl.length} repas : ${r0(Math.max(0, remKcal))} kcal et au moins ${r0(Math.max(0, remP))} g de protéines.`);
     L.push(`Pour CHACUN de ces ${sl.length} repas, donne 3 OPTIONS au choix. → Tu dois renvoyer ${sl.length * 3} repas au total (3 par slot). Renseigne le bon \`slot\` sur chaque option.`);
   } else {
+    const n = count || 3;
     const slotTxt = SLOT_LABELS[slot] || "repas";
     L.push(budget
-      ? `Propose-moi 3 options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
-      : `Propose-moi 3 options de ${slotTxt}, équilibrées et protéinées.`);
+      ? `Propose-moi ${n} options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
+      : `Propose-moi ${n} options de ${slotTxt}, équilibrées et protéinées.`);
     if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
+    if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. COMPLÈTE la journée de façon cohérente : varie les aliments (ne répète pas ce qui est déjà là), équilibre les macros.`);
     if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
+    if (concise) L.push("Reste CONCIS : titre, macros, ingrédients principaux et 1-2 variantes. N'inclus PAS les étapes de préparation.");
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
   }
   if (mode === "day" || mode === "week") {
