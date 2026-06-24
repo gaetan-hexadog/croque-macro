@@ -536,6 +536,9 @@ export default function PiocheRepas() {
             ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
             : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" }[view]}</h1>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button onClick={() => go("progres")} aria-label="Progrès" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={view === "progres" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+              <TrendingUp size={18} />
+            </button>
             <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
               <ScanLine size={18} />
             </button>
@@ -618,8 +621,6 @@ export default function PiocheRepas() {
               { l: "Logger un repas", s: "Ajouter au jour en cours", icon: Plus, c: C.green, act: () => go("jour") },
               { l: "Planifier", s: "Ma journée ou ma semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
               { l: "Scanner un produit", s: "Code-barres → macros & feu", icon: ScanLine, c: C.protein, act: openTool },
-              { l: "Mon frigo / placard", s: "Gérer ce que j'ai", icon: Refrigerator, c: C.weight, act: openFrigo },
-              { l: "Ma cuisine", s: "Mes recettes & repas", icon: Soup, c: C.extra, act: () => go("cuisine") },
               { l: "Ajouter une recette", s: "Créer ou importer (URL)", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
             ].map((a) => {
               const Icon = a.icon;
@@ -667,11 +668,11 @@ function ScreenFallback() {
 }
 
 function TabBar({ view, setView, onFab }) {
-  // 4 onglets + bouton central « + » (actions rapides). Planifier & Ma cuisine vivent dans le +.
+  // 4 onglets + bouton central « + ». Progrès vit dans le header (icône en haut).
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
     { k: "journal", l: "Journal", icon: CalendarDays },
-    { k: "progres", l: "Progrès", icon: TrendingUp },
+    { k: "cuisine", l: "Cuisine", icon: Soup },
     { k: "sport", l: "Sport", icon: Dumbbell },
   ];
   const Tab = ({ t }) => {
