@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, Plus, Lightbulb, Refrigerator } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -73,7 +73,7 @@ export default function PiocheRepas() {
   const openExtras = useCallback(() => { pushNav(() => setExtrasOpen(false)); setExtrasOpen(true); }, [pushNav]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
-  const openFab = useCallback(() => { pushNav(() => setFabOpen(false)); setFabOpen(true); }, [pushNav]);
+  const openFab = useCallback(() => setFabOpen(true), []); // menu simple : pas d'entrée d'historique (évitait le télescopage à la fermeture)
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
@@ -534,20 +534,24 @@ export default function PiocheRepas() {
         <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} />
       )}
       {fabOpen && (
-        <Sheet open onClose={navBack} title="Actions rapides">
-          <div className="grid grid-cols-2 gap-2.5 pb-2">
+        <Sheet open onClose={() => setFabOpen(false)} title="Que veux-tu faire ?">
+          <div className="space-y-2 pb-2">
             {[
-              { l: "Logger un repas", s: "Aller au jour", icon: Plus, c: C.green, act: () => go("jour") },
-              { l: "Planifier", s: "Jour / semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
-              { l: "Scanner", s: "Code-barres", icon: ScanLine, c: C.protein, act: openTool },
-              { l: "Mon frigo", s: "Ce que j'ai", icon: Refrigerator, c: C.weight, act: openFrigo },
-              { l: "Ajouter une recette", s: "Créer", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
+              { l: "Logger un repas", s: "Ajouter au jour en cours", icon: Plus, c: C.green, act: () => go("jour") },
+              { l: "Planifier", s: "Ma journée ou ma semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
+              { l: "Scanner un produit", s: "Code-barres → macros & feu", icon: ScanLine, c: C.protein, act: openTool },
+              { l: "Mon frigo / placard", s: "Gérer ce que j'ai", icon: Refrigerator, c: C.weight, act: openFrigo },
+              { l: "Ajouter une recette", s: "Créer ou importer (URL)", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
             ].map((a) => {
               const Icon = a.icon;
               return (
-                <button key={a.l} onClick={() => { navBack(); setTimeout(a.act, 0); }} className="flex flex-col items-start gap-2 rounded-2xl p-4 active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${a.c}1f`, color: a.c }}><Icon size={20} /></span>
-                  <span><span className="block text-sm font-bold" style={{ color: C.ink }}>{a.l}</span><span className="text-xs" style={{ color: C.muted }}>{a.s}</span></span>
+                <button key={a.l} onClick={() => { setFabOpen(false); a.act(); }} className="flex w-full items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left active:scale-[0.98]" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: `${a.c}1f`, color: a.c }}><Icon size={21} /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold" style={{ color: C.ink }}>{a.l}</span>
+                    <span className="block text-xs" style={{ color: C.muted }}>{a.s}</span>
+                  </span>
+                  <ChevronRight size={18} style={{ color: C.muted }} />
                 </button>
               );
             })}

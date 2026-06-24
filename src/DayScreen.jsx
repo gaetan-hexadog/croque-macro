@@ -199,8 +199,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
       ) : !has ? (
         <div className="flex items-center gap-2">
           <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}><Search size={15} /> Piocher · ~{r0(target.kcal)} kcal</button>
-          {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-11 w-11 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={17} /></button>}
-          <button onClick={onSurprise} title="Au hasard" className="flex h-11 w-11 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Sparkles size={17} /></button>
+          {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-11 items-center justify-center gap-1.5 rounded-2xl px-4 active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={17} /> Idée</button>}
         </div>
       ) : (
         <div className="space-y-2">
@@ -209,8 +208,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
           ))}
           <div className="flex items-center gap-2 pt-0.5">
             <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Plus size={15} /> Ajouter</button>
-            {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-10 w-10 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={16} /></button>}
-            <button onClick={onSurprise} title="Au hasard" className="flex h-10 w-10 items-center justify-center rounded-2xl active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><Sparkles size={16} /></button>
+            {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-10 items-center justify-center gap-1.5 rounded-2xl px-3.5 active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={16} /> Idée</button>}
           </div>
           {onSaveCombo && (naming ? (
             <div className="flex items-center gap-2 pt-1">

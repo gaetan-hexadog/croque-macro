@@ -11,7 +11,6 @@ export function Sheet({ open, onClose, children, title, headerRight, stickyHeade
   const [shown, setShown] = useState(false);
   const [dragY, setDragY] = useState(0);
   const startRef = useRef(null);
-  const armedRef = useRef(false); // close-drag amorcé (contenu en haut au touchstart)
   const scrollRef = useRef(null);
   const reduce = reduceMotion();
 
@@ -23,16 +22,13 @@ export function Sheet({ open, onClose, children, title, headerRight, stickyHeade
 
   if (!open) return null;
 
-  const atTop = () => (scrollRef.current ? scrollRef.current.scrollTop <= 0 : true);
-  const onTouchStart = (e) => { startRef.current = e.touches[0].clientY; armedRef.current = atTop(); };
+  const onTouchStart = (e) => { startRef.current = e.touches[0].clientY; };
   const onTouchMove = (e) => {
     if (startRef.current == null) return;
     const dy = e.touches[0].clientY - startRef.current;
-    // ferme seulement si on tire vers le BAS et qu'on est (resté) en haut du scroll
-    if (dy > 0 && (armedRef.current || atTop())) { setDragY(dy); }
-    else if (dragY !== 0) { setDragY(0); }
+    if (dy > 0) setDragY(dy); else if (dragY !== 0) setDragY(0); // glisser vers le bas = fermer
   };
-  const onTouchEnd = () => { if (dragY > 90) onClose(); setDragY(0); startRef.current = null; armedRef.current = false; };
+  const onTouchEnd = () => { if (dragY > 90) onClose(); setDragY(0); startRef.current = null; };
 
   const translate = shown ? dragY : (reduce ? 0 : 640);
   return (
@@ -45,11 +41,9 @@ export function Sheet({ open, onClose, children, title, headerRight, stickyHeade
         className="flex w-full max-w-md flex-col rounded-t-3xl"
         style={{ maxHeight, backgroundColor: C.sheet, transform: `translateY(${translate}px)`, transition: dragY || reduce ? "none" : "transform .34s cubic-bezier(.22,1,.36,1)", boxShadow: `0 -24px 64px -32px ${C.shadow}` }}
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
-        <div className="shrink-0 px-5 pt-3">
+        {/* Le swipe-pour-fermer n'est armé QUE sur la poignée/en-tête, pour ne pas voler les taps du contenu. */}
+        <div className="shrink-0 px-5 pt-3" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
           <div className="mx-auto mb-2 h-1.5 w-10 rounded-full" style={{ backgroundColor: C.line }} />
           <div className="mb-1 flex items-center justify-between gap-2">
             {title ? <h2 className="text-base font-bold" style={{ color: C.ink }}>{title}</h2> : <span />}
