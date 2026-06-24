@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator } from "lucide-react";
+import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie } from "lucide-react";
 import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
@@ -128,7 +128,7 @@ function MethodBtn({ icon: Icon, color, label, onClick }) {
   );
 }
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], pantry = [], onChoose, onApplyCombo, onDeleteCombo, bases = [], liquids = [], recipes = [], onAddRecipe, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], pantry = [], presets = [], onChoose, onAddExtra, onApplyCombo, onDeleteCombo, bases = [], liquids = [], recipes = [], onAddRecipe, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState("");
   const [panel, setPanel] = useState("main");          // main | shake | combos | off
@@ -204,7 +204,8 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
                 <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Mes repas" onClick={() => setPanel("combos")} />
                 <MethodBtn icon={ScanLine} color={C.weight} label="Scanner" onClick={() => setPanel("off")} />
-                <MethodBtn icon={Pencil} color={C.extra} label="Manuel" onClick={() => setCustomOpen(true)} />
+                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Cookie} color={C.extra} label="Plaisirs" onClick={() => setPanel("plaisirs")} /> : <MethodBtn icon={Pencil} color={C.extra} label="Manuel" onClick={() => setCustomOpen(true)} />}
+                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Pencil} color={C.sub} label="Manuel" onClick={() => setCustomOpen(true)} /> : null}
               </div>
 
               {q.trim() ? (
@@ -266,6 +267,22 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
             <div>
               <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><Refrigerator size={18} style={{ color: C.weight }} /> Mon frigo</p>
               <FrigoPick pantry={pantry} accent={ui.color} onPick={(it) => { onChoose({ name: it.name, kcal: it.kcal, p: it.p, qty: 1 }); }} />
+            </div>
+          )}
+
+          {panel === "plaisirs" && (
+            <div>
+              <p className="mb-1 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><Cookie size={18} style={{ color: C.extra }} /> Petits plaisirs</p>
+              <p className="mb-3 text-xs" style={{ color: C.muted }}>Glace, barre, gâteau, cidre… ajouté en « plaisir », le budget des repas s'ajuste tout seul.</p>
+              {presets.flatMap((g) => g.items).length === 0 ? (
+                <p className="py-6 text-center text-sm" style={{ color: C.muted }}>Aucun plaisir préchargé.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {presets.flatMap((g) => g.items).map((pr) => (
+                    <button key={pr.name} onClick={() => { onAddExtra({ name: pr.name, kcal: pr.kcal, p: pr.p || 0 }); onClose(); }} className="rounded-full px-3 py-2 text-sm font-medium active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>+ {pr.name} <span style={{ color: C.muted }}>{pr.kcal}</span></button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

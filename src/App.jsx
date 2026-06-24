@@ -517,7 +517,7 @@ export default function PiocheRepas() {
       <TabBar view={view} setView={go} onFab={openFab} />
 
       {picker && (
-        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...customMeals]} usage={usage} combos={combos} pantry={pantry} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
+        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...customMeals]} usage={usage} combos={combos} pantry={pantry} presets={library.presets} onAddExtra={addExtra} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
           bases={library.pool.filter((m) => (m.tags || []).includes("shake-base"))} liquids={library.pool.filter((m) => (m.tags || []).includes("shake-liquid"))}
           recipes={[...customRecipes, ...library.recipes]} onAddRecipe={addRecipe}
           shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />

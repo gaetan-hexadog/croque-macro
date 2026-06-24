@@ -147,8 +147,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onIdea={onIdea ? () => onIdea("pdj") : undefined} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onSurprise={() => onSurprise("pdj")} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} />
         <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onIdea={onIdea ? () => onIdea("dej") : undefined} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onSurprise={() => onSurprise("dej")} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} />
         <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onIdea={onIdea ? () => onIdea("diner") : undefined} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onSurprise={() => onSurprise("diner")} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} />
-        <ChipSection color={SLOT_UI.snack.color} time="En-cas" title="Snacks" icon={Apple} items={picks.snacks} canAdd={picks.snacks.length < 4} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onConfirm={onConfirm ? (i) => onConfirm("snack", i) : undefined} onRemove={(i) => onClear("snack", i)} onQty={(i, nv) => onQty("snack", i, nv)} onEdit={(i, patch) => onEditItem("snack", i, patch)} empty="Un en-cas protéiné si un repas est juste." />
-        <ExtrasSection extras={picks.extras || []} onOpen={onOpenExtras} onRemove={onRemoveExtra} onQty={(i, nv) => onQty("extras", i, nv)} onEdit={(i, patch) => onEditItem("extras", i, patch)} />
+        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} />
       </div>
 
       {/* Poids du jour */}
@@ -227,6 +226,48 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
   );
 }
 
+
+// « À-côtés » : fusion En-cas + Plaisirs en une section. Les items « plaisir »
+// (ex-extras) portent un tag. Routage par slot ("snack" | "extras").
+function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm }) {
+  const color = SLOT_UI.snack.color;
+  const items = [
+    ...snacks.map((m, i) => ({ m, slot: "snack", i, plaisir: false })),
+    ...extras.map((m, i) => ({ m, slot: "extras", i, plaisir: true })),
+  ];
+  return (
+    <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
+      <div className="mb-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+          <Apple size={17} style={{ color }} />
+          <div className="leading-tight">
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>À-côtés</p>
+            <p className="text-sm font-semibold" style={{ color: C.ink }}>En-cas & plaisirs</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {onIdea && <button onClick={onIdea} aria-label="Une idée (assistant)" className="flex h-8 w-8 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={15} /></button>}
+          <button onClick={onAdd} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <p className="pl-1 text-sm" style={{ color: C.muted }}>Un en-cas protéiné si un repas est juste, ou un petit plaisir — le budget s'ajuste tout seul.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map(({ m, slot, i, plaisir }) => (
+            <MealItemRow key={`${slot}-${i}`} m={m} accent={plaisir ? C.extra : color} plaisir={plaisir}
+              onQty={onQty ? (nv) => onQty(slot, i, nv) : undefined}
+              onRemove={() => onClear(slot, i)}
+              onEdit={onEdit ? (patch) => onEdit(slot, i, patch) : undefined}
+              onConfirm={onConfirm ? () => onConfirm(slot, i) : undefined}
+              bg={plaisir ? `${C.extra}14` : undefined} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ChipSection({ color, time, title, icon: Icon, items, canAdd, onAdd, onIdea, onConfirm, onRemove, onQty, onEdit, empty }) {
   return (
@@ -361,7 +402,7 @@ export function ExtrasSheet({ presets = [], onAdd, onClose, pantry = [], onSaveM
 // ── DECK : la pioche ────────────────────────────────────────────────────────
 
 
-function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, bg }) {
+function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, plaisir, bg }) {
   const q = m.qty || 1;
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(m.name);
@@ -400,6 +441,7 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm,
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold" style={{ color: C.ink }}>
             {planned && <span className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold align-middle" style={{ backgroundColor: `${accent}26`, color: accent }}>PRÉVU</span>}
+            {plaisir && <span className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold align-middle" style={{ backgroundColor: `${C.extra}26`, color: C.extra }}>PLAISIR</span>}
             {m.name}{q !== 1 && <span style={{ color: accent }}> ×{fmtQty(q)}</span>}
           </p>
           <p className="mt-0.5 text-xs font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
