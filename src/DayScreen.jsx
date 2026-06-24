@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, cardStyle, weekStats, weekCoach,
+  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach,
 } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
 
@@ -27,6 +27,19 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
   const canFwd = activeDate < addDays(TODAY, 14); // on peut avancer jusqu'à +14 j (voir les repas planifiés)
+  // Bande de semaine (lundi → dimanche) avec pastille de statut par jour
+  const weekStart = addDays(activeDate, -((parseISO(activeDate).getDay() + 6) % 7));
+  const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const dayStatus = (iso) => {
+    const real = dayTotals(days[iso]), plan = plannedTotals(days[iso]);
+    if (!real.kcal && !plan.kcal) return null;            // rien
+    if (!real.kcal && plan.kcal) return C.weight;         // seulement prévu
+    const ratio = real.kcal / (settings.kcal || 1);
+    if (ratio > 1.05) return C.over;                      // dépassé
+    if (ratio >= 0.85) return C.green;                    // dans la cible
+    return C.protein;                                     // sous la cible
+  };
+  const wdLetter = (iso) => parseISO(iso).toLocaleDateString("fr-FR", { weekday: "narrow" }).toUpperCase();
   // Résumé hebdo compact, intégré à la carte jauge (visible sans scroller).
   const wstats = weekStats(days, settings, activeDate, 7);
   const wcoach = weekCoach(wstats, settings, weights, activeDate);
@@ -90,15 +103,29 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       )}
 
-      {/* Sélecteur de date */}
-      <div className="mb-4 flex items-center justify-between rounded-2xl px-2 py-2" style={cardStyle()}>
-        <button onClick={() => setActiveDate(addDays(activeDate, -1))} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: C.sub }}><ChevronLeft size={20} /></button>
-        <div className="flex items-center gap-2 text-center">
-          <span className="text-sm font-bold capitalize" style={{ color: C.ink }}>{fmtFull(activeDate)}</span>
-          {activeDate > TODAY && <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>à venir</span>}
-          {!isToday && <button onClick={() => setActiveDate(TODAY)} className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>Aujourd'hui</button>}
+      {/* Bande de semaine : navigation + statut de chaque jour (pastille colorée) */}
+      <div className="mb-4 rounded-2xl px-2 py-2" style={cardStyle()}>
+        <div className="mb-1 flex items-center justify-between px-1">
+          <button onClick={() => setActiveDate(addDays(activeDate, -7))} className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ color: C.sub }} aria-label="Semaine précédente"><ChevronLeft size={18} /></button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold capitalize" style={{ color: C.ink }}>{fmtFull(activeDate)}</span>
+            {activeDate > TODAY && <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>à venir</span>}
+            {!isToday && <button onClick={() => setActiveDate(TODAY)} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>Auj.</button>}
+          </div>
+          <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 7))} disabled={!canFwd} className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ color: canFwd ? C.sub : C.line }} aria-label="Semaine suivante"><ChevronRight size={18} /></button>
         </div>
-        <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 1))} disabled={!canFwd} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: canFwd ? C.sub : C.line }}><ChevronRight size={20} /></button>
+        <div className="flex gap-1">
+          {week.map((iso) => {
+            const on = iso === activeDate, today = iso === TODAY, st = dayStatus(iso);
+            return (
+              <button key={iso} onClick={() => setActiveDate(iso)} className="flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 active:scale-95" style={on ? { backgroundColor: C.ink } : {}}>
+                <span className="text-[10px] font-bold" style={{ color: on ? C.bg : C.muted }}>{wdLetter(iso)}</span>
+                <span className="text-sm font-bold" style={{ color: on ? C.bg : today ? C.green : C.ink }}>{parseISO(iso).getDate()}</span>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: st || "transparent", border: st ? "none" : `1px solid ${on ? "rgba(255,255,255,0.3)" : C.line}` }} />
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Séance du jour (programme sport) — lien vers l'onglet Sport */}
