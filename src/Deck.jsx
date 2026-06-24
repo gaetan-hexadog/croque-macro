@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup } from "lucide-react";
+import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator } from "lucide-react";
 import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "./core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
 import { ProductVerdict } from "./ProductVerdict.jsx";
+import { FrigoPick } from "./FrigoPick.jsx";
 
 // normalise pour la recherche : minuscules, sans accents, œ→oe, æ→ae
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
@@ -127,7 +128,7 @@ function MethodBtn({ icon: Icon, color, label, onClick }) {
   );
 }
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], onChoose, onApplyCombo, onDeleteCombo, bases = [], liquids = [], recipes = [], onAddRecipe, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], pantry = [], onChoose, onApplyCombo, onDeleteCombo, bases = [], liquids = [], recipes = [], onAddRecipe, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState("");
   const [panel, setPanel] = useState("main");          // main | shake | combos | off
@@ -197,7 +198,8 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 {q && <button onClick={() => setQ("")} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Effacer"><X size={15} /></button>}
               </div>
 
-              <div className="mb-5 grid grid-cols-5 gap-1.5">
+              <div className="mb-5 grid grid-cols-3 gap-1.5">
+                <MethodBtn icon={Refrigerator} color={C.weight} label="Frigo" onClick={() => setPanel("frigo")} />
                 <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
                 <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
                 <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Mes repas" onClick={() => setPanel("combos")} />
@@ -257,6 +259,13 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
             <div>
               <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><GlassWater size={18} style={{ color: C.protein }} /> Composer un shake</p>
               <ShakeBuilder embedded onAdd={onChoose} bases={bases} liquids={liquids} customBases={shakeBases} customLiquids={shakeLiquids} onAddBase={onAddShakeBase} onDelBase={onDelShakeBase} onAddLiquid={onAddShakeLiquid} onDelLiquid={onDelShakeLiquid} />
+            </div>
+          )}
+
+          {panel === "frigo" && (
+            <div>
+              <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><Refrigerator size={18} style={{ color: C.weight }} /> Mon frigo</p>
+              <FrigoPick pantry={pantry} accent={ui.color} onPick={(it) => { onChoose({ name: it.name, kcal: it.kcal, p: it.p, qty: 1 }); }} />
             </div>
           )}
 

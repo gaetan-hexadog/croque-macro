@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, Sparkles, ChevronRight, Trash2, Dumbbell, Cookie, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Refrigerator, ScanLine } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, fmtFull, r0, dayTotals, fmtQty, cardStyle, weekStats, weekCoach,
 } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
+import OffSearch from "./OffSearch.jsx";
+import { FrigoPick } from "./FrigoPick.jsx";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
@@ -284,7 +286,7 @@ function ExtrasSection({ extras, onOpen, onRemove, onQty, onEdit }) {
   );
 }
 
-export function ExtrasSheet({ presets = [], onAdd, onClose }) {
+export function ExtrasSheet({ presets = [], onAdd, onClose, pantry = [], onSaveMeal }) {
   const [cat, setCat] = useState(presets[0]?.cat || "");
   const [q, setQ] = useState("");
   const [name, setName] = useState(""); const [kcal, setKcal] = useState(""); const [p, setP] = useState("");
@@ -320,13 +322,19 @@ export function ExtrasSheet({ presets = [], onAdd, onClose }) {
           ) : (
             <>
               <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                <button onClick={() => setCat("__frigo")} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "__frigo", C.weight)}><Refrigerator size={12} /> Frigo</button>
+                <button onClick={() => setCat("__scan")} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "__scan", C.protein)}><ScanLine size={12} /> Scanner</button>
                 {presets.map((g) => (
                   <button key={g.cat} onClick={() => setCat(g.cat)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === g.cat, C.extra)}>{g.cat}</button>
                 ))}
                 <button onClick={() => setCat("__manuel")} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={chip(cat === "__manuel", C.ink)}><Pencil size={12} /> Manuel</button>
               </div>
 
-              {cat === "__manuel" ? (
+              {cat === "__frigo" ? (
+                <FrigoPick pantry={pantry} accent={C.extra} onPick={(it) => { onAdd(it); onClose(); }} />
+              ) : cat === "__scan" ? (
+                <OffSearch C={C} accent={C.extra} onChoose={(it) => { onAdd(it); onClose(); }} onSave={onSaveMeal} />
+              ) : cat === "__manuel" ? (
                 <div className="space-y-2.5">
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom (ex. glace vanille)" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
                   <div className="flex gap-2">
@@ -423,9 +431,11 @@ function QtyStepper({ value, onChange, accent = C.ink }) {
   const [txt, setTxt] = useState(null);
   const shown = txt != null ? txt : fmtQty(v);
   const commit = () => { const n = parseFloat((txt || "").replace(",", ".")); onChange(isFinite(n) && n > 0 ? n : v); setTxt(null); };
-  const step = (val) => (val <= 1.5 ? 0.25 : 0.5); // pas fin pour les fractions (¼/½/¾), plus large au-delà
-  const dec = () => onChange(Math.max(0.1, Math.round((v - step(v)) * 100) / 100));
-  const inc = () => onChange(Math.round((v + step(v)) * 100) / 100);
+  // Pas fin (¼) jusqu'à 2, puis ½ jusqu'à 5, puis 1. On snappe sur la grille du pas
+  // pour toujours retomber sur des valeurs propres (1,75 +¼ → 2, et non 2,25).
+  const step = (val) => (val < 1.99 ? 0.25 : val < 4.99 ? 0.5 : 1);
+  const inc = () => { const s = step(v); onChange(Math.round((Math.round(v / s) * s + s) * 100) / 100); };
+  const dec = () => { const s = step(v); onChange(Math.max(0.1, Math.round((Math.round(v / s) * s - s) * 100) / 100)); };
   return (
     <div className="flex items-center gap-1 rounded-lg px-1 py-0.5" style={{ border: `1px solid ${C.line}` }}>
       <button onClick={dec} className="flex h-6 w-6 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: v > 0.1 ? C.ink : C.line }}>−</button>
