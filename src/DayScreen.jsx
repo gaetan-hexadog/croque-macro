@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, streakCount,
 } from "./core.js";
@@ -23,7 +23,7 @@ function QuickChips({ items = [], onQuick, color }) {
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -194,6 +194,30 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           </span>
         </button>
       </section>
+
+      {/* Log rapide : habituels en 1 tap + suggestion contextuelle (parcours « je viens de manger ») */}
+      {isToday && (habituals.length > 0 || onSuggestNow) && (
+        <div className="mb-4">
+          <SectionTitle right={onSuggestNow && (
+            <button onClick={onSuggestNow} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><Sparkles size={13} /> Propose-moi</button>
+          )}>Log rapide</SectionTitle>
+          {habituals.length > 0 ? (
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              {habituals.map((it) => (
+                <button key={it.name} onClick={() => onHabitual(it)} className="flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left active:scale-95" style={cardStyle()}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[it.slot].color}1f`, color: SLOT_UI[it.slot].color }}><Plus size={15} /></span>
+                  <span className="min-w-0">
+                    <span className="block max-w-34 truncate text-xs font-bold" style={{ color: C.ink }}>{it.name}</span>
+                    <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{it.kcal} kcal · {it.p} g</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="px-1 text-xs" style={{ color: C.muted }}>Tes aliments récurrents s'afficheront ici pour un ajout en 1 tap.</p>
+          )}
+        </div>
+      )}
 
       {/* Les repas — une carte distincte par repas */}
       <SectionTitle className="mt-1" right={

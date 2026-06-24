@@ -262,6 +262,26 @@ export default function PiocheRepas() {
     Object.keys(acc).forEach((slot) => { out[slot] = Object.values(acc[slot]).sort((a, b) => b.n - a.n || b.last - a.last).slice(0, 3); });
     return out;
   }, [days]);
+  // « Mes habituels » : top des aliments les plus loggés (tous créneaux), chacun
+  // gardant son créneau dominant → log en 1 tap vers le bon créneau (grab-and-go).
+  const habituals = useMemo(() => {
+    const SK = [["pdj", "pdj"], ["dej", "dej"], ["diner", "diner"], ["snack", "snacks"]];
+    const acc = {};
+    const isos = Object.keys(days).sort().slice(-30);
+    isos.forEach((iso, di) => {
+      const pk = days[iso]?.picks || {};
+      SK.forEach(([slot, key]) => (pk[key] || []).forEach((it) => {
+        if (it.planned || !it.name) return;
+        const m = acc[it.name] || (acc[it.name] = { name: it.name, kcal: it.kcal, p: it.p, n: 0, last: 0, slots: {} });
+        m.n++; m.last = Math.max(m.last, di); m.kcal = it.kcal; m.p = it.p; m.slots[slot] = (m.slots[slot] || 0) + 1;
+      }));
+    });
+    return Object.values(acc)
+      .filter((m) => m.n >= 2)
+      .map((m) => ({ ...m, slot: Object.keys(m.slots).sort((a, b) => m.slots[b] - m.slots[a])[0] || "snack" }))
+      .sort((a, b) => b.n - a.n || b.last - a.last)
+      .slice(0, 6);
+  }, [days]);
   // Pas de bonus kcal les jours d'entraînement : le déficit reste le déficit
   // (on évite le travers « je fais du sport donc je peux manger »).
   const remKcal = settings.kcal - totals.kcal;
@@ -273,6 +293,8 @@ export default function PiocheRepas() {
     return rk < 0 ? `dépassé de ${-rk} kcal` : `reste ${rk} kcal · ${Math.max(0, rp)} g prot.`;
   };
   const toastAdd = (name, k = 0, p = 0, undo) => showToast(`${name} · ${restLabel(k, p)}`, undo);
+  // Créneau probable selon l'heure (pour les actions « maintenant » : habituels, suggestion).
+  const suggestSlotNow = () => { const h = new Date().getHours(); return h < 11 ? "pdj" : h < 15 ? "dej" : h < 18 ? "snack" : "diner"; };
 
   // ── Intelligence croisée sport ↔ nutrition ─────────────────────────────────
   // Séance prévue à la date affichée (selon les jours de séance du programme).
@@ -577,6 +599,7 @@ export default function PiocheRepas() {
             sportInfo={sportInfo} recomp={recomp} onGoSport={() => go("sport")}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
+            habituals={habituals} onHabitual={(it) => quickAdd(it.slot, it)} onSuggestNow={() => setIdeaSlot(suggestSlotNow())}
             onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
