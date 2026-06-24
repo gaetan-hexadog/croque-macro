@@ -66,3 +66,21 @@ export async function importRecipeFromUrl(url, { signal } = {}) {
   if (!out || !out.recipe) throw new AssistantError("Aucune recette trouvée.", { kind: "server" });
   return out.recipe;
 }
+
+// Analyse une photo de repas (base64 sans préfixe data:) → repas estimé (meals[0]).
+export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", { signal } = {}) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new AssistantError("Connecte-toi pour analyser une photo.", { kind: "auth" });
+  let res;
+  try {
+    res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ image: base64, media_type: mediaType }), signal });
+  } catch { throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" }); }
+  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  let out;
+  try { out = await res.json(); } catch { out = null; }
+  if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
+  if (!out || !Array.isArray(out.meals) || !out.meals.length) throw new AssistantError("Aucun repas reconnu.", { kind: "server" });
+  return out.meals[0];
+}

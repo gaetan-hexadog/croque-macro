@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY } from "./core.js";
+import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount } from "./core.js";
 import { mergeAppState } from "./sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
@@ -19,6 +19,30 @@ describe("dayTotals", () => {
   it("gère les jours vides / nuls", () => {
     expect(dayTotals(null)).toEqual({ kcal: 0, p: 0 });
     expect(dayTotals(EMPTY_DAY())).toEqual({ kcal: 0, p: 0 });
+  });
+});
+
+describe("streakCount", () => {
+  const logged = () => ({ picks: { pdj: [{ kcal: 300, p: 20 }], dej: [], diner: [], snacks: [], extras: [] } });
+  it("compte les jours consécutifs réellement loggés depuis aujourd'hui", () => {
+    const days = { [TODAY]: logged(), [addDays(TODAY, -1)]: logged(), [addDays(TODAY, -2)]: logged() };
+    expect(streakCount(days, TODAY)).toBe(3);
+  });
+  it("tolère un aujourd'hui vide si la veille est loggée (série démarre hier)", () => {
+    const days = { [addDays(TODAY, -1)]: logged(), [addDays(TODAY, -2)]: logged() };
+    expect(streakCount(days, TODAY)).toBe(2);
+  });
+  it("s'arrête au premier trou", () => {
+    const days = { [TODAY]: logged(), [addDays(TODAY, -2)]: logged() }; // hier manquant
+    expect(streakCount(days, TODAY)).toBe(1);
+  });
+  it("renvoie 0 sans données récentes", () => {
+    expect(streakCount({}, TODAY)).toBe(0);
+    expect(streakCount(null, TODAY)).toBe(0);
+  });
+  it("ignore les repas seulement planifiés (planned)", () => {
+    const days = { [TODAY]: { picks: { pdj: [{ kcal: 300, p: 20, planned: true }], dej: [], diner: [], snacks: [], extras: [] } } };
+    expect(streakCount(days, TODAY)).toBe(0);
   });
 });
 

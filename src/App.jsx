@@ -14,6 +14,7 @@ import { Sheet } from "./Sheet.jsx";
 import { Toast } from "./Toast.jsx";
 import { AuthGate } from "./AuthGate.jsx";
 import { MealSuggestSheet } from "./MealSuggestSheet.jsx";
+import { QuickLogSheet } from "./QuickLogSheet.jsx";
 import { PantrySheet } from "./PantrySheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
@@ -50,6 +51,7 @@ export default function PiocheRepas() {
   const [toast, setToast] = useState(null);             // { msg, undo }
   const showToast = useCallback((msg, undo) => setToast({ msg, undo, id: Date.now() }), []);
   const [fabOpen, setFabOpen] = useState(false);        // menu d'actions rapides (bouton central +)
+  const [quickLogOpen, setQuickLogOpen] = useState(false); // log rapide photo / texte
   const [frigoOpen, setFrigoOpen] = useState(false);    // gestion du frigo/placard (accès global)
   const [cuisineAdd, setCuisineAdd] = useState(false);  // signal : ouvrir le formulaire « ajouter recette » en arrivant sur Cuisine
   const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
@@ -618,7 +620,7 @@ export default function PiocheRepas() {
         <Sheet open onClose={() => setFabOpen(false)} title="Que veux-tu faire ?" icon={<Plus size={18} />} iconColor={C.accent}>
           <div className="space-y-2 pb-2">
             {[
-              { l: "Logger un repas", s: "Ajouter au jour en cours", icon: Plus, c: C.green, act: () => go("jour") },
+              { l: "Logger un repas", s: "Photo ou description", icon: Plus, c: C.green, act: () => setQuickLogOpen(true) },
               { l: "Planifier", s: "Ma journée ou ma semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
               { l: "Scanner un produit", s: "Code-barres → macros & feu", icon: ScanLine, c: C.protein, act: openTool },
               { l: "Ajouter une recette", s: "Créer ou importer (URL)", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
@@ -637,6 +639,12 @@ export default function PiocheRepas() {
             })}
           </div>
         </Sheet>
+      )}
+      {quickLogOpen && (
+        <QuickLogSheet
+          favorites={assistFavorites} knownFoods={assistKnownFoods}
+          onLog={(m, slot) => { logSuggestion(m, slot); showToast(`${m.title} ajouté`); }}
+          onClose={() => setQuickLogOpen(false)} />
       )}
       {ideaSlot && (
         <MealSuggestSheet

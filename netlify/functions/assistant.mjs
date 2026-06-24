@@ -194,6 +194,34 @@ async function importRecipe(url, apiKey) {
   return json(200, { recipe });
 }
 
+// Analyse d'une photo de repas (Claude vision) → repas estimé via l'outil propose.
+async function analyzePhoto(data, mediaType, apiKey) {
+  if (typeof data !== "string" || data.length > 7_000_000) return json(413, { error: "Image absente ou trop volumineuse." });
+  const ok = ["image/jpeg", "image/png", "image/webp"].includes(mediaType);
+  const sys = "Tu identifies un repas à partir d'une PHOTO et estimes ses macros de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Réponds en français via l'outil `propose` : UNE seule option = le repas photographié. Donne un titre court, liste les aliments visibles en `ingredients` (avec quantités estimées qty + unit), et les kcal + protéines TOTAUX du plat. Si la photo n'est pas de la nourriture, mets un titre vide et kcal 0.";
+  let resp;
+  try {
+    resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: 1200, system: sys,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: ok ? mediaType : "image/jpeg", data } },
+          { type: "text", text: "Analyse ce repas et estime ses macros (kcal + protéines totales)." },
+        ] }],
+        tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" },
+      }),
+    });
+    if (!resp.ok) return json(502, { error: "Analyse impossible pour le moment." });
+  } catch { return json(502, { error: "Analyse impossible pour le moment." }); }
+  const data2 = await resp.json();
+  const tool = (data2.content || []).find((c) => c.type === "tool_use" && c.name === "propose");
+  const meals = tool?.input?.meals;
+  if (!Array.isArray(meals) || !meals.length || !meals[0].title) return json(422, { error: "Aucun repas reconnu sur la photo." });
+  return json(200, { meals });
+}
+
 export default async (req) => {
   if (req.method !== "POST") return json(405, { error: "Méthode non autorisée." });
 
@@ -220,6 +248,7 @@ export default async (req) => {
 
   // 3bis) Import d'une recette depuis une URL.
   if (body && typeof body.url === "string" && body.url.trim()) return importRecipe(body.url.trim(), apiKey);
+  if (body && typeof body.image === "string") return analyzePhoto(body.image, body.media_type, apiKey);
 
   const { system, prompt, mode = "meal" } = body || {};
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });

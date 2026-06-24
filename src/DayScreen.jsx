@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach,
+  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, streakCount,
 } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
 
@@ -41,6 +41,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   };
   const wdLetter = (iso) => parseISO(iso).toLocaleDateString("fr-FR", { weekday: "narrow" }).toUpperCase();
   // Résumé hebdo compact, intégré à la carte jauge (visible sans scroller).
+  const streak = streakCount(days, TODAY);
   const wstats = weekStats(days, settings, activeDate, 7);
   const wcoach = weekCoach(wstats, settings, weights, activeDate);
   const wBal = Math.round(wcoach.balance);
@@ -111,6 +112,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
             <span className="text-sm font-bold capitalize" style={{ color: C.ink }}>{fmtFull(activeDate)}</span>
             {activeDate > TODAY && <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>à venir</span>}
             {!isToday && <button onClick={() => setActiveDate(TODAY)} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>Auj.</button>}
+            {streak >= 2 && <span className="flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ backgroundColor: `${C.over}1a`, color: C.over }} title={`${streak} jours d'affilée`}>🔥 {streak}</span>}
           </div>
           <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 7))} disabled={!canFwd} className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ color: canFwd ? C.sub : C.line }} aria-label="Semaine suivante"><ChevronRight size={18} /></button>
         </div>
@@ -161,17 +163,16 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           </p>
           <p className="mt-1 text-xs" style={{ color: C.sub }}>kcal {over ? "au-dessus" : "restantes"}</p>
         </HeroRing>
-        <p className="mt-2 text-center text-xs" style={{ color: C.muted }}>{remP > 0 ? `Encore ${r0(remP)} g de protéines à viser` : "Objectif protéines atteint."}{training && remP > 0 ? " · priorité protéines (jour d'entraînement)" : ""}</p>
-
+        {/* Lecture principale « consommé / cible » — la ligne forte sous l'anneau. */}
         <div className="mt-3 flex justify-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}><Flame size={12} /> {r0(totals.kcal)} / {settings.kcal}</span>
           <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Beef size={12} /> {r0(totals.p)} / {settings.protein} g</span>
         </div>
-        {(planned.kcal > 0 || planned.p > 0) && (
-          <p className="mt-2 text-center text-xs" style={{ color: C.muted }}>
-            <span className="inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: `${C.green}66` }} /> Prévu en plus : <span className="font-semibold" style={{ color: C.sub }}>{r0(planned.kcal)} kcal · {r0(planned.p)} g</span> → projeté {r0(totals.kcal + planned.kcal)} kcal
-          </p>
-        )}
+        {/* Une seule ligne de contexte (protéines + training + prévu) au lieu de trois. */}
+        <p className="mt-2 text-center text-xs" style={{ color: C.muted }}>
+          {remP > 0 ? <>Encore <span className="font-semibold" style={{ color: C.green }}>{r0(remP)} g</span> de protéines{training ? " · priorité training" : ""}</> : "Protéines au but ✓"}
+          {(planned.kcal > 0) && <> · +<span className="font-semibold" style={{ color: C.sub }}>{r0(planned.kcal)}</span> prévu → projeté {r0(totals.kcal + planned.kcal)}</>}
+        </p>
 
         <div className="mt-4">
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>L'assiette</p>

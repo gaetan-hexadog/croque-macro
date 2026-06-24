@@ -153,6 +153,17 @@ function plannedTotals(day) {
   return sumItems(allItems(day).filter((m) => m.planned));
 }
 const hasData = (day) => day && dayTotals(day).kcal > 0;
+// Streak : nb de jours consécutifs réellement loggés (≥1 repas non planifié),
+// en remontant depuis aujourd'hui. Tolère qu'aujourd'hui soit encore vide
+// (la série démarre la veille) pour ne pas afficher 0 le matin.
+function streakCount(days, refISO = TODAY) {
+  if (!days) return 0;
+  let start = refISO;
+  if (!hasData(days[refISO])) { const y = addDays(refISO, -1); if (!hasData(days[y])) return 0; start = y; }
+  let n = 0;
+  for (let i = 0; i < 366; i++) { if (hasData(days[addDays(start, -i)])) n++; else break; }
+  return n;
+}
 
 // portions : clé picks (snack→snacks), bornage et affichage des quantités
 const picksKey = (slot) => (slot === "snack" ? "snacks" : slot);
@@ -452,6 +463,7 @@ function buildAssistantPrompt({
   dayContext = [],           // mode meal : repas DÉJÀ prévus/mangés ce jour-là (cohérence : compléter sans répéter)
   count, concise = false,    // mode meal : nb d'options (déf. 3) ; concise = sans étapes (planif séquentielle rapide)
   recipe, instruction,       // mode adapt : recette de départ + consigne d'adaptation
+  text,                      // mode parse : description en langage naturel d'un repas mangé
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -514,6 +526,9 @@ function buildAssistantPrompt({
     L.push(`Planifie ces repas pour ${dateLabel || "la journée"}${sl.length < 4 ? " (les autres sont déjà faits)" : ""} : ${sl.map((s) => `${SLOT_LABELS[s]} (slot="${s}")`).join(", ")}.`);
     L.push(`Budget total à répartir sur l'ENSEMBLE de ces ${sl.length} repas : ${r0(Math.max(0, remKcal))} kcal et au moins ${r0(Math.max(0, remP))} g de protéines.`);
     L.push(`Pour CHACUN de ces ${sl.length} repas, donne 3 OPTIONS au choix. → Tu dois renvoyer ${sl.length * 3} repas au total (3 par slot). Renseigne le bon \`slot\` sur chaque option.`);
+  } else if (mode === "parse") {
+    L.push(`J'ai mangé ceci, identifie-le et estime ses macros : « ${text || ""} ».`);
+    L.push("Renvoie UNE seule option : titre court du repas, les aliments en `ingredients` (quantités qty+unit quand c'est possible), et les kcal + protéines TOTAUX estimés (réaliste, plutôt conservateur).");
   } else if (mode === "adapt") {
     const r = recipe || {};
     L.push(`Voici ma recette « ${r.name || "sans nom"} » (${r0(r.kcal || 0)} kcal, ${r0(r.p || 0)} g protéines) :`);
@@ -551,5 +566,5 @@ function buildAssistantPrompt({
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };
