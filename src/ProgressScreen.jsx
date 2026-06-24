@@ -3,6 +3,7 @@ import {
   C, TODAY, parseISO, addDays, r0, dayTotals, hasData, cardStyle,
 } from "./core.js";
 import { WeekCard } from "./Week.jsx";
+import { SectionTitle } from "./ui.jsx";
 
 export function ProgressScreen({ days, weights, settings }) {
   const [period, setPeriod] = useState(30);
@@ -23,10 +24,7 @@ export function ProgressScreen({ days, weights, settings }) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Période</span>
-        <SegToggle options={PERIODS} value={period} onChange={setPeriod} />
-      </div>
+      <SectionTitle className="mb-4" right={<SegToggle options={PERIODS} value={period} onChange={setPeriod} />}>Période</SectionTitle>
 
       <WeekCard days={days} weights={weights} settings={settings} refISO={TODAY} />
 
@@ -186,7 +184,7 @@ function ChartCard({ title, subtitle, accent, deltaColor, children }) {
 
 function KPI({ label, value, tint }) {
   return (
-    <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+    <div className="rounded-2xl p-3 text-center" style={cardStyle()}>
       <p className="text-lg font-extrabold leading-tight" style={{ color: tint, fontVariantNumeric: "tabular-nums", fontFamily: "'Space Grotesk', system-ui" }}>{value}</p>
       <p className="mt-0.5 text-xs" style={{ color: C.muted }}>{label}</p>
     </div>

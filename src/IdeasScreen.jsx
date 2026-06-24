@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X, Star, Copy, Gauge, Trash2 } from "lucide-react";
 import { C, r0, cardStyle } from "./core.js";
+import { SectionTitle } from "./ui.jsx";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
@@ -187,7 +188,7 @@ export function IdeasScreen({ ideas = [], favs = [], onToggleFav, onUse, onSave,
           if (!list.length) return null;
           return (
             <div key={c.k} className="mb-5">
-              <h2 className="mb-2 px-1 text-sm font-bold uppercase tracking-widest" style={{ color: C.sub }}>{c.l}</h2>
+              <SectionTitle>{c.l}</SectionTitle>
               {list.map((idea) => <IdeaCard key={idea.id} idea={idea} isFav={favSet.has(idea.id)} onToggleFav={onToggleFav} onUse={onUse} onSave={onSave} onDelete={onDeleteRecipe} />)}
             </div>
           );

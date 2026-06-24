@@ -3,6 +3,7 @@ import { ChevronRight, Dumbbell, Scale } from "lucide-react";
 import {
   C, TODAY, fmtShort, parseISO, dayTotals, hasData, cardStyle,
 } from "./core.js";
+import { SectionTitle } from "./ui.jsx";
 
 const capit = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -36,7 +37,7 @@ export function JournalScreen({ days, weights, settings, onOpen, activeDate }) {
 
       {groups.map((g) => (
         <div key={g.key} className="mb-5">
-          <p className="mb-2 px-1 text-xs font-bold uppercase tracking-widest" style={{ color: C.muted }}>{g.label}</p>
+          <SectionTitle>{g.label}</SectionTitle>
           <div className="space-y-2.5">
             {g.items.map((iso) => {
               const t = dayTotals(days[iso]);

@@ -4,6 +4,7 @@ import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, streakCount,
 } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
+import { SectionTitle } from "./ui.jsx";
 
 // Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
 function QuickChips({ items = [], onQuick, color }) {
@@ -195,13 +196,12 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       </section>
 
       {/* Les repas — une carte distincte par repas */}
-      <div className="mb-2.5 mt-1 flex items-center justify-between px-1">
-        <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: C.sub }}>Les repas</h2>
+      <SectionTitle className="mt-1" right={
         <div className="flex items-center gap-3">
           <button onClick={() => setShowTpl(true)} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.sub }}><Layers size={13} /> Modèles</button>
           {ribbon.length > 0 && <button onClick={onReset} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Vider</button>}
         </div>
-      </div>
+      }>Les repas</SectionTitle>
 
       {/* Démarrage rapide sur jour vide : reprendre une journée type en 1 tap */}
       {ribbon.length === 0 && (hasPrevDay || templates.length > 0) && (
@@ -455,7 +455,7 @@ function HeroRing({ kcal, kcalTarget, prot, protTarget, kcalPlanned = 0, protPla
   const kpAll = kcalTarget > 0 ? Math.min(1, (kcal + kcalPlanned) / kcalTarget) : 0; // réel + planifié
   const ppAll = protTarget > 0 ? Math.min(1, (prot + protPlanned) / protTarget) : 0;
   const over = kcal > kcalTarget;
-  const kColor = over ? C.over : kp > 0.85 ? "#f0b341" : C.green;
+  const kColor = over ? C.over : kp > 0.85 ? C.warn : C.green;
   const pColor = C.protein;
   return (
     <div className="relative mx-auto mb-2" style={{ width: size, height: size * 0.84 }}>
@@ -544,7 +544,7 @@ function TemplatesSheet({ templates, hasContent, hasPrevDay, onCopyPrev, onSave,
             {templates.map((t) => {
               const tot = dayTotals(t);
               return (
-                <div key={t.id} className="flex items-center gap-2 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                <div key={t.id} className="flex items-center gap-2 rounded-2xl p-3" style={cardStyle()}>
                   <button onClick={() => onLoad(t.id)} className="min-w-0 flex-1 text-left active:scale-95">
                     <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{t.name}</p>
                     <p className="text-xs" style={{ color: C.sub, fontVariantNumeric: "tabular-nums" }}>{tot.kcal} kcal · {tot.p} g prot.</p>

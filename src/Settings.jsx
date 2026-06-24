@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from "react";
 import { X, Check, Flame, Beef, Package, ChevronRight, ChevronLeft, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark, Cloud, BookOpen } from "lucide-react";
 import {
-  C, TODAY, computeTargets, smoothedWeight,
+  C, TODAY, computeTargets, smoothedWeight, cardStyle,
 } from "./core.js";
 
 export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onOpenAccount, onOpenGuide, onClose }) {
@@ -57,7 +57,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
     <div className="px-1">
         <p className="mb-4 text-sm" style={{ color: C.sub }}>Règle tes cibles à la main, ou laisse le calculateur les estimer.</p>
 
-        <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+        <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={cardStyle()}>
           <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: C.ink }}>
             {theme === "dark" ? <Moon size={15} style={{ color: C.weight }} /> : <Sun size={15} style={{ color: C.protein }} />} Thème
           </span>
@@ -70,12 +70,12 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
         <SliderRow label="Calories" icon={<Flame size={15} style={{ color: C.protein }} />} value={kcal} unit="kcal" min={1500} max={2600} step={50} onChange={setKcal} color={C.protein} />
         <SliderRow label="Protéines" icon={<Beef size={15} style={{ color: C.green }} />} value={protein} unit="g" min={100} max={220} step={5} onChange={setProtein} color={C.green} />
         {proteinPerKg && <p className="-mt-3 mb-4 text-xs" style={{ color: C.muted }}>≈ {proteinPerKg} g/kg · cible muscle 1,6–2 g/kg</p>}
-        <button onClick={() => setShowCalc((v) => !v)} className="mb-3 mt-1 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+        <button onClick={() => setShowCalc((v) => !v)} className="mb-3 mt-1 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={cardStyle({ color: C.ink })}>
           <span className="flex items-center gap-2"><Calculator size={16} /> Estimer depuis mes mesures</span>
           <ChevronRight size={16} style={{ transform: showCalc ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
         </button>
         {showCalc && (
-          <div className="mb-4 space-y-3 rounded-2xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+          <div className="mb-4 space-y-3 rounded-2xl p-4" style={cardStyle()}>
             <div className="grid grid-cols-2 gap-2">
               <Seg label="Sexe" options={[{ v: "h", l: "Homme" }, { v: "f", l: "Femme" }]} value={profile.sex} onChange={(v) => setP("sex", v)} />
               <NumField label="Âge" value={profile.age} onChange={(v) => setP("age", v)} suffix="ans" />
@@ -98,33 +98,33 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
             <p className="text-xs" style={{ color: C.muted }}>Mifflin-St Jeor · protéines ≈ 1,9 g/kg. Plancher de sécurité à 1500 kcal.</p>
           </div>
         )}
-        <button onClick={() => setShowBase((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+        <button onClick={() => setShowBase((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={cardStyle({ color: C.ink })}>
           <span className="flex items-center gap-2"><Bookmark size={16} /> Ma base perso{customMeals.length > 0 && <span style={{ color: C.muted, fontWeight: 500 }}> · {customMeals.length}</span>}</span>
           <ChevronRight size={16} style={{ transform: showBase ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
         </button>
         {showBase && (
-          <div className="mb-3 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+          <div className="mb-3 rounded-2xl p-3" style={cardStyle()}>
             <CustomBaseManager items={customMeals} onUpdate={onUpdateCustom} onDelete={onDeleteCustom} />
           </div>
         )}
         {onOpenGuide && (
-          <button onClick={onOpenGuide} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+          <button onClick={onOpenGuide} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={cardStyle({ color: C.ink })}>
             <span className="flex items-center gap-2"><BookOpen size={16} /> Guide & méthode</span>
             <ChevronRight size={16} />
           </button>
         )}
         {onOpenAccount && (
-          <button onClick={onOpenAccount} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+          <button onClick={onOpenAccount} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={cardStyle({ color: C.ink })}>
             <span className="flex items-center gap-2"><Cloud size={16} /> Compte & synchronisation</span>
             <ChevronRight size={16} />
           </button>
         )}
-        <button onClick={() => setShowData((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+        <button onClick={() => setShowData((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={cardStyle({ color: C.ink })}>
           <span className="flex items-center gap-2"><Package size={16} /> Sauvegarde & restauration</span>
           <ChevronRight size={16} style={{ transform: showData ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
         </button>
         {showData && (
-          <div className="mb-4 space-y-3 rounded-2xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+          <div className="mb-4 space-y-3 rounded-2xl p-4" style={cardStyle()}>
             <p className="text-xs" style={{ color: C.sub }}>Exporte tes repas et ton poids dans un fichier, ou réimporte-les (les jours se fusionnent, l'import ne supprime rien).</p>
             <div className="flex gap-2">
               <button onClick={doExport} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.green }}><TrendingUp size={15} /> Exporter</button>
@@ -172,12 +172,12 @@ function CustomBaseManager({ items, onUpdate, onDelete }) {
     <div className="space-y-2">
       {items.map((m) => editId === m.id ? (
         <div key={m.id} className="space-y-2 rounded-xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
-          <input value={f.name} onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.ink }} />
+          <input value={f.name} onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
           <div className="flex gap-2">
-            <input value={f.kcal} onChange={(e) => setF((s) => ({ ...s, kcal: e.target.value }))} inputMode="numeric" placeholder="kcal" className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.ink }} />
-            <input value={f.p} onChange={(e) => setF((s) => ({ ...s, p: e.target.value }))} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.ink }} />
+            <input value={f.kcal} onChange={(e) => setF((s) => ({ ...s, kcal: e.target.value }))} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+            <input value={f.p} onChange={(e) => setF((s) => ({ ...s, p: e.target.value }))} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
             <button onClick={commit} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={15} /></button>
-            <button onClick={() => setEditId(null)} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}`, color: C.sub }}><X size={15} /></button>
+            <button onClick={() => setEditId(null)} className="shrink-0 rounded-xl px-3 py-2 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><X size={15} /></button>
           </div>
         </div>
       ) : (
