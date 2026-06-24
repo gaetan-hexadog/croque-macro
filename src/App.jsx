@@ -16,6 +16,7 @@ import { AuthGate } from "./AuthGate.jsx";
 import { MealSuggestSheet } from "./MealSuggestSheet.jsx";
 import { QuickLogSheet } from "./QuickLogSheet.jsx";
 import { PantrySheet } from "./PantrySheet.jsx";
+import { SectionTitle } from "./ui.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
@@ -572,11 +573,8 @@ export default function PiocheRepas() {
           )}
           {view === "jour"
             ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" }[view]}</h1>}
+            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" }[view]}</h1>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button onClick={() => go("progres")} aria-label="Progrès" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={view === "progres" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-              <TrendingUp size={18} />
-            </button>
             <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
               <ScanLine size={18} />
             </button>
@@ -593,7 +591,7 @@ export default function PiocheRepas() {
           <DayScreen
             activeDate={activeDate} setActiveDate={setActiveDate}
             settings={settings} totals={totals} planned={planned} remKcal={remKcal} remP={remP}
-            days={days} weights={weights} onOpenWeek={() => go("progres")} onSaveCombo={saveCombo}
+            days={days} weights={weights} onOpenWeek={() => go("journal")} onSaveCombo={saveCombo}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             sportInfo={sportInfo} recomp={recomp} onGoSport={() => go("sport")}
@@ -607,11 +605,14 @@ export default function PiocheRepas() {
             onApplyTarget={applyTargetSuggestion} onDismissTarget={() => setTargetDismissed(targetSuggestion.kcal)}
           />
         )}
-        {view === "journal" && (
-          <JournalScreen days={days} weights={weights} settings={settings} onOpen={goToDay} activeDate={activeDate} />
-        )}
-        {view === "progres" && (
-          <ProgressScreen days={days} weights={weights} settings={settings} />
+        {(view === "journal" || view === "progres") && (
+          <div className="space-y-6">
+            <ProgressScreen days={days} weights={weights} settings={settings} />
+            <div>
+              <SectionTitle>Historique jour par jour</SectionTitle>
+              <JournalScreen days={days} weights={weights} settings={settings} onOpen={goToDay} activeDate={activeDate} />
+            </div>
+          </div>
         )}
         {view === "guide" && (
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
@@ -716,7 +717,7 @@ function TabBar({ view, setView, onFab }) {
   // 4 onglets + bouton central « + ». Progrès vit dans le header (icône en haut).
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
-    { k: "journal", l: "Journal", icon: CalendarDays },
+    { k: "journal", l: "Suivi", icon: TrendingUp },
     { k: "cuisine", l: "Cuisine", icon: Soup },
     { k: "sport", l: "Sport", icon: Dumbbell },
   ];
