@@ -5,10 +5,24 @@ import {
 } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
 
+// Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
+function QuickChips({ items = [], onQuick, color }) {
+  if (!items.length || !onQuick) return null;
+  return (
+    <div className="mb-2 flex flex-wrap gap-1.5">
+      {items.map((it) => (
+        <button key={it.name} onClick={() => onQuick(it)} className="flex items-center gap-1 rounded-full py-1.5 pl-2 pr-2.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+          <Plus size={12} style={{ color }} /> <span className="max-w-36 truncate">{it.name}</span> <span style={{ color: C.muted }}>{it.kcal}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -43,6 +57,18 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: "pan-y" }}>
+      {/* Barre « restant » collante : le budget reste visible pendant le scroll */}
+      <div className="sticky top-0 z-20 -mx-4 mb-3 px-4 pt-1 pb-1">
+        <div className="flex items-center justify-between rounded-full px-4 py-2" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", border: `1px solid ${C.line}`, boxShadow: `0 6px 20px -12px ${C.shadow}` }}>
+          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{over ? "Dépassé" : "Restant"}</span>
+          <span className="text-sm font-bold tabular-nums">
+            <span style={{ color: over ? C.over : C.ink }}>{r0(Math.abs(remKcal))} kcal</span>
+            <span style={{ color: C.muted }}> · </span>
+            <span style={{ color: C.protein }}>{r0(Math.max(0, remP))} g</span>
+            {planned.kcal > 0 && <span className="font-medium" style={{ color: C.muted }}> · +{r0(planned.kcal)} prévu</span>}
+          </span>
+        </div>
+      </div>
       {/* Ajustement de la cible selon le poids réel (proposé, jamais imposé) */}
       {targetSuggestion && (
         <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}55` }}>
@@ -142,10 +168,10 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onIdea={onIdea ? () => onIdea("pdj") : undefined} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onIdea={onIdea ? () => onIdea("dej") : undefined} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onIdea={onIdea ? () => onIdea("diner") : undefined} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} />
-        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onIdea={onIdea ? () => onIdea("pdj") : undefined} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} quick={quickPicks.pdj} onQuick={onQuick ? (it) => onQuick("pdj", it) : undefined} onSkip={onSkip} onSaveCombo={onSaveCombo} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onIdea={onIdea ? () => onIdea("dej") : undefined} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} quick={quickPicks.dej} onQuick={onQuick ? (it) => onQuick("dej", it) : undefined} onSaveCombo={onSaveCombo} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onIdea={onIdea ? () => onIdea("diner") : undefined} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} quick={quickPicks.diner} onQuick={onQuick ? (it) => onQuick("diner", it) : undefined} onSaveCombo={onSaveCombo} />
+        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} quick={quickPicks.snack} onQuick={onQuick ? (it) => onQuick("snack", it) : undefined} />
       </div>
 
       {/* Poids du jour */}
@@ -170,7 +196,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 }
 
 
-function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo }) {
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, quick, onQuick }) {
   const ui = SLOT_UI[slotKey];
   const Icon = SLOTS[slotKey].icon;
   const [naming, setNaming] = useState(false);
@@ -196,12 +222,16 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
       {skipped ? (
         <p className="pl-1 text-sm" style={{ color: C.muted }}>Protéines reportées sur le déjeuner et le dîner.</p>
       ) : !has ? (
-        <div className="flex items-center gap-2">
-          <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}><Search size={15} /> Piocher · ~{r0(target.kcal)} kcal</button>
-          {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-11 items-center justify-center gap-1.5 rounded-2xl px-4 active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={17} /> Idée</button>}
-        </div>
+        <>
+          <QuickChips items={quick} onQuick={onQuick} color={ui.color} />
+          <div className="flex items-center gap-2">
+            <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}><Search size={15} /> Piocher · ~{r0(target.kcal)} kcal</button>
+            {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-11 items-center justify-center gap-1.5 rounded-2xl px-4 active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={17} /> Idée</button>}
+          </div>
+        </>
       ) : (
         <div className="space-y-2">
+          <QuickChips items={quick} onQuick={onQuick} color={ui.color} />
           {meals.map((m, i) => (
             <MealItemRow key={i} m={m} accent={ui.color} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} />
           ))}
@@ -227,7 +257,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
 
 // « À-côtés » : fusion En-cas + Plaisirs en une section. Les items « plaisir »
 // (ex-extras) portent un tag. Routage par slot ("snack" | "extras").
-function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm }) {
+function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm, quick, onQuick }) {
   const color = SLOT_UI.snack.color;
   const items = [
     ...snacks.map((m, i) => ({ m, slot: "snack", i, plaisir: false })),
@@ -249,6 +279,7 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
           <button onClick={onAdd} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>
         </div>
       </div>
+      <QuickChips items={quick} onQuick={onQuick} color={color} />
       {items.length === 0 ? (
         <p className="pl-1 text-sm" style={{ color: C.muted }}>Un en-cas protéiné si un repas est juste, ou un petit plaisir — le budget s'ajuste tout seul.</p>
       ) : (

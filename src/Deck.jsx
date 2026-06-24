@@ -191,16 +191,6 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 {q && <button onClick={() => setQ("")} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Effacer"><X size={15} /></button>}
               </div>
 
-              <div className="mb-5 grid grid-cols-3 gap-1.5">
-                <MethodBtn icon={Refrigerator} color={C.weight} label="Frigo" onClick={() => setPanel("frigo")} />
-                <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
-                <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
-                <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Mes repas" onClick={() => setPanel("combos")} />
-                <MethodBtn icon={ScanLine} color={C.weight} label="Scanner" onClick={() => setPanel("off")} />
-                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Cookie} color={C.extra} label="Plaisirs" onClick={() => setPanel("plaisirs")} /> : <MethodBtn icon={Pencil} color={C.extra} label="Manuel" onClick={() => setCustomOpen(true)} />}
-                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Pencil} color={C.sub} label="Manuel" onClick={() => setCustomOpen(true)} /> : null}
-              </div>
-
               {q.trim() ? (
                 <>
                   <div className="mb-2 flex items-center justify-between">
@@ -245,6 +235,18 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                   )}
                 </>
               )}
+
+              {/* Autres moyens d'ajout (secondaire, sous les raccourcis) */}
+              <p className="mb-2 mt-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Autre moyen</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                <MethodBtn icon={Refrigerator} color={C.weight} label="Frigo" onClick={() => setPanel("frigo")} />
+                <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
+                <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
+                <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Mes repas" onClick={() => setPanel("combos")} />
+                <MethodBtn icon={ScanLine} color={C.weight} label="Scanner" onClick={() => setPanel("off")} />
+                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Cookie} color={C.extra} label="Plaisirs" onClick={() => setPanel("plaisirs")} /> : <MethodBtn icon={Pencil} color={C.extra} label="Manuel" onClick={() => setCustomOpen(true)} />}
+                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Pencil} color={C.sub} label="Manuel" onClick={() => setCustomOpen(true)} /> : null}
+              </div>
 
             </>
           )}
