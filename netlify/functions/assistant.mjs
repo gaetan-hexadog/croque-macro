@@ -106,8 +106,13 @@ function isPrivateIp(ip) {
   if (net.isIPv6(ip)) {
     const low = ip.toLowerCase();
     if (low === "::1" || low === "::") return true;
-    if (low.startsWith("fe80") || low.startsWith("fc") || low.startsWith("fd")) return true;
-    if (low.startsWith("::ffff:")) { const v4 = low.split(":").pop(); if (net.isIPv4(v4)) return isPrivateIp(v4); }
+    if (/\d+\.\d+\.\d+\.\d+/.test(low)) return true;     // IPv4-mapped/-compatible (::ffff:x, ::x) → refus en bloc
+    if (low.startsWith("fc") || low.startsWith("fd")) return true; // ULA fc00::/7
+    const first = parseInt(low.split(":")[0] || "0", 16) || 0;
+    if (first >= 0xfe80 && first <= 0xfebf) return true; // link-local fe80::/10
+    if (first >= 0xfec0 && first <= 0xfeff) return true; // site-local (déprécié)
+    if (first >= 0xff00) return true;                    // multicast ff00::/8
+    if (low.startsWith("2001:db8") || low.startsWith("64:ff9b") || low.startsWith("100:")) return true; // doc / NAT64 / discard
     return false;
   }
   return true; // inconnu → on refuse
