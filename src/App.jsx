@@ -6,7 +6,7 @@ import {
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
 import { pullAll, pushDays, pushWeights, pushAppState, mergeAppState } from "./sync.js";
-import { DayScreen, ExtrasSheet } from "./DayScreen.jsx";
+import { DayScreen } from "./DayScreen.jsx";
 import { Deck } from "./Deck.jsx";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
@@ -41,7 +41,6 @@ export default function PiocheRepas() {
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
   const [picker, setPicker] = useState(null);
-  const [extrasOpen, setExtrasOpen] = useState(false);
   const [toolOpen, setToolOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);        // menu d'actions rapides (bouton central +)
   const [frigoOpen, setFrigoOpen] = useState(false);    // gestion du frigo/placard (accès global)
@@ -70,7 +69,6 @@ export default function PiocheRepas() {
   const go = useCallback((v) => { if (v === viewRef.current) return; const prev = viewRef.current; pushNav(() => setView(prev)); setView(v); }, [pushNav]);
   const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
   const openSettings = useCallback(() => go("reglages"), [go]);
-  const openExtras = useCallback(() => { pushNav(() => setExtrasOpen(false)); setExtrasOpen(true); }, [pushNav]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   const openFab = useCallback(() => setFabOpen(true), []); // menu simple : pas d'entrée d'historique (évitait le télescopage à la fermeture)
@@ -385,18 +383,8 @@ export default function PiocheRepas() {
   const editItem = (slot, index, patch) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, ...patch } : m) } }; });
   const clearSlot = (slot, index) => setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((_, i) => i !== index) } }; });
   const addExtra = (extra) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1 }] } }));
-  const removeExtra = (i) => setDay((d) => ({ ...d, picks: { ...d.picks, extras: (d.picks.extras || []).filter((_, idx) => idx !== i) } }));
   const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: [] } }));
   const toggleTraining = () => setDay((d) => ({ ...d, training: !d.training }));
-  const surprise = (slotKey) => {
-    const pool = rankFor(slotKey, library.pool.filter((m) => (m.slots || []).includes(slotKey)));
-    const good = pool.filter((m) => fitOf(m) === "ok");
-    const from = (good.length ? good : pool).slice(0, 6);
-    const pick = from[Math.floor(Math.random() * from.length)];
-    if (!pick) return;
-    const key = picksKey(slotKey);
-    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { ...pick, qty: 1 }].slice(0, CAP[slotKey] || 8) } }));
-  };
   const resetDay = () => setDay((d) => ({ ...EMPTY_DAY() }));
 
   const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -480,8 +468,7 @@ export default function PiocheRepas() {
             training={training} onToggleTraining={toggleTraining}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)} onConfirm={confirmMeal}
-            onSurprise={surprise} onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip}
-            onAddExtra={addExtra} onRemoveExtra={removeExtra} onOpenExtras={openExtras} onReset={resetDay}
+            onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
             targetSuggestion={showTargetSuggestion ? targetSuggestion : null}
@@ -521,9 +508,6 @@ export default function PiocheRepas() {
           bases={library.pool.filter((m) => (m.tags || []).includes("shake-base"))} liquids={library.pool.filter((m) => (m.tags || []).includes("shake-liquid"))}
           recipes={[...customRecipes, ...library.recipes]} onAddRecipe={addRecipe}
           shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
-      )}
-      {extrasOpen && (
-        <ExtrasSheet presets={library.presets} onAdd={addExtra} onClose={navBack} pantry={pantry} onSaveMeal={saveCustomMeal} />
       )}
       {toolOpen && (
         <Sheet open onClose={navBack} title="Scanner un produit">
