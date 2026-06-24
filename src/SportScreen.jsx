@@ -231,7 +231,7 @@ function SessionPreview({ session, week, workouts, done, onBack, onStart }) {
       <WorkoutHeader title={`${session.name} · ${session.subtitle}`} subtitle={`${session.day} · ${session.duration} · S${week}`} onCancel={onBack} />
       {done && <Banner level="good" title="Séance déjà faite cette semaine" message="Tu peux la refaire ou la consulter — elle est marquée comme faite." />}
 
-      <PhaseCard label={`Échauffement · ${session.warmup.duration}`} detail={session.warmup.details} />
+      {session.warmup && <PhaseCard label={`Échauffement · ${session.warmup.duration}`} detail={session.warmup.details} />}
 
       {cardio ? (
         <>
@@ -271,7 +271,7 @@ function SessionPreview({ session, week, workouts, done, onBack, onStart }) {
       )}
 
       {session.finishCardio && <PhaseCard label={session.finishCardio.name} detail={`${session.finishCardio.intervals.count} × ${session.finishCardio.intervals.work}s / ${session.finishCardio.intervals.rest}s repos. ${session.finishCardio.tip}`} />}
-      <PhaseCard label={`Retour au calme · ${session.cooldown.duration}`} detail={session.cooldown.details} />
+      {session.cooldown && <PhaseCard label={`Retour au calme · ${session.cooldown.duration}`} detail={session.cooldown.details} />}
 
       <div className="fixed inset-x-0 z-30 px-4" style={{ bottom: "calc(env(safe-area-inset-bottom) + 4.75rem)" }}>
         <button onClick={onStart} className="mx-auto flex max-w-md items-center justify-center gap-2 rounded-2xl py-3.5 font-semibold text-white active:scale-95 w-full" style={{ backgroundColor: C.green, boxShadow: `0 12px 30px -10px ${C.shadow}` }}>
