@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, ChevronLeft } from "lucide-react";
 import { C } from "./core.js";
 
 const reduceMotion = () => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -7,7 +7,7 @@ const reduceMotion = () => typeof window !== "undefined" && window.matchMedia &&
 // Bottom-sheet partagée : slide-up, poignée, et SWIPE-VERS-LE-BAS pour fermer
 // depuis n'importe où tant que le contenu est en haut (sinon on scrolle). Le tap
 // sur le fond ferme aussi. overscroll-behavior empêche le pull-to-refresh.
-export function Sheet({ open, onClose, children, title, headerRight, stickyHeader, maxHeight = "92vh", z = 30 }) {
+export function Sheet({ open, onClose, children, title, subtitle, icon, iconColor, onBack, headerRight, stickyHeader, maxHeight = "92vh", z = 30 }) {
   const [shown, setShown] = useState(false);
   const [dragY, setDragY] = useState(0);
   const startRef = useRef(null);
@@ -42,15 +42,19 @@ export function Sheet({ open, onClose, children, title, headerRight, stickyHeade
         style={{ maxHeight, backgroundColor: C.sheet, transform: `translateY(${translate}px)`, transition: dragY || reduce ? "none" : "transform .34s cubic-bezier(.22,1,.36,1)", boxShadow: `0 -24px 64px -32px ${C.shadow}` }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Le swipe-pour-fermer n'est armé QUE sur la poignée/en-tête, pour ne pas voler les taps du contenu. */}
+        {/* En-tête unifié (icône · titre · sous-titre · retour · close). Le swipe-pour-
+            fermer n'est armé QUE sur cette zone, pour ne pas voler les taps du contenu. */}
         <div className="shrink-0 px-5 pt-3" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-          <div className="mx-auto mb-2 h-1.5 w-10 rounded-full" style={{ backgroundColor: C.line }} />
-          <div className="mb-1 flex items-center justify-between gap-2">
-            {title ? <h2 className="text-base font-bold" style={{ color: C.ink }}>{title}</h2> : <span />}
-            <div className="flex items-center gap-2">
-              {headerRight}
-              <button onClick={onClose} aria-label="Fermer" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><X size={16} /></button>
+          <div className="mx-auto mb-2.5 h-1.5 w-10 rounded-full" style={{ backgroundColor: C.line }} />
+          <div className="mb-2 flex items-center gap-2.5">
+            {onBack && <button onClick={onBack} aria-label="Retour" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><ChevronLeft size={18} /></button>}
+            {icon && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${iconColor || C.accent}1f`, color: iconColor || C.accent }}>{icon}</span>}
+            <div className="min-w-0 flex-1">
+              {title && <h2 className="truncate text-base font-bold leading-tight" style={{ color: C.ink }}>{title}</h2>}
+              {subtitle && <p className="truncate text-xs" style={{ color: C.muted }}>{subtitle}</p>}
             </div>
+            {headerRight}
+            <button onClick={onClose} aria-label="Fermer" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><X size={16} /></button>
           </div>
         </div>
         {stickyHeader && <div className="shrink-0 px-5 pb-2 pt-1">{stickyHeader}</div>}

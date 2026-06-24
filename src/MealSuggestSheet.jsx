@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Sparkles, Loader2, Refrigerator, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, Refrigerator, AlertCircle, Lightbulb } from "lucide-react";
 import { C, buildAssistantPrompt } from "./core.js";
 import { askAssistant, AssistantError } from "./assistant.js";
 import { Sheet } from "./Sheet.jsx";
@@ -56,7 +56,7 @@ export function MealSuggestSheet({
   const save = (cust, i) => { onSaveRecipe?.(cust); setSavedKeys((s) => new Set(s).add(i)); };
 
   return (
-    <Sheet open onClose={onClose} title={`Une idée pour le ${SLOT_LABELS[slot] || "repas"}`}>
+    <Sheet open onClose={onClose} title="Une idée de repas" subtitle={`Pour le ${SLOT_LABELS[slot] || "repas"}`} icon={<Lightbulb size={18} />} iconColor={C.green}>
       <div className="flex items-center justify-between pb-3">
         <p className="text-xs" style={{ color: C.sub }}>Budget restant : <span className="font-bold" style={{ color: C.ink }}>{Math.round(Math.max(0, remKcal))} kcal</span> · <span className="font-bold" style={{ color: C.protein }}>{Math.round(Math.max(0, remP))} g</span></p>
         <button onClick={() => setPantryOpen(true)} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>

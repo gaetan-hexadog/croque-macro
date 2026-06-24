@@ -176,18 +176,11 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
   return (
     <>
-    <Sheet open onClose={onClose} stickyHeader={
-      <div className="flex items-center justify-between">
-        {panel === "main" ? (
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}>{React.createElement(SLOTS[slotKey].icon, { size: 17 })}</span>
-            <div className="leading-tight"><p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ui.color }}>{ui.time}</p><p className="text-base font-bold" style={{ color: C.ink }}>Ajouter · {SLOTS[slotKey].label}</p></div>
-          </div>
-        ) : (
-          <button onClick={() => setPanel("main")} className="flex items-center gap-1.5 text-sm font-semibold active:scale-95" style={{ color: C.sub }}><ArrowLeft size={18} /> Retour</button>
-        )}
-      </div>
-    }>
+    <Sheet open onClose={onClose}
+      icon={React.createElement(SLOTS[slotKey].icon, { size: 18 })} iconColor={ui.color}
+      title={panel === "main" ? `Ajouter · ${SLOTS[slotKey].label}` : ({ shake: "Composer un shake", recipes: "Recettes", combos: "Mes repas", off: "Scanner un produit", frigo: "Mon frigo", plaisirs: "Petits plaisirs" }[panel] || "Ajouter")}
+      subtitle={panel === "main" ? ui.time : undefined}
+      onBack={panel !== "main" ? () => setPanel("main") : undefined}>
         <div>
 
           {panel === "main" && (
@@ -258,21 +251,18 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
           {panel === "shake" && (
             <div>
-              <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><GlassWater size={18} style={{ color: C.protein }} /> Composer un shake</p>
               <ShakeBuilder embedded onAdd={onChoose} bases={bases} liquids={liquids} customBases={shakeBases} customLiquids={shakeLiquids} onAddBase={onAddShakeBase} onDelBase={onDelShakeBase} onAddLiquid={onAddShakeLiquid} onDelLiquid={onDelShakeLiquid} />
             </div>
           )}
 
           {panel === "frigo" && (
             <div>
-              <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><Refrigerator size={18} style={{ color: C.weight }} /> Mon frigo</p>
               <FrigoPick pantry={pantry} accent={ui.color} onPick={(it) => { onChoose({ name: it.name, kcal: it.kcal, p: it.p, qty: 1 }); }} />
             </div>
           )}
 
           {panel === "plaisirs" && (
             <div>
-              <p className="mb-1 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><Cookie size={18} style={{ color: C.extra }} /> Petits plaisirs</p>
               <p className="mb-3 text-xs" style={{ color: C.muted }}>Glace, barre, gâteau, cidre… ajouté en « plaisir », le budget des repas s'ajuste tout seul.</p>
               {presets.flatMap((g) => g.items).length === 0 ? (
                 <p className="py-6 text-center text-sm" style={{ color: C.muted }}>Aucun plaisir préchargé.</p>
@@ -288,7 +278,6 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
           {panel === "recipes" && (
             <div>
-              <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><Soup size={18} style={{ color: C.green }} /> Recettes</p>
               <button onClick={() => setCreatingRecipe(true)} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Plus size={16} /> Créer une recette</button>
               {slotRecipes.length === 0 ? (
                 <p className="py-6 text-center text-sm leading-relaxed" style={{ color: C.muted }}>Aucune recette pour ce créneau.<br />Crée-en une — elle s'enregistre dans Ma cuisine et s'ajoute à ce repas.</p>
@@ -310,7 +299,6 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
           {panel === "combos" && (
             <div>
-              <p className="mb-3 flex items-center gap-2 text-base font-bold" style={{ color: C.ink }}><UtensilsCrossed size={18} style={{ color: ui.color }} /> Mes repas</p>
               {slotCombos.length === 0 ? (
                 <p className="py-8 text-center text-sm leading-relaxed" style={{ color: C.muted }}>Aucun repas réutilisable pour ce créneau.<br />Crée-en un depuis un repas du jour, avec « Enregistrer comme repas réutilisable ».</p>
               ) : (

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Soup } from "lucide-react";
 import { C } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
 
@@ -51,7 +51,7 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill 
   const field = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
   const lab = "mb-1 block text-xs font-semibold uppercase tracking-wide";
   return (
-    <Sheet open onClose={onClose} title={editing ? "Modifier la recette" : "Nouvelle recette"}>
+    <Sheet open onClose={onClose} title={editing ? "Modifier la recette" : "Nouvelle recette"} icon={<Soup size={18} />} iconColor={C.green}>
       <label className={lab} style={{ color: C.sub }}>Nom</label>
       <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ex. Bowl tofu cacahuète" className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
 

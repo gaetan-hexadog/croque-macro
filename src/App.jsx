@@ -510,7 +510,7 @@ export default function PiocheRepas() {
           shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
       )}
       {toolOpen && (
-        <Sheet open onClose={navBack} title="Scanner un produit">
+        <Sheet open onClose={navBack} title="Scanner un produit" subtitle="Feu nutritionnel & ajout" icon={<ScanLine size={18} />} iconColor={C.protein}>
           <p className="mb-3 text-xs" style={{ color: C.muted }}>Scanne ou cherche un produit pour voir son feu 🟢/🟠/🔴 et l'enregistrer dans ta base (« je consomme ça »).</p>
           <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={saveCustomMeal} />
         </Sheet>
@@ -519,7 +519,7 @@ export default function PiocheRepas() {
         <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} />
       )}
       {fabOpen && (
-        <Sheet open onClose={() => setFabOpen(false)} title="Que veux-tu faire ?">
+        <Sheet open onClose={() => setFabOpen(false)} title="Que veux-tu faire ?" icon={<Plus size={18} />} iconColor={C.accent}>
           <div className="space-y-2 pb-2">
             {[
               { l: "Logger un repas", s: "Ajouter au jour en cours", icon: Plus, c: C.green, act: () => go("jour") },

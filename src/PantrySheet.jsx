@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, ScanLine, Pencil, Check, ArrowLeft } from "lucide-react";
+import { X, ScanLine, Pencil, Check, Refrigerator } from "lucide-react";
 import { C } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
 import OffSearch from "./OffSearch.jsx";
@@ -54,8 +54,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
 
   if (scanning) {
     return (
-      <Sheet open onClose={onClose} title="Ajouter au frigo" z={40}>
-        <button onClick={() => setScanning(false)} className="mb-3 flex items-center gap-1.5 text-sm font-semibold active:scale-95" style={{ color: C.sub }}><ArrowLeft size={16} /> Retour au frigo</button>
+      <Sheet open onClose={onClose} title="Ajouter au frigo" subtitle="Chercher ou scanner" icon={<ScanLine size={18} />} iconColor={C.weight} onBack={() => setScanning(false)} z={40}>
         <p className="mb-3 text-xs" style={{ color: C.sub }}>Cherche un produit ou scanne son code-barres, puis « Ajouter » — il rejoint directement ton frigo (nom, quantité du paquet et macros /100 repris automatiquement, éditables ensuite).</p>
         <OffSearch C={C} accent={C.weight} onChoose={(it) => {
           onAdd(stripQty(it.name), { unit: it.unit || "g", qty: parsePkg(it.pkgQty, it.unit), kcal100: it.per100?.kcal, p100: it.per100?.p });
@@ -66,7 +65,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   }
 
   return (
-    <Sheet open onClose={onClose} title="Mon frigo / placard" z={40}>
+    <Sheet open onClose={onClose} title="Mon frigo / placard" icon={<Refrigerator size={18} />} iconColor={C.weight} z={40}>
       <p className="mb-3 text-xs leading-relaxed" style={{ color: C.sub }}>Ce que tu as sous la main, avec la quantité. Passe en <b style={{ color: C.over }}>rupture</b> ce qui te manque. L'assistant peut n'en utiliser qu'une <b style={{ color: C.ink }}>partie</b> (chocolat, compote, yaourt…).</p>
 
       {/* Chemin principal : chercher/scanner via Open Food Facts (ajout direct) */}
