@@ -467,6 +467,13 @@ function buildAssistantPrompt({
     "- Réutilise les macros EXACTES de mes produits connus UNIQUEMENT si tu emploies ces produits ; sinon estime de façon conservatrice (arrondis les kcal vers le haut). N'utilise JAMAIS un aliment listé comme à exclure.",
     "- CHAQUE ingrédient DOIT avoir une quantité CHIFFRÉE (qty + unit) — jamais d'ingrédient sans quantité. Pour les poudres/suppléments (protéine, all-in-one, Bulk…), exprime en DOSE/scoop (≈30 g), JAMAIS en grammes. Renvoie toujours via l'outil `propose`.",
     "- Pour CHAQUE repas, ajoute 1 à 3 VARIANTES (remplacer/ajouter/retirer un ingrédient) avec leur impact macro signé (kcal + protéines, ex. « tofu → tempeh » +30/+4 ; « +30 g amandes » +180/+6 ; « +1 dose protéine » +110/+22 ; « sans fromage » −90/−6) et un label court avec la quantité dans la bonne unité (dose pour les poudres).",
+    "FORMAT ATTENDU pour chaque option (respecte-le exactement, même style de quantités/unités) :",
+    JSON.stringify({
+      title: "Bowl skyr amande & fruits rouges", emoji: "🫐", slot: "snack", kcal: 280, protein: 26,
+      ingredients: [{ qty: 150, unit: "g", name: "skyr nature" }, { qty: 80, unit: "g", name: "fruits rouges" }, { qty: 20, unit: "g", name: "amandes" }, { qty: 1, unit: "dose", name: "protéine vanille en poudre" }],
+      note: "Grab-and-go, riche en protéines.",
+      variants: [{ label: "+1 dose protéine", kcal: 110, protein: 22 }, { label: "sans amandes", kcal: -120, protein: -4 }],
+    }),
   ].join("\n");
 
   const L = [];
