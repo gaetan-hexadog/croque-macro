@@ -22,6 +22,8 @@ Migrations versionnées avec l'app (avant, elles vivaient hors repo).
 - **`009_lock_catalog.sql`** — **multi-utilisateur** : verrouille l'écriture du
   catalogue (`foods`/`recipes`/`presets`) à l'admin (toi). Lecture toujours
   publique. ⚠️ **Édite `admin_uid` (ton User UID) avant de l'exécuter.**
+- **`010_dedupe_extras.sql`** — supprime 4 produits Bulk en double (clones `extra`
+  des suppléments `bv1–bv4`). Sans impact sur le frigo/l'historique (découplés).
 
 ## Appliquer
 Dans le SQL Editor Supabase, exécute dans l'ordre : `001` → `002` → `003`.
