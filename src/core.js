@@ -265,7 +265,8 @@ const DEFAULT_COMBOS = [
 
 // ── Cible kcal/protéines : calcul + ajustement selon le poids réel ───────────
 // Profil par défaut (doit rester identique à celui de Settings.jsx).
-const DEFAULT_PROFILE = { sex: "h", age: 35, weight: 78, height: 178, activity: 1.45, deficit: 0.18 };
+// goalRate = rythme de perte visé (kg/sem) pour le moteur adaptatif (computeAdaptiveTarget).
+const DEFAULT_PROFILE = { sex: "h", age: 42, weight: 91, height: 186, activity: 1.45, deficit: 0.25, goalRate: 0.7 };
 
 // Calcule maintenance / cible / protéines reco à partir d'un profil (Mifflin-St Jeor).
 // Source unique : Settings (calculatrice) ET l'ajustement auto réutilisent CE calcul.

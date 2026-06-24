@@ -14,7 +14,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState(null);
   const fileRef = React.useRef(null);
-  const [profile, setProfile] = useState(settings.profile ?? { sex: "h", age: 35, weight: 78, height: 178, activity: 1.45, deficit: 0.18 });
+  const [profile, setProfile] = useState(settings.profile ?? { sex: "h", age: 42, weight: 91, height: 186, activity: 1.45, deficit: 0.25, goalRate: 0.7 });
   const setP = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
   const save = () => { setSettings({ kcal, protein, profile }); onClose(); };
 
@@ -50,6 +50,9 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
   const weightStale = realWeight && Math.abs(realWeight.kg - (+profile.weight || 0)) >= 0.5;
   const ACTIVITIES = [{ v: 1.2, l: "Sédentaire" }, { v: 1.375, l: "Léger" }, { v: 1.45, l: "Modéré" }, { v: 1.55, l: "Actif" }, { v: 1.725, l: "Très actif" }];
   const DEFICITS = [{ v: 0, l: "Maintien" }, { v: 0.12, l: "Perte douce" }, { v: 0.18, l: "Perte" }, { v: 0.25, l: "Perte rapide" }];
+  // Rythme de perte visé (kg/sem) — pilote le moteur adaptatif (ajustement auto sur tes données réelles).
+  const GOALRATES = [{ v: 0.3, l: "Douce" }, { v: 0.5, l: "Standard" }, { v: 0.7, l: "Rapide" }, { v: 0.9, l: "Agressive" }];
+  const proteinPerKg = profile.weight ? (protein / (+profile.weight || 1)).toFixed(1).replace(".", ",") : null;
   return (
     <div className="px-1">
         <p className="mb-4 text-sm" style={{ color: C.sub }}>Règle tes cibles à la main, ou laisse le calculateur les estimer.</p>
@@ -66,6 +69,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
         </div>
         <SliderRow label="Calories" icon={<Flame size={15} style={{ color: C.protein }} />} value={kcal} unit="kcal" min={1500} max={2600} step={50} onChange={setKcal} color={C.protein} />
         <SliderRow label="Protéines" icon={<Beef size={15} style={{ color: C.green }} />} value={protein} unit="g" min={100} max={220} step={5} onChange={setProtein} color={C.green} />
+        {proteinPerKg && <p className="-mt-3 mb-4 text-xs" style={{ color: C.muted }}>≈ {proteinPerKg} g/kg · cible muscle 1,6–2 g/kg</p>}
         <button onClick={() => setShowCalc((v) => !v)} className="mb-3 mt-1 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
           <span className="flex items-center gap-2"><Calculator size={16} /> Estimer depuis mes mesures</span>
           <ChevronRight size={16} style={{ transform: showCalc ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
@@ -85,6 +89,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
             )}
             <Picker2 label="Activité" options={ACTIVITIES} value={profile.activity} onChange={(v) => setP("activity", v)} />
             <Picker2 label="Objectif" options={DEFICITS} value={profile.deficit} onChange={(v) => setP("deficit", v)} />
+            <Picker2 label="Rythme visé (auto)" options={GOALRATES} value={profile.goalRate ?? 0.5} onChange={(v) => setP("goalRate", v)} />
             <div className="rounded-xl p-3" style={{ backgroundColor: C.paper }}>
               <div className="flex justify-between text-xs" style={{ color: C.sub }}><span>Maintien estimé</span><span className="font-semibold">{calc.maintenance} kcal</span></div>
               <div className="mt-1 flex justify-between text-sm"><span className="font-semibold" style={{ color: C.ink }}>Cible recommandée</span><span className="font-bold" style={{ color: C.ink }}>{calc.target} kcal · {calc.proteinReco} g</span></div>

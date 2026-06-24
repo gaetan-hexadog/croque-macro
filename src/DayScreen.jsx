@@ -22,7 +22,7 @@ function QuickChips({ items = [], onQuick, color }) {
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport }) {
   const [showTpl, setShowTpl] = useState(false);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -100,6 +100,29 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
         <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 1))} disabled={!canFwd} className="flex h-9 w-9 items-center justify-center rounded-xl active:scale-90" style={{ color: canFwd ? C.sub : C.line }}><ChevronRight size={20} /></button>
       </div>
+
+      {/* Séance du jour (programme sport) — lien vers l'onglet Sport */}
+      {sportInfo && (
+        <button onClick={onGoSport} className="mb-4 flex w-full items-center gap-3 rounded-2xl p-3.5 text-left active:scale-[0.99]" style={cardStyle(sportInfo.done ? undefined : { border: `1px solid ${C.green}`, borderTop: `1px solid ${C.green}` })}>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: sportInfo.done ? `${C.green}22` : C.paper, color: sportInfo.done ? C.green : C.sub }}>{sportInfo.done ? <Check size={18} /> : <Dumbbell size={18} />}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold" style={{ color: C.ink }}>Séance du jour · {sportInfo.name}</span>
+            <span className="block text-xs" style={{ color: C.sub }}>{sportInfo.subtitle} · S{sportInfo.week}{sportInfo.done ? " · faite ✓" : " — c'est aujourd'hui"}</span>
+          </span>
+          <ChevronRight size={18} style={{ color: C.muted }} />
+        </button>
+      )}
+
+      {/* Coaching recomposition : force ↔ poids */}
+      {recomp && (
+        <div className="mb-4 flex gap-3 rounded-2xl p-4" style={{ backgroundColor: `${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}14`, border: `1px solid ${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}44` }}>
+          <Dumbbell size={18} style={{ color: recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <p className="text-sm font-bold" style={{ color: C.ink }}>{recomp.title}</p>
+            <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{recomp.message}</p>
+          </div>
+        </div>
+      )}
 
       {/* Jauge du jour — double anneau (kcal + protéines). Training = chip discret en coin. */}
       <section className="relative mb-4 rounded-3xl p-5" style={cardStyle()}>

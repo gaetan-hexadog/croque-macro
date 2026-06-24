@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator } from "lucide-react";
+import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, fixClearProteinHistory, newId,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId,
 } from "./core.js";
+import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./sport.js";
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
-import { pullAll, pushDays, pushWeights, pushAppState, mergeAppState } from "./sync.js";
+import { pullAll, pushDays, pushWeights, pushAppState, pushWorkouts, mergeAppState } from "./sync.js";
 import { DayScreen } from "./DayScreen.jsx";
 import { Deck } from "./Deck.jsx";
 import OffSearch from "./OffSearch.jsx";
@@ -20,6 +21,7 @@ const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ 
 const GuideScreen = lazy(() => import("./GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
 const PlanScreen = lazy(() => import("./PlanScreen.jsx"));
 const CuisineScreen = lazy(() => import("./CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
+const SportScreen = lazy(() => import("./SportScreen.jsx").then((m) => ({ default: m.SportScreen })));
 const SettingsSheet = lazy(() => import("./Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
 const AccountSheet = lazy(() => import("./AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
 
@@ -37,6 +39,8 @@ export default function PiocheRepas() {
   const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
   const [customRecipes, setCustomRecipes] = useState([]); // recettes perso (écran Idées), fusionnées à la bibliothèque
   const [pantry, setPantry] = useState([]);             // frigo/placard : [{ id, name, out }] — out=true = pas dispo aujourd'hui
+  const [workouts, setWorkouts] = useState({});         // séances loggées : { id: { date, sessionId, week, data… } } — table workout_logs
+  const [sport, setSport] = useState({});               // config sport (blob app_state.sport) : { startDate, currentWeek, preferences… }
   const [ideaSlot, setIdeaSlot] = useState(null);       // créneau pour lequel l'idée contextuelle est ouverte (écran Jour)
   const [library, setLibrary] = useState(getLibrarySync); // { presets, recipes } — cache → Supabase
   const [activeDate, setActiveDate] = useState(TODAY);
@@ -80,9 +84,9 @@ export default function PiocheRepas() {
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
   const stateRef = useRef({});
-  const lastSynced = useRef({ days: {}, weights: {}, appState: "" });
+  const lastSynced = useRef({ days: {}, weights: {}, workouts: {}, appState: "" });
   const syncTimer = useRef(null);
-  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes, pantry: s.pantry }; }, []);
+  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes, pantry: s.pantry, sport: s.sport }; }, []);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -110,6 +114,8 @@ export default function PiocheRepas() {
         if (Array.isArray(d.favs)) setFavs(d.favs);
         if (Array.isArray(d.customRecipes)) setCustomRecipes(d.customRecipes);
         if (Array.isArray(d.pantry)) setPantry(d.pantry);
+        if (d.workouts && typeof d.workouts === "object") setWorkouts(d.workouts);
+        if (d.sport && typeof d.sport === "object") setSport(d.sport);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
       } else {
         setCombos(DEFAULT_COMBOS);
@@ -118,11 +124,11 @@ export default function PiocheRepas() {
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport, hydrated]);
 
   // ── Synchronisation Supabase (offline-first, local-first) ──────────────────
   // Miroir de l'état courant pour lire des valeurs fraîches dans les callbacks async
-  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry }; });
+  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport }; });
 
   // Abonnement à la session Supabase
   useEffect(() => {
@@ -138,8 +144,10 @@ export default function PiocheRepas() {
       const remote = await pullAll(uid);
       const localDays = stateRef.current.days || {};
       const localWeights = stateRef.current.weights || {};
+      const localWorkouts = stateRef.current.workouts || {};
       setDays((l) => ({ ...l, ...remote.days }));
       setWeights((l) => ({ ...l, ...remote.weights }));
+      setWorkouts((l) => ({ ...l, ...remote.workouts }));
       // Fusion sans perte : on unionne local + remote (collections par id), on applique, on repousse.
       const merged = mergeAppState(appStateNow(), remote.appState);
       if (merged.settings) setSettings(merged.settings);
@@ -153,12 +161,15 @@ export default function PiocheRepas() {
       setShakeLiquids(merged.shakeLiquids);
       if (typeof merged.comboSeed === "number") setComboSeed(merged.comboSeed);
       setFavs(merged.favs);
+      if (merged.sport) setSport(merged.sport);
       const onlyDays = {}; for (const k in localDays) if (!(k in remote.days)) onlyDays[k] = localDays[k];
       const onlyWeights = {}; for (const k in localWeights) if (!(k in remote.weights)) onlyWeights[k] = localWeights[k];
+      const onlyWorkouts = {}; for (const k in localWorkouts) if (!(k in remote.workouts)) onlyWorkouts[k] = localWorkouts[k];
       await pushDays(uid, onlyDays);
       await pushWeights(uid, onlyWeights);
+      await pushWorkouts(uid, onlyWorkouts);
       await pushAppState(uid, merged); // repousse l'état fusionné → les ajouts des 2 appareils sont préservés
-      lastSynced.current = { days: { ...localDays, ...remote.days }, weights: { ...localWeights, ...remote.weights }, appState: JSON.stringify(merged) };
+      lastSynced.current = { days: { ...localDays, ...remote.days }, weights: { ...localWeights, ...remote.weights }, workouts: { ...localWorkouts, ...remote.workouts }, appState: JSON.stringify(merged) };
       setSyncStatus("synced");
     } catch (e) { console.warn("[sync] initial:", e.message); setSyncStatus("error"); }
   }, [appStateNow]);
@@ -176,15 +187,18 @@ export default function PiocheRepas() {
     for (const iso in cur.days) if (JSON.stringify(cur.days[iso]) !== JSON.stringify(lastSynced.current.days[iso])) changedDays[iso] = cur.days[iso];
     const changedWeights = {};
     for (const iso in cur.weights) if (cur.weights[iso] !== lastSynced.current.weights[iso]) changedWeights[iso] = cur.weights[iso];
+    const changedWorkouts = {};
+    for (const id in cur.workouts) if (JSON.stringify(cur.workouts[id]) !== JSON.stringify(lastSynced.current.workouts[id])) changedWorkouts[id] = cur.workouts[id];
     const appState = appStateNow();
     const appChanged = JSON.stringify(appState) !== lastSynced.current.appState;
-    if (!Object.keys(changedDays).length && !Object.keys(changedWeights).length && !appChanged) return;
+    if (!Object.keys(changedDays).length && !Object.keys(changedWeights).length && !Object.keys(changedWorkouts).length && !appChanged) return;
     try {
       setSyncStatus("syncing");
       await pushDays(uid, changedDays);
       await pushWeights(uid, changedWeights);
+      await pushWorkouts(uid, changedWorkouts);
       if (appChanged) await pushAppState(uid, appState);
-      lastSynced.current = { days: { ...cur.days }, weights: { ...cur.weights }, appState: JSON.stringify(appState) };
+      lastSynced.current = { days: { ...cur.days }, weights: { ...cur.weights }, workouts: { ...cur.workouts }, appState: JSON.stringify(appState) };
       setSyncStatus("synced");
     } catch (e) { console.warn("[sync] push:", e.message); setSyncStatus("error"); }
   }, [appStateNow]);
@@ -194,7 +208,7 @@ export default function PiocheRepas() {
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => pushChanges(session.user.id), 2000);
     return () => clearTimeout(syncTimer.current);
-  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, session, syncReady, pushChanges]);
+  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport, session, syncReady, pushChanges]);
 
   useEffect(() => {
     const onOnline = () => { if (session && syncReady) pushChanges(session.user.id); };
@@ -246,8 +260,24 @@ export default function PiocheRepas() {
     Object.keys(acc).forEach((slot) => { out[slot] = Object.values(acc[slot]).sort((a, b) => b.n - a.n || b.last - a.last).slice(0, 3); });
     return out;
   }, [days]);
+  // Pas de bonus kcal les jours d'entraînement : le déficit reste le déficit
+  // (on évite le travers « je fais du sport donc je peux manger »).
   const remKcal = settings.kcal - totals.kcal;
   const remP = settings.protein - totals.p;
+
+  // ── Intelligence croisée sport ↔ nutrition ─────────────────────────────────
+  // Séance prévue à la date affichée (selon les jours de séance du programme).
+  const sportInfo = useMemo(() => {
+    if (!sport.startDate) return null;
+    const d = parseISO(activeDate);
+    const week = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(sport.startDate, d);
+    const sessionDays = sport.preferences?.sessionDays || { A: 2, B: 4, C: 6 };
+    const sid = SESSION_ORDER.find((s) => sessionDays[s] === d.getDay());
+    if (!sid) return null;
+    return { sid, week, name: SESSIONS[sid]?.name, subtitle: SESSIONS[sid]?.subtitle, done: !!workouts[`W${week}-${sid}`] };
+  }, [sport, activeDate, workouts]);
+  // Coaching recomposition : croise tendance de force et tendance de poids (today).
+  const recomp = useMemo(() => recompSignal(workouts, observedTrend(days, weights, TODAY)), [workouts, days, weights]);
   // Contexte pour l'assistant : favoris (fréquence d'usage + recettes favorites) et produits à macros exactes.
   const assistFavorites = useMemo(() => {
     const fromUsage = Object.entries(usage).sort((a, b) => (b[1]?.count || 0) - (a[1]?.count || 0)).slice(0, 20).map(([n]) => n);
@@ -449,6 +479,31 @@ export default function PiocheRepas() {
   const goToDay = (iso) => { setActiveDate(iso); go("jour"); };
 
   const importData = (obj) => {
+    // Export fitness-tracker (app sport) : { version, state: { history, weightLog, preferences… } }
+    // → on rapatrie les séances dans workouts, le poids dans weights, la config dans sport.
+    if (obj && obj.state && obj.state.history && typeof obj.state.history === "object") {
+      const st = obj.state;
+      setWorkouts((prev) => ({ ...prev, ...st.history }));         // clé = id de séance ("W8-A"…), idempotent
+      if (st.weightLog && typeof st.weightLog === "object") {
+        const w = {}; for (const iso in st.weightLog) { const kg = Number(st.weightLog[iso]); if (!isNaN(kg)) w[iso] = kg; }
+        setWeights((prev) => ({ ...w, ...prev }));                 // ne pas écraser une pesée déjà saisie côté nutrition
+      }
+      setSport((prev) => ({
+        ...prev,
+        startDate: st.startDate ?? prev.startDate,
+        currentWeek: st.currentWeek ?? prev.currentWeek,
+        weekManuallySet: st.weekManuallySet ?? prev.weekManuallySet,
+        soundEnabled: st.soundEnabled ?? prev.soundEnabled,
+        acknowledgedSuggestions: { ...(prev.acknowledgedSuggestions || {}), ...(st.acknowledgedSuggestions || {}) },
+        preferences: { ...(prev.preferences || {}), ...(st.preferences || {}) },
+        vacationMode: st.vacationMode ?? prev.vacationMode,
+        vacationEquipment: st.vacationEquipment ?? prev.vacationEquipment,
+        vacationLevel: st.vacationLevel ?? prev.vacationLevel,
+        vacationHistory: { ...(prev.vacationHistory || {}), ...(st.vacationHistory || {}) },
+        postponements: { ...(prev.postponements || {}), ...(st.postponements || {}) },
+      }));
+      return;
+    }
     if (obj.settings && typeof obj.settings === "object") setSettings(obj.settings);
     if (obj.days && typeof obj.days === "object") setDays((prev) => ({ ...prev, ...normDays(obj.days) }));
     if (obj.weights && typeof obj.weights === "object") setWeights((prev) => ({ ...prev, ...obj.weights }));
@@ -460,6 +515,8 @@ export default function PiocheRepas() {
     if (Array.isArray(obj.favs)) setFavs((prev) => Array.from(new Set([...prev, ...obj.favs])));
     if (Array.isArray(obj.customRecipes)) setCustomRecipes((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customRecipes.filter((x) => !ids.has(x.id))]; });
     if (Array.isArray(obj.pantry)) setPantry((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.pantry.filter((x) => !ids.has(x.id))]; });
+    if (obj.workouts && typeof obj.workouts === "object") setWorkouts((prev) => ({ ...prev, ...obj.workouts }));
+    if (obj.sport && typeof obj.sport === "object") setSport((prev) => ({ ...prev, ...obj.sport }));
   };
 
   // Multi-utilisateur : tant que la session n'est pas vérifiée, écran neutre ;
@@ -477,7 +534,7 @@ export default function PiocheRepas() {
           )}
           {view === "jour"
             ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages" }[view]}</h1>}
+            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Journal", progres: "Progrès", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" }[view]}</h1>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
               <ScanLine size={18} />
@@ -498,6 +555,7 @@ export default function PiocheRepas() {
             days={days} weights={weights} onOpenWeek={() => go("progres")} onSaveCombo={saveCombo}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
+            sportInfo={sportInfo} recomp={recomp} onGoSport={() => go("sport")}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
             onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip} onReset={resetDay}
@@ -518,6 +576,9 @@ export default function PiocheRepas() {
         )}
         {view === "cuisine" && (
           <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} pantry={pantry} />
+        )}
+        {view === "sport" && (
+          <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} />
         )}
         {view === "reglages" && (
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
@@ -558,6 +619,7 @@ export default function PiocheRepas() {
               { l: "Planifier", s: "Ma journée ou ma semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
               { l: "Scanner un produit", s: "Code-barres → macros & feu", icon: ScanLine, c: C.protein, act: openTool },
               { l: "Mon frigo / placard", s: "Gérer ce que j'ai", icon: Refrigerator, c: C.weight, act: openFrigo },
+              { l: "Ma cuisine", s: "Mes recettes & repas", icon: Soup, c: C.extra, act: () => go("cuisine") },
               { l: "Ajouter une recette", s: "Créer ou importer (URL)", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
             ].map((a) => {
               const Icon = a.icon;
@@ -605,12 +667,12 @@ function ScreenFallback() {
 }
 
 function TabBar({ view, setView, onFab }) {
-  // 4 onglets + bouton central « + » (actions rapides). Planifier vit dans le +.
+  // 4 onglets + bouton central « + » (actions rapides). Planifier & Ma cuisine vivent dans le +.
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
     { k: "journal", l: "Journal", icon: CalendarDays },
     { k: "progres", l: "Progrès", icon: TrendingUp },
-    { k: "cuisine", l: "Cuisine", icon: Soup },
+    { k: "sport", l: "Sport", icon: Dumbbell },
   ];
   const Tab = ({ t }) => {
     const Icon = t.icon, active = view === t.k;

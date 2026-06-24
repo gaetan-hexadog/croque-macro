@@ -14,20 +14,24 @@ import { supabase } from "./supabaseClient.js";
 
 // ── Lecture : tout l'historique du user → structures de l'app ───────────────
 export async function pullAll(userId) {
-  const [d, w, s] = await Promise.all([
+  const [d, w, s, wo] = await Promise.all([
     supabase.from("day_logs").select("iso,data").eq("user_id", userId),
     supabase.from("weight_logs").select("iso,kg").eq("user_id", userId),
     supabase.from("app_state").select("data").eq("user_id", userId).maybeSingle(),
+    supabase.from("workout_logs").select("id,data").eq("user_id", userId),
   ]);
   if (d.error) throw d.error;
   if (w.error) throw w.error;
   if (s.error) throw s.error;
+  if (wo.error) throw wo.error;
   const days = {};
   (d.data || []).forEach((r) => { days[r.iso] = r.data; });
   const weights = {};
   (w.data || []).forEach((r) => { weights[r.iso] = Number(r.kg); });
+  const workouts = {};
+  (wo.data || []).forEach((r) => { workouts[r.id] = r.data; });
   const appState = s.data ? s.data.data : null;
-  return { days, weights, appState };
+  return { days, weights, workouts, appState };
 }
 
 // ── Écritures (upsert) ──────────────────────────────────────────────────────
@@ -45,6 +49,12 @@ export async function pushWeights(userId, weightsObj) {
 }
 export async function pushAppState(userId, data) {
   const { error } = await supabase.from("app_state").upsert({ user_id: userId, data }, { onConflict: "user_id" });
+  if (error) throw error;
+}
+export async function pushWorkouts(userId, workoutsObj) {
+  const rows = Object.entries(workoutsObj).map(([id, data]) => ({ user_id: userId, id, data }));
+  if (!rows.length) return;
+  const { error } = await supabase.from("workout_logs").upsert(rows, { onConflict: "user_id,id" });
   if (error) throw error;
 }
 
@@ -71,5 +81,22 @@ export function mergeAppState(local = {}, remote) {
     usage: { ...(local.usage || {}), ...(remote.usage || {}) },
     favs: Array.from(new Set([...(local.favs || []), ...(remote.favs || [])])),
     comboSeed: Math.max(local.comboSeed || 0, remote.comboSeed || 0),
+    // Config sport : scalaires côté remote, sous-maps fusionnées par clé.
+    sport: mergeSport(local.sport, remote.sport),
+  };
+}
+
+// Fusionne la config sport (l'historique des séances vit dans workout_logs, PAS ici).
+function mergeSport(local, remote) {
+  if (!local && !remote) return undefined;
+  const l = local || {}, r = remote || {};
+  const map = (a = {}, b = {}) => ({ ...(a || {}), ...(b || {}) });
+  return {
+    ...l, ...r, // scalaires : remote prioritaire (startDate, currentWeek, soundEnabled…)
+    acknowledgedSuggestions: map(l.acknowledgedSuggestions, r.acknowledgedSuggestions),
+    exerciseCharges: map(l.exerciseCharges, r.exerciseCharges),
+    vacationHistory: map(l.vacationHistory, r.vacationHistory),
+    postponements: map(l.postponements, r.postponements),
+    preferences: map(l.preferences, r.preferences),
   };
 }
