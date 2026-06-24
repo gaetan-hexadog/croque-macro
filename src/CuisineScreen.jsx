@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight, Globe, Loader2, Wand2 } from "lucide-react";
+import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight, Globe, Loader2, Wand2, ChefHat } from "lucide-react";
 import { C, cardStyle } from "./core.js";
+import { SectionTitle } from "./ui.jsx";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { importRecipeFromUrl } from "./assistant.js";
@@ -92,11 +93,18 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
       </button>
 
       {filtered.length === 0 ? (
-        <p className="py-12 text-center text-sm" style={{ color: C.muted }}>
-          {meals.length === 0
-            ? "Ta cuisine est vide. Ajoute une recette ci-dessous, enregistre un aliment (via la pioche) ou un repas (depuis une journée)."
-            : "Rien ne correspond à ta recherche."}
-        </p>
+        meals.length === 0 ? (
+          <div className="flex flex-col items-center px-6 py-10 text-center">
+            <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><ChefHat size={26} /></span>
+            <p className="text-sm font-bold" style={{ color: C.ink }}>Ta cuisine est vide</p>
+            <p className="mt-1 mb-4 max-w-xs text-xs leading-relaxed" style={{ color: C.muted }}>Crée ta première recette, importe-la depuis une URL, ou enregistre un aliment via la pioche / un repas depuis une journée.</p>
+            {onAddRecipe && (
+              <button onClick={() => setAdding(true)} className="flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Plus size={16} /> Ajouter une recette</button>
+            )}
+          </div>
+        ) : (
+          <p className="py-12 text-center text-sm" style={{ color: C.muted }}>Rien ne correspond à ta recherche.</p>
+        )
       ) : (
         SECTIONS.map((s) => {
           const items = filtered.filter((m) => m.kind === s.kind);
@@ -104,14 +112,15 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
           const meta = kindMeta[s.kind];
           return (
             <div key={s.kind} className="mb-5">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.color }} />
-                <span className="text-[15px] font-bold" style={{ color: C.ink }}>{s.title}</span>
-                <span className="text-xs" style={{ color: C.muted }}>{items.length}</span>
-                {s.kind === "recette" && onAddRecipe && (
-                  <button onClick={() => setAdding(true)} className="ml-auto flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: meta.color }}><Plus size={13} /> Ajouter</button>
-                )}
-              </div>
+              <SectionTitle right={s.kind === "recette" && onAddRecipe && (
+                <button onClick={() => setAdding(true)} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: meta.color }}><Plus size={13} /> Ajouter</button>
+              )}>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.color }} />
+                  {s.title}
+                  <span className="font-semibold" style={{ color: C.muted }}>{items.length}</span>
+                </span>
+              </SectionTitle>
               <div className="space-y-2.5">
                 {items.map((m) => <Card key={`${m.kind}-${m.id}`} m={m} onUse={onUse} onDelete={onDelete} onEdit={(m.kind === "recette" && m.custom && onEditRecipe) ? () => setEditing(m) : undefined} onAdapt={m.kind === "recette" ? () => setAdapting(m) : undefined} />)}
               </div>

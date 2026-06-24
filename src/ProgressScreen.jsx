@@ -128,7 +128,7 @@ function BarsChart({ data, target }) {
       {data.map((d, i) => {
         const h = d.value > 0 ? Math.max(2, innerH * (d.value / max)) : 0;
         const x = padX + i * bw;
-        const fill = d.value === 0 ? "rgba(255,255,255,0.14)" : (d.value <= target ? C.green : C.over);
+        const fill = d.value === 0 ? C.track : (d.value <= target ? C.green : C.over);
         return (
           <g key={i}>
             <rect x={x + bw * 0.16} y={H - padB - h} width={bw * 0.68} height={h} rx="2" fill={fill} opacity={d.logged ? 1 : 0.5} />
