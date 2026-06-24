@@ -465,8 +465,8 @@ function buildAssistantPrompt({
     "Consignes de calcul :",
     "- Le frigo est une PRÉFÉRENCE, pas une contrainte : utilise en priorité ce qui est disponible (et indique la portion en g/ml d'après la densité /100, tu peux n'en prendre qu'une partie), MAIS complète et varie librement avec d'autres aliments courants. Ne te bride pas à ce que j'ai déjà loggé.",
     "- Réutilise les macros EXACTES de mes produits connus UNIQUEMENT si tu emploies ces produits ; sinon estime de façon conservatrice (arrondis les kcal vers le haut). N'utilise JAMAIS un aliment listé comme à exclure.",
-    "- Donne des quantités précises (g, ml, dose, pièce). Renvoie toujours via l'outil `propose`.",
-    "- Pour CHAQUE repas, ajoute 1 à 3 VARIANTES (remplacer un ingrédient, en ajouter ou en retirer) avec leur impact macro signé (kcal + protéines, ex. « tofu → tempeh » +30/+4 ; « + 30 g amandes » +180/+6 ; « sans fromage » −90/−6) et un label court.",
+    "- CHAQUE ingrédient DOIT avoir une quantité CHIFFRÉE (qty + unit) — jamais d'ingrédient sans quantité. Pour les poudres/suppléments (protéine, all-in-one, Bulk…), exprime en DOSE/scoop (≈30 g), JAMAIS en grammes. Renvoie toujours via l'outil `propose`.",
+    "- Pour CHAQUE repas, ajoute 1 à 3 VARIANTES (remplacer/ajouter/retirer un ingrédient) avec leur impact macro signé (kcal + protéines, ex. « tofu → tempeh » +30/+4 ; « +30 g amandes » +180/+6 ; « +1 dose protéine » +110/+22 ; « sans fromage » −90/−6) et un label court avec la quantité dans la bonne unité (dose pour les poudres).",
   ].join("\n");
 
   const L = [];
@@ -515,7 +515,7 @@ function buildAssistantPrompt({
     if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
     if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. COMPLÈTE la journée de façon cohérente : varie les aliments (ne répète pas ce qui est déjà là), équilibre les macros.`);
     if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
-    if (concise) L.push("Reste CONCIS : titre, macros, ingrédients principaux et 1-2 variantes. N'inclus PAS les étapes de préparation.");
+    if (concise) L.push("Reste CONCIS, mais chaque ingrédient AVEC sa quantité (qty + unit) ; 1-2 variantes. N'inclus PAS les étapes de préparation.");
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
   }
   if (mode === "day" || mode === "week") {

@@ -22,7 +22,7 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptaWxrdmZ6andoendzdGViaWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMDg2NDMsImV4cCI6MjA3Njc4NDY0M30.gW0DszeiFFt4i5m6ubGJ5d_FfayAtrT2xDw4zgzV4CQ";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
-const MAX_TOKENS = { meal: 1600, day: 4096, week: 16000 };
+const MAX_TOKENS = { meal: 2600, day: 4096, week: 16000 };
 
 // Schéma de sortie structurée : Claude DOIT appeler cet outil → JSON valide
 // garanti (pas de parsing fragile de texte libre).
@@ -46,14 +46,15 @@ const PROPOSE_TOOL = {
             protein: { type: "number", description: "Protéines totales en grammes." },
             ingredients: {
               type: "array",
+              description: "CHAQUE ingrédient avec sa quantité chiffrée. Jamais d'ingrédient sans quantité.",
               items: {
                 type: "object",
                 properties: {
-                  qty: { type: "number" },
-                  unit: { type: "string", description: "g, ml, dose, pièce, càs, càc…" },
+                  qty: { type: "number", description: "Quantité chiffrée (obligatoire)." },
+                  unit: { type: "string", description: "g, ml, dose/scoop (poudres), pièce, càs, càc, pincée… (obligatoire)." },
                   name: { type: "string" },
                 },
-                required: ["name"],
+                required: ["qty", "unit", "name"],
               },
             },
             steps: { type: "array", items: { type: "string" }, description: "Étapes de préparation, courtes." },

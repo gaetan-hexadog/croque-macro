@@ -139,7 +139,7 @@ export default function PlanScreen({
       const { system, prompt, mode: m } = buildAssistantPrompt({
         mode: "meal", slot: s,
         remKcal: Math.round(targetKcal * (SLOT_SHARE[s] || 0.25)), remP: Math.round(targetP * (SLOT_SHARE[s] || 0.25)),
-        favorites, knownFoods, have, avoid, weekBalance, excludeTitles: prevTitles,
+        favorites, knownFoods, have, avoid, weekBalance, excludeTitles: prevTitles, count: 2, concise: true,
       });
       const { meals } = await askAssistant({ system, prompt, mode: m });
       setResults((rs) => {
