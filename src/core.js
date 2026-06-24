@@ -456,19 +456,20 @@ function buildAssistantPrompt({
     "- La protéine vient des aliments protéinés et de la poudre de protéine, pas du lait.",
     "- Objectif : perte de gras. Cibles ~1850 kcal / ~150 g de protéines par jour. Repas protéinés.",
     "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker, portable).",
+    "VARIÉTÉ (important) : sois créatif et propose des repas VARIÉS et appétissants — explore différentes cuisines (méditerranéenne, indienne, mexicaine, asiatique, levantine…), légumineuses, céréales, façons de cuisiner. NE te limite PAS aux mêmes plats classiques ni à ce que Bob mange déjà d'habitude. Si on régénère, propose autre chose.",
     "Consignes de calcul :",
-    "- PRIORITÉ AU FRIGO : quand des aliments « disponibles » sont fournis, compose les repas D'ABORD avec eux. Pour chaque aliment du frigo utilisé, indique la PORTION (quantité en g/ml) et déduis ses macros de la densité /100 donnée. Tu peux n'en utiliser qu'une partie (ex. 100 g sur 500 g de compote).",
-    "- Complète si besoin avec mes produits connus (macros exactes à réutiliser) et mes favoris. Estime le reste de façon CONSERVATRICE (arrondis les kcal vers le haut). N'utilise JAMAIS un aliment listé comme à exclure.",
+    "- Le frigo est une PRÉFÉRENCE, pas une contrainte : utilise en priorité ce qui est disponible (et indique la portion en g/ml d'après la densité /100, tu peux n'en prendre qu'une partie), MAIS complète et varie librement avec d'autres aliments courants. Ne te bride pas à ce que j'ai déjà loggé.",
+    "- Réutilise les macros EXACTES de mes produits connus UNIQUEMENT si tu emploies ces produits ; sinon estime de façon conservatrice (arrondis les kcal vers le haut). N'utilise JAMAIS un aliment listé comme à exclure.",
     "- Donne des quantités précises (g, ml, dose, pièce). Renvoie toujours via l'outil `propose`.",
   ].join("\n");
 
   const L = [];
   if (knownFoods.length) {
-    L.push("Mes produits connus (macros exactes par portion, à réutiliser tels quels) :");
-    knownFoods.slice(0, 40).forEach((m) => L.push(`- ${m.name} : ${r0(m.kcal)} kcal, ${r0(m.p)} g protéines${m.unit ? ` (${m.unit})` : ""}`));
+    L.push("Mes produits avec macros exactes (utilise ces chiffres SI tu emploies ces produits — facultatif) :");
+    knownFoods.slice(0, 24).forEach((m) => L.push(`- ${m.name} : ${r0(m.kcal)} kcal, ${r0(m.p)} g protéines${m.unit ? ` (${m.unit})` : ""}`));
     L.push("");
   }
-  if (favorites.length) { L.push(`Mes favoris (à privilégier) : ${favorites.slice(0, 30).join(", ")}.`); L.push(""); }
+  if (favorites.length) { L.push(`Quelques aliments que j'aime (simple inspiration, ne t'y limite pas, varie) : ${favorites.slice(0, 8).join(", ")}.`); L.push(""); }
   if (have.length) {
     L.push("Disponible dans mon frigo/placard (tu peux n'en utiliser qu'une PARTIE — ne consomme pas forcément tout le paquet) :");
     have.slice(0, 60).forEach((h) => {
