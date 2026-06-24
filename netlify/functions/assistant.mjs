@@ -12,6 +12,8 @@
 //
 //  Env requis : ANTHROPIC_API_KEY (secret). Optionnel : ASSISTANT_MODEL.
 // ════════════════════════════════════════════════════════════════════════════
+import net from "node:net";
+import { lookup as dnsLookup } from "node:dns/promises";
 
 // Projet Supabase (valeurs PUBLIQUES, déjà dans le bundle front — sert juste à
 // vérifier que l'appelant est bien connecté).
@@ -89,6 +91,56 @@ const IMPORT_TOOL = {
   },
 };
 
+// ── Anti-SSRF : on n'autorise que des URLs publiques (pas d'IP interne/metadata) ──
+function isPrivateIp(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split(".").map(Number);
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true;        // link-local + metadata cloud
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a >= 224) return true;                        // multicast / réservé
+    return false;
+  }
+  if (net.isIPv6(ip)) {
+    const low = ip.toLowerCase();
+    if (low === "::1" || low === "::") return true;
+    if (low.startsWith("fe80") || low.startsWith("fc") || low.startsWith("fd")) return true;
+    if (low.startsWith("::ffff:")) { const v4 = low.split(":").pop(); if (net.isIPv4(v4)) return isPrivateIp(v4); }
+    return false;
+  }
+  return true; // inconnu → on refuse
+}
+async function assertPublicHost(host) {
+  if (net.isIP(host)) { if (isPrivateIp(host)) throw new Error("blocked"); return; }
+  const recs = await dnsLookup(host, { all: true });
+  if (!recs.length) throw new Error("blocked");
+  for (const r of recs) if (isPrivateIp(r.address)) throw new Error("blocked");
+}
+// Fetch sûr : valide chaque URL/redirection, borne le temps et la taille.
+async function fetchPageSafe(raw) {
+  let url = raw;
+  for (let hop = 0; hop < 4; hop++) {
+    let u;
+    try { u = new URL(url); } catch { throw new Error("bad-url"); }
+    if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("bad-url");
+    if (u.username || u.password) throw new Error("bad-url");
+    await assertPublicHost(u.hostname);
+    const r = await fetch(u.toString(), { headers: { "user-agent": "Mozilla/5.0 (compatible; CroqueMacro/1.0)" }, redirect: "manual", signal: AbortSignal.timeout(8000) });
+    if (r.status >= 300 && r.status < 400 && r.headers.get("location")) { url = new URL(r.headers.get("location"), u).toString(); continue; }
+    if (!r.ok) throw new Error("status");
+    if (Number(r.headers.get("content-length") || 0) > 2_000_000) throw new Error("too-big");
+    const reader = r.body.getReader();
+    const chunks = []; let received = 0; const CAP = 2_000_000;
+    while (true) { const { done, value } = await reader.read(); if (done) break; received += value.byteLength; if (received > CAP) { try { await reader.cancel(); } catch {} break; } chunks.push(value); }
+    let total = 0; chunks.forEach((c) => (total += c.byteLength));
+    const buf = new Uint8Array(total); let off = 0; chunks.forEach((c) => { buf.set(c, off); off += c.byteLength; });
+    return new TextDecoder("utf-8").decode(buf);
+  }
+  throw new Error("redirects");
+}
+
 function extractRecipeText(html) {
   // Privilégie le JSON-LD schema.org/Recipe (présent sur la plupart des sites de cuisine).
   const blocks = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]);
@@ -99,13 +151,12 @@ function extractRecipeText(html) {
 }
 
 async function importRecipe(url, apiKey) {
-  if (!/^https?:\/\//i.test(url)) return json(400, { error: "URL invalide (doit commencer par http)." });
   let html;
-  try {
-    const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 (compatible; CroqueMacro/1.0)" }, redirect: "follow" });
-    if (!r.ok) return json(502, { error: `Page inaccessible (${r.status}).` });
-    html = await r.text();
-  } catch (e) { return json(502, { error: "Impossible de charger la page.", detail: String(e).slice(0, 150) }); }
+  try { html = await fetchPageSafe(url); }
+  catch (e) {
+    if (e?.message === "bad-url" || e?.message === "blocked") return json(400, { error: "URL invalide ou non autorisée." });
+    return json(502, { error: "Impossible de charger cette page (inaccessible ou trop volumineuse)." });
+  }
   const content = extractRecipeText(html);
   const sys = "Tu extrais une recette depuis le contenu d'une page web. Renseigne le nom, les ingrédients (quantité + unité + nom), les étapes, le nombre de portions, et ESTIME les macros (kcal et protéines) pour UNE portion, de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Choisis le slot le plus probable (pdj/dej/diner/snack). Si la page ne contient pas de recette identifiable, mets found=false. Réponds en français via l'outil import_recipe.";
   let data;
@@ -113,11 +164,11 @@ async function importRecipe(url, apiKey) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page (${url}) :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }),
     });
-    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+    if (!res.ok) return json(502, { error: "Extraction impossible pour le moment." });
     data = await res.json();
-  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 150) }); }
+  } catch { return json(502, { error: "Extraction impossible pour le moment." }); }
   const tool = (data.content || []).find((c) => c.type === "tool_use" && c.name === "import_recipe");
   const recipe = tool?.input;
   if (!recipe || !recipe.found) return json(422, { error: "Aucune recette identifiable sur cette page." });
