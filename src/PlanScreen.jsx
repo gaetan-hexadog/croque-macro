@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck } from "lucide-react";
-import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey } from "./core.js";
+import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey, weekStats } from "./core.js";
 import { askAssistant, AssistantError } from "./assistant.js";
 import { PantrySheet } from "./PantrySheet.jsx";
 
@@ -82,7 +82,8 @@ export default function PlanScreen({
       } else {
         payload = { mode: "week", targetKcal, targetP, startLabel: fmtFull(date), filledByDay: Array.from({ length: 7 }, (_, i) => filledSlots(addDays(date, i))) };
       }
-      const { system, prompt, mode: m } = buildAssistantPrompt({ ...payload, favorites, knownFoods, have, avoid });
+      const weekBalance = Math.round(weekStats(days, { kcal: targetKcal }, TODAY, 7).balance);
+      const { system, prompt, mode: m } = buildAssistantPrompt({ ...payload, favorites, knownFoods, have, avoid, weekBalance });
       const { meals } = await askAssistant({ system, prompt, mode: m });
       setResults(meals);
     } catch (e) {

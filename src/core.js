@@ -446,6 +446,7 @@ function buildAssistantPrompt({
   loggedByDay = [],          // semaine : [{kcal,p}] déjà consommés par jour (index = dayIndex)
   slots = [],                // jour : créneaux RESTANT à planifier (les autres sont déjà loggés)
   filledByDay = [],          // semaine : [[slots déjà faits]] par jour
+  weekBalance,               // marge hebdo en kcal (+ = sous le budget → marge plaisir ; − = au-dessus)
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -508,7 +509,16 @@ function buildAssistantPrompt({
     if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
   }
-  if (mode === "day" || mode === "week") L.push("Garde chaque option CONCISE : titre, macros, courte description (ingrédients principaux) ; étapes facultatives.");
+  if (mode === "day" || mode === "week") {
+    L.push("Garde chaque option CONCISE : titre, macros, courte description (ingrédients principaux) ; étapes facultatives.");
+    // Petits plaisirs : durabilité. Module selon la marge hebdo.
+    let treat;
+    if (Number.isFinite(weekBalance) && weekBalance > 300) treat = `Marge plaisir cette semaine : +${r0(weekBalance)} kcal sous le budget → intègre un petit PLAISIR gourmand raisonnable (carré de chocolat noir, boule de glace, fruit gourmand, verre de vin, biscuit…), dans la cible du jour. C'est important pour tenir sur la durée.`;
+    else if (Number.isFinite(weekBalance) && weekBalance < -300) treat = "Semaine déjà au-dessus du plan : reste sobre, évite les extras gourmands.";
+    else treat = "Glisse de temps en temps un petit plaisir gourmand raisonnable (pas tous les jours), dans la cible — c'est important pour la tenue sur la durée.";
+    if (mode === "week") treat += " Sur la semaine, répartis 1 à 2 plaisirs maximum, pas chaque jour.";
+    L.push(treat);
+  }
   L.push("Privilégie mon frigo (en portions) MAIS sans t'y limiter : complète librement avec d'autres aliments courants pour varier et atteindre les cibles.");
 
   return { mode, system: sys, prompt: L.join("\n") };
