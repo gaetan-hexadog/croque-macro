@@ -68,6 +68,62 @@ const PROPOSE_TOOL = {
 const json = (status, obj) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
 
+// ── Import d'une recette depuis une URL ──────────────────────────────────────
+const IMPORT_TOOL = {
+  name: "import_recipe",
+  description: "Recette extraite d'une page web, avec macros estimées par portion.",
+  input_schema: {
+    type: "object",
+    properties: {
+      found: { type: "boolean", description: "true si une recette a bien été trouvée sur la page." },
+      name: { type: "string" },
+      emoji: { type: "string" },
+      slot: { type: "string", enum: ["pdj", "dej", "diner", "snack"] },
+      servings: { type: "number", description: "Nombre de portions de la recette." },
+      kcal: { type: "number", description: "kcal pour UNE portion." },
+      protein: { type: "number", description: "protéines (g) pour UNE portion." },
+      ingredients: { type: "array", items: { type: "object", properties: { qty: { type: "number" }, unit: { type: "string" }, name: { type: "string" } }, required: ["name"] } },
+      steps: { type: "array", items: { type: "string" } },
+    },
+    required: ["found"],
+  },
+};
+
+function extractRecipeText(html) {
+  // Privilégie le JSON-LD schema.org/Recipe (présent sur la plupart des sites de cuisine).
+  const blocks = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]);
+  for (const b of blocks) if (/"@type"\s*:\s*"?Recipe"?/i.test(b)) return b.replace(/\s+/g, " ").slice(0, 16000);
+  // Sinon, texte nettoyé.
+  const text = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
+  return text.slice(0, 12000);
+}
+
+async function importRecipe(url, apiKey) {
+  if (!/^https?:\/\//i.test(url)) return json(400, { error: "URL invalide (doit commencer par http)." });
+  let html;
+  try {
+    const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 (compatible; CroqueMacro/1.0)" }, redirect: "follow" });
+    if (!r.ok) return json(502, { error: `Page inaccessible (${r.status}).` });
+    html = await r.text();
+  } catch (e) { return json(502, { error: "Impossible de charger la page.", detail: String(e).slice(0, 150) }); }
+  const content = extractRecipeText(html);
+  const sys = "Tu extrais une recette depuis le contenu d'une page web. Renseigne le nom, les ingrédients (quantité + unité + nom), les étapes, le nombre de portions, et ESTIME les macros (kcal et protéines) pour UNE portion, de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Choisis le slot le plus probable (pdj/dej/diner/snack). Si la page ne contient pas de recette identifiable, mets found=false. Réponds en français via l'outil import_recipe.";
+  let data;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page (${url}) :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }),
+    });
+    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+    data = await res.json();
+  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 150) }); }
+  const tool = (data.content || []).find((c) => c.type === "tool_use" && c.name === "import_recipe");
+  const recipe = tool?.input;
+  if (!recipe || !recipe.found) return json(422, { error: "Aucune recette identifiable sur cette page." });
+  return json(200, { recipe });
+}
+
 export default async (req) => {
   if (req.method !== "POST") return json(405, { error: "Méthode non autorisée." });
 
@@ -88,9 +144,13 @@ export default async (req) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json(503, { error: "Assistant non configuré (ANTHROPIC_API_KEY manquante)." });
 
-  // 3) Corps : prompt construit côté front.
+  // 3) Corps.
   let body;
   try { body = await req.json(); } catch { return json(400, { error: "JSON invalide." }); }
+
+  // 3bis) Import d'une recette depuis une URL.
+  if (body && typeof body.url === "string" && body.url.trim()) return importRecipe(body.url.trim(), apiKey);
+
   const { system, prompt, mode = "meal" } = body || {};
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
 

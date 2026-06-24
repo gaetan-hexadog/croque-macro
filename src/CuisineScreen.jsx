@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight, Globe, Loader2 } from "lucide-react";
 import { C, cardStyle } from "./core.js";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
+import { Sheet } from "./Sheet.jsx";
+import { importRecipeFromUrl } from "./assistant.js";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -28,10 +30,30 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importErr, setImportErr] = useState("");
+  const [imported, setImported] = useState(null); // recette pré-remplie à valider
   const nq = deburr(q);
 
   // Signal externe (bouton « + » → Ajouter une recette) : ouvre le formulaire.
   useEffect(() => { if (autoAdd) { setAdding(true); onAutoAddDone && onAutoAddDone(); } }, [autoAdd]);
+
+  const doImport = async () => {
+    if (!url.trim()) return;
+    setImportBusy(true); setImportErr("");
+    try {
+      const r = await importRecipeFromUrl(url.trim());
+      setImported({
+        name: r.name || "Recette importée", cat: r.slot || "dej", emoji: r.emoji || "",
+        kcal: Math.round(r.kcal || 0), p: Math.round(r.protein || 0),
+        ingredients: (r.ingredients || []).map((i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim()).filter(Boolean),
+        steps: r.steps || [],
+      });
+      setImportOpen(false); setUrl("");
+    } catch (e) { setImportErr(e?.message || "Import impossible."); } finally { setImportBusy(false); }
+  };
 
   const matches = (m) => !nq || deburr(m.name + " " + (m.ingredients || []).join(" ") + " " + (m.items || []).map((i) => i.name).join(" ")).includes(nq);
   const filtered = meals.filter(matches);
@@ -56,6 +78,15 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
           <ChevronRight size={18} style={{ color: C.muted }} />
         </button>
       )}
+
+      <button onClick={() => { setImportErr(""); setImportOpen(true); }} className="mb-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left active:scale-95" style={cardStyle()}>
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}><Globe size={20} /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold" style={{ color: C.ink }}>Importer depuis une URL</span>
+          <span className="block text-xs" style={{ color: C.muted }}>Une recette trouvée sur le web → kcal/prot estimées</span>
+        </span>
+        <ChevronRight size={18} style={{ color: C.muted }} />
+      </button>
 
       {filtered.length === 0 ? (
         <p className="py-12 text-center text-sm" style={{ color: C.muted }}>
@@ -90,6 +121,18 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
 
       {adding && <AddRecipeSheet onClose={() => setAdding(false)} onAdd={(r) => { onAddRecipe(r); setAdding(false); }} />}
       {editing && <AddRecipeSheet initial={editing} onClose={() => setEditing(null)} onAdd={(r) => { onEditRecipe(editing.id, r); setEditing(null); }} />}
+      {imported && <AddRecipeSheet prefill={imported} onClose={() => setImported(null)} onAdd={(r) => { onAddRecipe(r); setImported(null); }} />}
+
+      {importOpen && (
+        <Sheet open onClose={() => setImportOpen(false)} title="Importer une recette">
+          <p className="mb-3 text-xs leading-relaxed" style={{ color: C.sub }}>Colle l'URL d'une recette trouvée sur le web — j'en extrais les ingrédients et j'estime les kcal/protéines par portion. Tu pourras tout ajuster avant d'enregistrer.</p>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") doImport(); }} inputMode="url" autoCapitalize="none" placeholder="https://…" className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+          {importErr && <p className="mb-2 text-xs" style={{ color: C.over }}>{importErr}</p>}
+          <button onClick={doImport} disabled={importBusy || !url.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: url.trim() ? C.protein : C.line }}>
+            {importBusy ? <><Loader2 size={16} className="animate-spin" /> Lecture de la page…</> : <><Globe size={16} /> Importer</>}
+          </button>
+        </Sheet>
+      )}
     </div>
   );
 }

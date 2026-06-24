@@ -23,15 +23,16 @@ const parseIng = (s) => {
 // Formulaire de recette (multi-créneaux + ingrédients structurés). Partagé par
 // l'écran Idées, Ma cuisine et la pioche. defaultSlots pré-coche les créneaux ;
 // `initial` passe en mode édition (pré-remplit tout).
-export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial }) {
-  const editing = !!initial;
-  const [name, setName] = useState(initial?.name || "");
-  const [slots, setSlots] = useState(initial?.slots?.length ? initial.slots : initial?.cat ? [initial.cat] : (defaultSlots && defaultSlots.length ? defaultSlots : ["dej"]));
-  const [kcal, setKcal] = useState(initial != null ? String(initial.kcal ?? "") : "");
-  const [p, setP] = useState(initial != null ? String(initial.p ?? "") : "");
-  const [ingRows, setIngRows] = useState(initial?.ingredients?.length ? initial.ingredients.map(parseIng) : [{ qty: "", unit: "", name: "" }]);
-  const [steps, setSteps] = useState(initial?.steps?.length ? initial.steps.join("\n") : "");
-  const [quick, setQuick] = useState(!!initial?.quick);
+export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill }) {
+  const editing = !!initial;            // édition d'une recette existante
+  const src = initial || prefill;       // valeurs de départ (édition OU import pré-rempli)
+  const [name, setName] = useState(src?.name || "");
+  const [slots, setSlots] = useState(src?.slots?.length ? src.slots : src?.cat ? [src.cat] : (defaultSlots && defaultSlots.length ? defaultSlots : ["dej"]));
+  const [kcal, setKcal] = useState(src != null ? String(src.kcal ?? "") : "");
+  const [p, setP] = useState(src != null ? String(src.p ?? "") : "");
+  const [ingRows, setIngRows] = useState(src?.ingredients?.length ? src.ingredients.map(parseIng) : [{ qty: "", unit: "", name: "" }]);
+  const [steps, setSteps] = useState(src?.steps?.length ? src.steps.join("\n") : "");
+  const [quick, setQuick] = useState(!!src?.quick);
   const toggleSlot = (k) => setSlots((s) => s.includes(k) ? s.filter((x) => x !== k) : [...s, k]);
   const setIng = (i, key, v) => setIngRows((rows) => rows.map((r, idx) => idx === i ? { ...r, [key]: v } : r));
   const addIng = () => setIngRows((rows) => [...rows, { qty: "", unit: "", name: "" }]);
