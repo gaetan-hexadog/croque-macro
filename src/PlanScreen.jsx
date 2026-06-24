@@ -78,7 +78,7 @@ export default function PlanScreen({
   const have = pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 }));
   const avoid = pantry.filter((x) => x.out).map((x) => x.name);
 
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => i).filter((di) => emptySlots(addDays(date, i)).length > 0), [date, days]);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => i).filter((di) => emptySlots(addDays(date, di)).length > 0), [date, days]);
   const hasDay = (di) => !!results?.some((m) => (m.dayIndex ?? 0) === di);
 
   // Génère UNE journée, créneau par créneau EN SÉQUENCE : chaque repas connaît les
