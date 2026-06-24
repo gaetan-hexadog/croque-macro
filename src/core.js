@@ -447,6 +447,7 @@ function buildAssistantPrompt({
   slots = [],                // jour : créneaux RESTANT à planifier (les autres sont déjà loggés)
   filledByDay = [],          // semaine : [[slots déjà faits]] par jour
   weekBalance,               // marge hebdo en kcal (+ = sous le budget → marge plaisir ; − = au-dessus)
+  excludeTitles = [],        // mode meal : plats déjà proposés à NE PAS reproposer (régénérer un repas)
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -507,6 +508,7 @@ function buildAssistantPrompt({
       ? `Propose-moi 3 options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
       : `Propose-moi 3 options de ${slotTxt}, équilibrées et protéinées.`);
     if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
+    if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
   }
   if (mode === "day" || mode === "week") {

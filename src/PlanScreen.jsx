@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck } from "lucide-react";
+import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck, RefreshCw } from "lucide-react";
 import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey, weekStats } from "./core.js";
 import { askAssistant, AssistantError } from "./assistant.js";
 import { PantrySheet } from "./PantrySheet.jsx";
 
 const MODES = [{ k: "day", l: "Une journée" }, { k: "week", l: "Une semaine" }];
 const SLOT_ORDER = [["pdj", "Petit-déjeuner"], ["dej", "Déjeuner"], ["diner", "Dîner"], ["snack", "En-cas"]];
+const SLOT_SHARE = { pdj: 0.25, dej: 0.32, diner: 0.30, snack: 0.13 }; // budget approx. par créneau (régén. d'un repas)
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim();
 
@@ -58,6 +59,7 @@ export default function PlanScreen({
   const [savedKeys, setSavedKeys] = useState(() => new Set());
   const [committedDays, setCommittedDays] = useState(() => new Set()); // dayIndex déjà planifiés
   const [activeDay, setActiveDay] = useState(0);  // jour affiché (mode semaine)
+  const [regenKey, setRegenKey] = useState(null); // `${di}-${slot}` en cours de régénération
 
   const loggedOf = (iso) => dayTotals(days[iso] || EMPTY_DAY());
   const filledSlots = (iso) => SLOT_ORDER.map(([s]) => s).filter((s) => ((days[iso]?.picks?.[picksKey(s)]) || []).some((it) => !it.planned));
@@ -98,6 +100,31 @@ export default function PlanScreen({
   const toggleSel = (di, s, i) => {
     setCommittedDays((x) => { if (!x.has(di)) return x; const n = new Set(x); n.delete(di); return n; }); // choix modifié → jour à revalider
     setSelected((m) => ({ ...m, [selK(di, s)]: (m[selK(di, s)] ?? 0) === i ? -1 : i }));
+  };
+
+  // Régénère UNIQUEMENT un créneau, sans répéter les options déjà proposées.
+  const regenSlot = async (di, s, slotsObj) => {
+    const k = `${di}-${s}`;
+    setRegenKey(k); setError(null);
+    try {
+      const prevTitles = (slotsObj[s] || []).map((m) => m.title);
+      const weekBalance = Math.round(weekStats(days, { kcal: targetKcal }, TODAY, 7).balance);
+      const { system, prompt, mode: m } = buildAssistantPrompt({
+        mode: "meal", slot: s,
+        remKcal: Math.round(targetKcal * (SLOT_SHARE[s] || 0.25)), remP: Math.round(targetP * (SLOT_SHARE[s] || 0.25)),
+        favorites, knownFoods, have, avoid, weekBalance, excludeTitles: prevTitles,
+      });
+      const { meals } = await askAssistant({ system, prompt, mode: m });
+      setResults((rs) => {
+        const keep = rs.filter((mm) => !((mode === "week" ? (mm.dayIndex ?? 0) === di : true) && (mm.slot || "dej") === s));
+        const added = meals.map((mm) => ({ ...mm, slot: s, ...(mode === "week" ? { dayIndex: di } : {}) }));
+        return [...keep, ...added];
+      });
+      setSelected((sel) => ({ ...sel, [k]: 0 }));
+      setCommittedDays((x) => { if (!x.has(di)) return x; const n = new Set(x); n.delete(di); return n; });
+    } catch (e) {
+      setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
+    } finally { setRegenKey(null); }
   };
 
   const plan = useMemo(() => {
@@ -204,6 +231,9 @@ export default function PlanScreen({
                         <OptionCard key={keyOf(m, cur.di, s, i)} meal={m} selected={selIdx(cur.di, s) === i} onSelect={() => toggleSel(cur.di, s, i)} onSave={() => save(m, cur.di, s, i)} saved={savedKeys.has(keyOf(m, cur.di, s, i))} />
                       ))}
                     </div>
+                    <button onClick={() => regenSlot(cur.di, s, cur.slotsObj)} disabled={regenKey === `${cur.di}-${s}`} className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold active:scale-95 disabled:opacity-60" style={{ color: C.sub }}>
+                      {regenKey === `${cur.di}-${s}` ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Autres idées pour ce repas
+                    </button>
                   </div>
                 ))}
 
