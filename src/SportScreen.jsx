@@ -4,6 +4,7 @@ import {
   Flame, Calendar, AlertTriangle, Info, TrendingUp, History as HistoryIcon, BookOpen, SkipForward,
 } from "lucide-react";
 import { C, cardStyle } from "./core.js";
+import { SectionTitle } from "./ui.jsx";
 import {
   SESSIONS, SESSION_ORDER, PROGRESSION, ADAPT_TIPS,
   getCurrentBlock, calcCurrentWeekFromStart, getRowerResistance, getDiscPlan, formatTime,
@@ -95,7 +96,7 @@ function SportHome({ sport, setSport, workouts, currentWeek, block, sessionDays,
 
       {gap && <Banner level={gap.level} title={gap.title} message={gap.message} />}
 
-      <p className="mb-2 px-1 text-sm font-bold" style={{ color: C.ink }}>Cette semaine</p>
+      <SectionTitle>Cette semaine</SectionTitle>
       <div className="mb-4 space-y-2">
         {SESSION_ORDER.map((sid) => {
           const s = SESSIONS[sid];

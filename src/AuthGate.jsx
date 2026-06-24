@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Mail, Loader2 } from "lucide-react";
-import { C } from "./core.js";
+import { C, cardStyle } from "./core.js";
 import { supabase } from "./supabaseClient.js";
 
 // Écran de connexion obligatoire (multi-utilisateur). Tant qu'il n'y a pas de
@@ -24,16 +24,16 @@ export function AuthGate() {
           <span className="text-2xl font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
           <p className="mt-1 text-sm" style={{ color: C.sub }}>Connecte-toi pour accéder à ton suivi.</p>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 rounded-3xl p-5" style={cardStyle()}>
           <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoCapitalize="none" autoComplete="email" placeholder="Email" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
           <input value={pwd} onChange={(e) => setPwd(e.target.value)} type="password" autoComplete="current-password" placeholder="Mot de passe" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} onKeyDown={(e) => { if (e.key === "Enter") signIn(); }} />
           <div className="flex gap-2">
             <button onClick={signIn} disabled={busy} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}>{busy ? <Loader2 size={16} className="animate-spin" /> : "Se connecter"}</button>
-            <button onClick={signUp} disabled={busy} className="flex-1 rounded-xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>Créer un compte</button>
+            <button onClick={signUp} disabled={busy} className="flex-1 rounded-xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}>Créer un compte</button>
           </div>
           <button onClick={magic} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium active:scale-95" style={{ backgroundColor: "transparent", border: `1px dashed ${C.line}`, color: C.sub }}><Mail size={15} /> Recevoir un lien magique</button>
+          {(msg || err) && <p className="text-center text-xs" style={{ color: err ? C.protein : C.green }}>{err || msg}</p>}
         </div>
-        {(msg || err) && <p className="mt-3 text-center text-xs" style={{ color: err ? C.protein : C.green }}>{err || msg}</p>}
         <p className="mt-6 text-center text-[11px]" style={{ color: C.muted }}>Tes données (repas, poids, recettes) sont privées et liées à ton compte.</p>
       </div>
     </div>
