@@ -45,6 +45,7 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill 
       ingredients: ingRows.map((r) => [r.qty, r.unit, r.name].map((x) => String(x).trim()).filter(Boolean).join(" ")).filter(Boolean),
       steps: steps.split("\n").map((s) => s.trim()).filter(Boolean),
       quick,
+      variants: Array.isArray(src?.variants) ? src.variants : [],
     });
   };
   const field = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };

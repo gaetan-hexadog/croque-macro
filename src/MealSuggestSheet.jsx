@@ -53,7 +53,7 @@ export function MealSuggestSheet({
   };
 
   const keyOf = (m, i) => `${m.title}-${i}`;
-  const save = (m, i) => { onSaveRecipe?.(m); setSavedKeys((s) => new Set(s).add(keyOf(m, i))); };
+  const save = (cust, i) => { onSaveRecipe?.(cust); setSavedKeys((s) => new Set(s).add(i)); };
 
   return (
     <Sheet open onClose={onClose} title={`Une idée pour le ${SLOT_LABELS[slot] || "repas"}`}>
@@ -69,7 +69,7 @@ export function MealSuggestSheet({
       {local.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Dans tes idées</p>
-          {local.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={() => { onLog?.(m, slot); onClose(); }} onSave={() => save(m, `l${i}`)} saved={savedKeys.has(keyOf(m, `l${i}`))} />)}
+          {local.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `l${i}`)} saved={savedKeys.has(`l${i}`)} />)}
         </div>
       )}
 
@@ -93,7 +93,7 @@ export function MealSuggestSheet({
       {results && (
         <div className="mt-3 space-y-2 pb-2">
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Proposé par l'assistant</p>
-          {results.map((m, i) => <MealCard key={keyOf(m, i)} meal={m} onLog={() => { onLog?.(m, slot); onClose(); }} onSave={() => save(m, i)} saved={savedKeys.has(keyOf(m, i))} />)}
+          {results.map((m, i) => <MealCard key={keyOf(m, i)} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `r${i}`)} saved={savedKeys.has(`r${i}`)} />)}
         </div>
       )}
 

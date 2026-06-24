@@ -58,6 +58,19 @@ const PROPOSE_TOOL = {
             },
             steps: { type: "array", items: { type: "string" }, description: "Étapes de préparation, courtes." },
             note: { type: "string", description: "Pourquoi ce repas colle au budget/contraintes. Optionnel." },
+            variants: {
+              type: "array",
+              description: "1 à 3 variantes possibles (remplacer/ajouter/retirer un ingrédient) avec leur impact macro.",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string", description: "Court, ex. « tofu → tempeh », « + 30 g amandes », « sans fromage »." },
+                  kcal: { type: "number", description: "Variation de kcal (peut être négative)." },
+                  protein: { type: "number", description: "Variation de protéines en g (peut être négative)." },
+                },
+                required: ["label", "kcal"],
+              },
+            },
           },
           required: ["slot", "title", "kcal", "protein", "ingredients", "steps"],
         },

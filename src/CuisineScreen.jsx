@@ -4,6 +4,7 @@ import { C, cardStyle } from "./core.js";
 import { AddRecipeSheet } from "./RecipeForm.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { importRecipeFromUrl } from "./assistant.js";
+import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -141,8 +142,12 @@ function Card({ m, onUse, onDelete, onEdit }) {
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
   const [used, setUsed] = useState(false);
+  const [varSel, setVarSel] = useState(() => new Set());
   const meta = kindMeta[m.kind] || kindMeta.aliment;
-  const add = (slot) => { onUse(m, slot); setPicking(false); setUsed(true); setTimeout(() => setUsed(false), 1400); };
+  const hasVariants = Array.isArray(m.variants) && m.variants.length > 0;
+  const eff = applyVariants(m, varSel);
+  const toggleVar = (i) => setVarSel((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+  const add = (slot) => { const labels = variantLabels(m, varSel); onUse({ ...m, kcal: eff.kcal, p: eff.p, name: labels.length ? `${m.name} · ${labels.join(", ")}` : m.name }, slot); setPicking(false); setUsed(true); setTimeout(() => setUsed(false), 1400); };
   const hasDetail = (m.items && m.items.length) || (m.ingredients && m.ingredients.length) || (m.steps && m.steps.length) || m.desc;
   return (
     <div className="overflow-hidden rounded-2xl" style={cardStyle()}>
@@ -152,7 +157,7 @@ function Card({ m, onUse, onDelete, onEdit }) {
           <span className="block truncate text-sm font-bold" style={{ color: C.ink }}>{m.name}</span>
           <span className="mt-0.5 flex items-center gap-1.5 text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>
             <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${meta.color}22`, color: meta.color }}>{meta.label}</span>
-            {m.kcal} kcal · {m.p} g prot.
+            {eff.kcal} kcal · {eff.p} g prot.{varSel.size > 0 && <span style={{ color: C.green }}> · ajusté</span>}
           </span>
         </span>
         {hasDetail && <ChevronDown size={16} style={{ color: C.muted, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />}
@@ -178,6 +183,7 @@ function Card({ m, onUse, onDelete, onEdit }) {
         </div>
       )}
       <div className="border-t px-4 py-2.5" style={{ borderColor: C.line }}>
+        {hasVariants && <div className="mb-2"><VariantChips variants={m.variants} sel={varSel} onToggle={toggleVar} /></div>}
         {picking ? (
           <div className="flex items-center gap-1.5">
             <span className="mr-1 text-xs font-semibold" style={{ color: C.muted }}>Ajouter à</span>

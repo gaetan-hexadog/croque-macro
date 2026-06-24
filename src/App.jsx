@@ -362,6 +362,7 @@ export default function PiocheRepas() {
     kcal: Math.round(m.kcal), p: Math.round(m.protein),
     ingredients: (m.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim())),
     steps: m.steps || [], desc: m.note || "",
+    variants: Array.isArray(m.variants) ? m.variants : [],
   });
   // Planif : écrit les repas PLANIFIÉS d'un jour (forecast). Remplace les anciens
   // planifiés (re-planification) et garde les repas réellement consommés.

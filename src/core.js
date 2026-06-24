@@ -463,6 +463,7 @@ function buildAssistantPrompt({
     "- Le frigo est une PRÉFÉRENCE, pas une contrainte : utilise en priorité ce qui est disponible (et indique la portion en g/ml d'après la densité /100, tu peux n'en prendre qu'une partie), MAIS complète et varie librement avec d'autres aliments courants. Ne te bride pas à ce que j'ai déjà loggé.",
     "- Réutilise les macros EXACTES de mes produits connus UNIQUEMENT si tu emploies ces produits ; sinon estime de façon conservatrice (arrondis les kcal vers le haut). N'utilise JAMAIS un aliment listé comme à exclure.",
     "- Donne des quantités précises (g, ml, dose, pièce). Renvoie toujours via l'outil `propose`.",
+    "- Pour CHAQUE repas, ajoute 1 à 3 VARIANTES (remplacer un ingrédient, en ajouter ou en retirer) avec leur impact macro signé (kcal + protéines, ex. « tofu → tempeh » +30/+4 ; « + 30 g amandes » +180/+6 ; « sans fromage » −90/−6) et un label court.",
   ].join("\n");
 
   const L = [];

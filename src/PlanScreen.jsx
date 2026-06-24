@@ -3,6 +3,7 @@ import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, Chev
 import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey, weekStats } from "./core.js";
 import { askAssistant, AssistantError } from "./assistant.js";
 import { PantrySheet } from "./PantrySheet.jsx";
+import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 
 const MODES = [{ k: "day", l: "Une journée" }, { k: "week", l: "Une semaine" }];
 const SLOT_ORDER = [["pdj", "Petit-déjeuner"], ["dej", "Déjeuner"], ["diner", "Dîner"], ["snack", "En-cas"]];
@@ -10,10 +11,11 @@ const SLOT_SHARE = { pdj: 0.25, dej: 0.32, diner: 0.30, snack: 0.13 }; // budget
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim();
 
-// Carte d'OPTION sélectionnable (radio). Tap = choisir/désélectionner ce repas.
-function OptionCard({ meal, selected, onSelect, onSave, saved }) {
+// Carte d'OPTION sélectionnable (radio) + variantes (recalcul live). Tap = choisir.
+function OptionCard({ meal, selected, onSelect, onSave, saved, varSel, onToggleVar }) {
   const [open, setOpen] = useState(false);
   const detail = meal.ingredients?.length || meal.steps?.length;
+  const eff = applyVariants(meal, varSel);
   return (
     <div onClick={onSelect} role="button" className="cursor-pointer rounded-2xl p-3" style={{ ...cardStyle(), outline: selected ? `2px solid ${C.green}` : `1px solid transparent`, outlineOffset: -1 }}>
       <div className="flex items-start gap-2.5">
@@ -21,7 +23,7 @@ function OptionCard({ meal, selected, onSelect, onSave, saved }) {
         <span className="text-xl leading-none">{meal.emoji || "🍽️"}</span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold leading-tight" style={{ color: C.ink }}>{meal.title}</p>
-          <p className="mt-0.5 text-xs" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{Math.round(meal.kcal)}</span> kcal · <span className="font-semibold" style={{ color: C.protein }}>{Math.round(meal.protein)} g</span></p>
+          <p className="mt-0.5 text-xs" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{eff.kcal}</span> kcal · <span className="font-semibold" style={{ color: C.protein }}>{eff.p} g</span>{varSel.size > 0 && <span style={{ color: C.green }}> · ajusté</span>}</p>
           {meal.note && <p className="mt-0.5 text-[11px] italic" style={{ color: C.muted }}>{meal.note}</p>}
         </div>
         <button onClick={(ev) => { ev.stopPropagation(); onSave(); }} disabled={saved} className="shrink-0 p-1" style={{ color: saved ? C.green : C.muted }} aria-label="Enregistrer dans ma cuisine">{saved ? <Check size={15} /> : <BookmarkPlus size={15} />}</button>
@@ -37,6 +39,7 @@ function OptionCard({ meal, selected, onSelect, onSave, saved }) {
           {meal.steps?.map((s, n) => <p key={`s${n}`} className="text-xs" style={{ color: C.sub }}>{n + 1}. {s}</p>)}
         </div>
       )}
+      <div className="pl-8"><VariantChips variants={meal.variants} sel={varSel} onToggle={onToggleVar} /></div>
     </div>
   );
 }
@@ -56,6 +59,7 @@ export default function PlanScreen({
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState({});   // `${di}-${slot}` → index (−1 = aucun)
+  const [varSel, setVarSel] = useState({});       // `${di}-${slot}-${optIdx}` → Set(variantes cochées)
   const [savedKeys, setSavedKeys] = useState(() => new Set());
   const [committedDays, setCommittedDays] = useState(() => new Set()); // dayIndex déjà planifiés
   const [activeDay, setActiveDay] = useState(0);  // jour affiché (mode semaine)
@@ -74,7 +78,7 @@ export default function PlanScreen({
   const avoid = pantry.filter((x) => x.out).map((x) => x.name);
 
   const ask = async () => {
-    setBusy(true); setError(null); setResults(null); setSelected({}); setCommittedDays(new Set()); setActiveDay(0);
+    setBusy(true); setError(null); setResults(null); setSelected({}); setVarSel({}); setCommittedDays(new Set()); setActiveDay(0);
     try {
       let payload;
       if (mode === "day") {
@@ -97,6 +101,9 @@ export default function PlanScreen({
   const save = (m, di, s, i) => { onSaveRecipe?.(m); setSavedKeys((x) => new Set(x).add(keyOf(m, di, s, i))); };
   const selK = (di, s) => `${di}-${s}`;
   const selIdx = (di, s) => (selected[selK(di, s)] ?? 0);
+  const varKey = (di, s, i) => `${di}-${s}-${i}`;
+  const varSelOf = (di, s, i) => varSel[varKey(di, s, i)] || new Set();
+  const toggleVar = (di, s, i, vi) => setVarSel((m) => { const k = varKey(di, s, i); const cur = new Set(m[k] || []); cur.has(vi) ? cur.delete(vi) : cur.add(vi); return { ...m, [k]: cur }; });
   const toggleSel = (di, s, i) => {
     setCommittedDays((x) => { if (!x.has(di)) return x; const n = new Set(x); n.delete(di); return n; }); // choix modifié → jour à revalider
     setSelected((m) => ({ ...m, [selK(di, s)]: (m[selK(di, s)] ?? 0) === i ? -1 : i }));
@@ -121,6 +128,7 @@ export default function PlanScreen({
         return [...keep, ...added];
       });
       setSelected((sel) => ({ ...sel, [k]: 0 }));
+      setVarSel((m) => { const n = { ...m }; Object.keys(n).forEach((kk) => { if (kk.startsWith(`${di}-${s}-`)) delete n[kk]; }); return n; });
       setCommittedDays((x) => { if (!x.has(di)) return x; const n = new Set(x); n.delete(di); return n; });
     } catch (e) {
       setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
@@ -139,7 +147,13 @@ export default function PlanScreen({
   const commitDay = (di, slotsObj) => {
     const iso = mode === "week" ? addDays(date, di) : date;
     const entries = [];
-    slotsIn(slotsObj).forEach(([s]) => { const idx = selIdx(di, s); if (idx < 0) return; const m = slotsObj[s][idx]; if (m) entries.push({ slot: s, meal: m }); });
+    slotsIn(slotsObj).forEach(([s]) => {
+      const idx = selIdx(di, s); if (idx < 0) return;
+      const opt = slotsObj[s][idx]; if (!opt) return;
+      const vs = varSelOf(di, s, idx);
+      const eff = applyVariants(opt, vs), labels = variantLabels(opt, vs);
+      entries.push({ slot: s, meal: { ...opt, kcal: eff.kcal, protein: eff.p, title: labels.length ? `${opt.title} · ${labels.join(", ")}` : opt.title } });
+    });
     onPlanDay?.(iso, entries);
     setCommittedDays((x) => new Set(x).add(di));
     // mode semaine : avance au prochain jour non encore planifié
@@ -228,7 +242,7 @@ export default function PlanScreen({
                     <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{label}{selIdx(cur.di, s) < 0 && " · ignoré"}</p>
                     <div className="space-y-2">
                       {cur.slotsObj[s].map((m, i) => (
-                        <OptionCard key={keyOf(m, cur.di, s, i)} meal={m} selected={selIdx(cur.di, s) === i} onSelect={() => toggleSel(cur.di, s, i)} onSave={() => save(m, cur.di, s, i)} saved={savedKeys.has(keyOf(m, cur.di, s, i))} />
+                        <OptionCard key={keyOf(m, cur.di, s, i)} meal={m} selected={selIdx(cur.di, s) === i} onSelect={() => toggleSel(cur.di, s, i)} onSave={() => save(m, cur.di, s, i)} saved={savedKeys.has(keyOf(m, cur.di, s, i))} varSel={varSelOf(cur.di, s, i)} onToggleVar={(vi) => toggleVar(cur.di, s, i, vi)} />
                       ))}
                     </div>
                     <button onClick={() => regenSlot(cur.di, s, cur.slotsObj)} disabled={regenKey === `${cur.di}-${s}`} className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold active:scale-95 disabled:opacity-60" style={{ color: C.sub }}>
