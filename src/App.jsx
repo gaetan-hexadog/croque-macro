@@ -602,6 +602,7 @@ export default function PiocheRepas() {
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             sportInfo={sportInfo} recomp={recomp} onGoSport={() => go("sport")}
+            onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={() => setQuickLogOpen(true)} onPlan={() => go("idees")}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
             habituals={habituals} onHabitual={(it) => quickAdd(it.slot, it)} onSuggestNow={() => setIdeaSlot(suggestSlotNow())}

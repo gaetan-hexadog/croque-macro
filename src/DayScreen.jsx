@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, streakCount,
 } from "./core.js";
@@ -23,9 +23,14 @@ function QuickChips({ items = [], onQuick, color }) {
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan }) {
   const [showTpl, setShowTpl] = useState(false);
   const [viewRecipe, setViewRecipe] = useState(null);
+  // Bottom-sheets « + » (Logger) et « Assistant » — false = fermé, null = global, "<slot>" = ciblé.
+  const [addSlot, setAddSlot] = useState(false);
+  const [assistSlot, setAssistSlot] = useState(false);
+  const openAdd = (slot = null) => setAddSlot(slot);
+  const openAssist = (slot = null) => setAssistSlot(slot);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
   const canFwd = activeDate < addDays(TODAY, 14); // on peut avancer jusqu'à +14 j (voir les repas planifiés)
@@ -73,18 +78,6 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: "pan-y" }}>
-      {/* Barre « restant » collante : le budget reste visible pendant le scroll */}
-      <div className="sticky top-0 z-20 -mx-4 mb-3 px-4 pt-1 pb-1">
-        <div className="flex items-center justify-between rounded-full px-4 py-2" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", border: `1px solid ${C.line}`, boxShadow: `0 6px 20px -12px ${C.shadow}` }}>
-          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{over ? "Dépassé" : "Restant"}</span>
-          <span className="text-sm font-bold tabular-nums">
-            <span style={{ color: over ? C.over : C.ink }}>{r0(Math.abs(remKcal))} kcal</span>
-            <span style={{ color: C.muted }}> · </span>
-            <span style={{ color: C.protein }}>{r0(Math.max(0, remP))} g</span>
-            {planned.kcal > 0 && <span className="font-medium" style={{ color: C.muted }}> · +{r0(planned.kcal)} prévu</span>}
-          </span>
-        </div>
-      </div>
       {/* Ajustement de la cible selon le poids réel (proposé, jamais imposé) */}
       {targetSuggestion && (
         <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}55` }}>
@@ -202,38 +195,31 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           </span>
         </button>
 
-        {/* Log rapide intégré au dashboard : habituels en 1 tap + suggestion contextuelle */}
-        {isToday && (habituals.length > 0 || onSuggestNow) && (
+        {/* Log rapide intégré au dashboard : habituels en 1 tap + entrée « Logger » */}
+        {isToday && (
           <div className="mt-4 border-t pt-3" style={{ borderColor: C.line }}>
-            <div className="mb-2 flex items-center justify-between px-0.5">
-              <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Log rapide</span>
-              {onSuggestNow && <button onClick={onSuggestNow} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><Sparkles size={13} /> Propose-moi</button>}
+            <span className="mb-2 block px-0.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Log rapide</span>
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              {habituals.map((it) => (
+                <button key={it.name} onClick={() => onHabitual(it)} className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[it.slot].color}1f`, color: SLOT_UI[it.slot].color }}><Plus size={15} /></span>
+                  <span className="min-w-0">
+                    <span className="block max-w-34 truncate text-xs font-bold" style={{ color: C.ink }}>{it.name}</span>
+                    <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{it.kcal} kcal · {it.p} g</span>
+                  </span>
+                </button>
+              ))}
+              <button onClick={() => openAdd(null)} className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 active:scale-95" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }}>
+                <Plus size={16} /> <span className="text-xs font-bold">Logger</span>
+              </button>
             </div>
-            {habituals.length > 0 ? (
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                {habituals.map((it) => (
-                  <button key={it.name} onClick={() => onHabitual(it)} className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[it.slot].color}1f`, color: SLOT_UI[it.slot].color }}><Plus size={15} /></span>
-                    <span className="min-w-0">
-                      <span className="block max-w-34 truncate text-xs font-bold" style={{ color: C.ink }}>{it.name}</span>
-                      <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{it.kcal} kcal · {it.p} g</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="px-0.5 text-xs" style={{ color: C.muted }}>Tes aliments récurrents s'afficheront ici pour un ajout en 1 tap.</p>
-            )}
           </div>
         )}
       </section>
 
       {/* Les repas — une carte distincte par repas */}
       <SectionTitle className="mt-1" right={
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowTpl(true)} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.sub }}><Layers size={13} /> Modèles</button>
-          {ribbon.length > 0 && <button onClick={onReset} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Vider</button>}
-        </div>
+        <button onClick={() => openAssist(null)} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><Wand2 size={13} /> Assistant</button>
       }>Les repas</SectionTitle>
 
       {/* Démarrage rapide sur jour vide : reprendre une journée type en 1 tap */}
@@ -252,10 +238,16 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onIdea={onIdea ? () => onIdea("pdj") : undefined} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} quick={quickPicks.pdj} onQuick={onQuick ? (it) => onQuick("pdj", it) : undefined} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onIdea={onIdea ? () => onIdea("dej") : undefined} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} quick={quickPicks.dej} onQuick={onQuick ? (it) => onQuick("dej", it) : undefined} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onIdea={onIdea ? () => onIdea("diner") : undefined} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} quick={quickPicks.diner} onQuick={onQuick ? (it) => onQuick("diner", it) : undefined} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
-        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} quick={quickPicks.snack} onQuick={onQuick ? (it) => onQuick("snack", it) : undefined} onViewRecipe={setViewRecipe} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => openAssist("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => openAssist("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => openAssist("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
+        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => openAssist("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={setViewRecipe} />
+      </div>
+
+      {/* Modèles & copie de journée — accès discret */}
+      <div className="mt-3 flex items-center justify-center gap-4">
+        <button onClick={() => setShowTpl(true)} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.sub }}><Layers size={13} /> Modèles & copie</button>
+        {ribbon.length > 0 && <button onClick={onReset} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Vider la journée</button>}
       </div>
 
       {/* Poids du jour */}
@@ -266,6 +258,17 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
 
       {viewRecipe && <RecipeViewSheet m={viewRecipe} onClose={() => setViewRecipe(null)} />}
+
+      {addSlot !== false && (
+        <AddSheet slot={addSlot} habituals={habituals} onClose={() => setAddSlot(false)}
+          onQuickAdd={(slot, it) => onQuick && onQuick(slot, it)}
+          onPick={(slot) => onPick(slot)} onPhotoLog={onPhotoLog} onScan={onScan}
+          onAssist={(slot) => openAssist(slot)} onOpenCuisine={onOpenCuisine} />
+      )}
+      {assistSlot !== false && (
+        <AssistantSheet slot={assistSlot} remKcal={r0(Math.max(0, remKcal))} remP={r0(Math.max(0, remP))} onClose={() => setAssistSlot(false)}
+          onIdea={(slot) => onIdea && onIdea(slot)} onSuggestNow={onSuggestNow} onPlan={onPlan} onOpenCuisine={onOpenCuisine} />
+      )}
 
       {showTpl && (
         <TemplatesSheet
@@ -282,7 +285,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 }
 
 
-function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, quick, onQuick, onViewRecipe }) {
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, onViewRecipe }) {
   const ui = SLOT_UI[slotKey];
   const [naming, setNaming] = useState(false);
   const [comboName, setComboName] = useState("");
@@ -310,13 +313,9 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
       {skipped ? (
         <p className="mt-2 pl-4 text-sm" style={{ color: C.muted }}>Sauté · protéines reportées sur les autres repas.</p>
       ) : !has ? (
-        <>
-          {quick?.length ? <div className="mt-2"><QuickChips items={quick} onQuick={onQuick} color={ui.color} /></div> : null}
-          <button onClick={onAdd} className="mt-2 ml-4 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Search size={13} /> Piocher · ~{r0(target.kcal)} kcal</button>
-        </>
+        <button onClick={onAdd} className="mt-2 ml-4 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Plus size={13} /> Ajouter un repas</button>
       ) : (
         <>
-          {quick?.length ? <div className="mt-2"><QuickChips items={quick} onQuick={onQuick} color={ui.color} /></div> : null}
           <ul className="mt-1.5">
             {meals.map((m, i) => (
               <MealItemRow key={i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe} />
@@ -340,7 +339,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
 
 // « À-côtés » : fusion En-cas + Plaisirs en une section. Les items « plaisir »
 // (ex-extras) portent un tag. Routage par slot ("snack" | "extras").
-function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm, quick, onQuick, onViewRecipe }) {
+function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm, onViewRecipe }) {
   const color = SLOT_UI.snack.color;
   const items = [
     ...snacks.map((m, i) => ({ m, slot: "snack", i, plaisir: false })),
@@ -362,7 +361,6 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
         {onIdea && <button onClick={onIdea} aria-label="Assistant" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={14} /></button>}
         <button onClick={onAdd} aria-label="Ajouter" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color }}><Plus size={15} /></button>
       </div>
-      {quick?.length ? <div className="mt-2"><QuickChips items={quick} onQuick={onQuick} color={color} /></div> : null}
       {!has ? (
         <p className="mt-2 pl-4 text-sm" style={{ color: C.muted }}>Un en-cas protéiné si un repas est juste, ou un petit plaisir — le budget s'ajuste.</p>
       ) : (
@@ -584,6 +582,74 @@ function WeightCard({ date, weight, onWeight }) {
         </button>
       )}
     </div>
+  );
+}
+
+const SLOT_NAMES = { pdj: "petit-déj", dej: "déjeuner", diner: "dîner", snack: "en-cas" };
+
+// Bottom-sheet « Logger un repas » (validé design-lab) : habituels 1-tap + méthodes.
+// `slot` = créneau ciblé, ou null pour un log global (l'habituel garde son créneau).
+function AddSheet({ slot, habituals = [], onClose, onQuickAdd, onPick, onPhotoLog, onScan, onAssist, onOpenCuisine }) {
+  const title = slot ? `Ajouter · ${SLOT_NAMES[slot]}` : "Logger un repas";
+  const hab = slot ? [...habituals].sort((a, b) => (a.slot === slot ? -1 : 0) - (b.slot === slot ? -1 : 0)) : habituals;
+  const methods = [
+    slot && onPick && { i: Search, l: "Piocher", d: "Suggestions adaptées au créneau", c: SLOT_UI[slot].color, act: () => onPick(slot) },
+    onPhotoLog && { i: Camera, l: "Photo / décrire", d: "IA vision ou langage naturel", c: C.accent, act: onPhotoLog },
+    onScan && { i: ScanLine, l: "Scanner", d: "Code-barres → macros", c: C.protein, act: onScan },
+    onAssist && { i: Wand2, l: "Assistant", d: "Proposer / compléter", c: C.accent, act: () => onAssist(slot || null) },
+    onOpenCuisine && { i: Soup, l: "Ma cuisine", d: "Recettes, repas, aliments", c: C.weight, act: onOpenCuisine },
+  ].filter(Boolean);
+  return (
+    <Sheet open onClose={onClose} title={title} subtitle="Tout part d'ici" icon={<Plus size={18} />} iconColor={C.accent}>
+      {hab.length > 0 && (<>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Tes habituels · 1 tap</p>
+        <div className="mb-4 space-y-1.5">
+          {hab.map((h) => (
+            <button key={h.name} onClick={() => { onQuickAdd(slot || h.slot, h); onClose(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[h.slot].color}1f`, color: SLOT_UI[h.slot].color }}><Plus size={14} /></span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold" style={{ color: C.ink }}>{h.name}</span>
+              <span className="text-xs tabular-nums" style={{ color: C.muted }}>{h.kcal} · {h.p} g</span>
+            </button>
+          ))}
+        </div>
+      </>)}
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Autres méthodes</p>
+      <div className="grid grid-cols-2 gap-2">
+        {methods.map(({ i: Icon, l, d, c, act }) => (
+          <button key={l} onClick={() => { onClose(); act(); }} className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${c}1a`, color: c }}><Icon size={16} /></span>
+            <span className="min-w-0"><span className="block text-xs font-bold" style={{ color: C.ink }}>{l}</span><span className="block text-[10px]" style={{ color: C.muted }}>{d}</span></span>
+          </button>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+// Bottom-sheet « Assistant » (validé design-lab) : menu d'actions, global ou ciblé créneau.
+function AssistantSheet({ slot, remKcal, remP, onClose, onIdea, onSuggestNow, onPlan, onOpenCuisine }) {
+  const scoped = slot ? SLOT_NAMES[slot] : null;
+  const opts = scoped ? [
+    { i: Wand2, l: `Propose un ${scoped}`, d: "Une idée qui rentre dans le budget", c: C.accent, act: () => onIdea && onIdea(slot) },
+    { i: ListPlus, l: "Complète ce repas", d: "Ce qu'il manque (protéines, équilibre)", c: C.green, act: () => onIdea && onIdea(slot) },
+    { i: Shuffle, l: "D'autres idées", d: "De nouvelles propositions", c: C.weight, act: () => onIdea && onIdea(slot) },
+    { i: Soup, l: "Depuis ma cuisine", d: `Mes recettes pour le ${scoped}`, c: C.protein, act: onOpenCuisine },
+  ] : [
+    { i: Wand2, l: "Propose-moi un repas", d: "Un repas complet dans le budget", c: C.accent, act: () => onSuggestNow && onSuggestNow() },
+    { i: ListPlus, l: "Complète ma journée", d: `Pour finir : ${remKcal} kcal · ${remP} g`, c: C.green, act: () => onSuggestNow && onSuggestNow() },
+    { i: Sparkles, l: "Planifier (jour / semaine)", d: "Remplir les créneaux à venir", c: C.protein, act: onPlan },
+    { i: Soup, l: "Depuis ma cuisine", d: "Mes recettes & repas", c: C.weight, act: onOpenCuisine },
+  ];
+  return (
+    <Sheet open onClose={onClose} title={scoped ? `Assistant · ${scoped}` : "Assistant repas"} subtitle={`Budget : ${remKcal} kcal · ${remP} g restants`} icon={<Wand2 size={18} />} iconColor={C.accent}>
+      {opts.filter((o) => o.act).map(({ i: Icon, l, d, c, act }) => (
+        <button key={l} onClick={() => { onClose(); act(); }} className="mb-2 flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${c}1a`, color: c }}><Icon size={17} /></span>
+          <span className="min-w-0 flex-1"><span className="block text-sm font-bold" style={{ color: C.ink }}>{l}</span><span className="block text-[11px]" style={{ color: C.muted }}>{d}</span></span>
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
+      ))}
+    </Sheet>
   );
 }
 
