@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, streakCount,
+  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach,
 } from "./core.js";
 import { Sheet } from "./Sheet.jsx";
 import { SectionTitle } from "./ui.jsx";
@@ -48,7 +48,6 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   };
   const wdLetter = (iso) => parseISO(iso).toLocaleDateString("fr-FR", { weekday: "narrow" }).toUpperCase();
   // Résumé hebdo compact, intégré à la carte jauge (visible sans scroller).
-  const streak = streakCount(days, TODAY);
   const wstats = weekStats(days, settings, activeDate, 7);
   const wcoach = weekCoach(wstats, settings, weights, activeDate);
   const wBal = Math.round(wcoach.balance);
@@ -107,7 +106,6 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
             <span className="text-sm font-bold capitalize" style={{ color: C.ink }}>{fmtFull(activeDate)}</span>
             {activeDate > TODAY && <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>à venir</span>}
             {!isToday && <button onClick={() => setActiveDate(TODAY)} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>Auj.</button>}
-            {streak >= 2 && <span className="flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ backgroundColor: `${C.over}1a`, color: C.over }} title={`${streak} jours d'affilée`}>🔥 {streak}</span>}
           </div>
           <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 7))} disabled={!canFwd} className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ color: canFwd ? C.sub : C.line }} aria-label="Semaine suivante"><ChevronRight size={18} /></button>
         </div>
