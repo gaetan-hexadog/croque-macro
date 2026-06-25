@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Play, Check } from "lucide-react";
-import { C } from "../core.js";
+import { Play, Check, Activity } from "lucide-react";
+import { C, cardStyle } from "../core.js";
 import { getRowerResistance } from "../lib/sport.js";
 import { SlideButton } from "./components.jsx";
 import { SessionShell, Stage, PhaseStage, IntervalStage } from "./SessionShell.jsx";
@@ -29,23 +29,29 @@ export function CardioWorkout({ session, week, sound = true, onCancel, onFinish,
   }, [stepIdx, phase, cardio]); // eslint-disable-line
 
   const colored = step.kind === "block" && phase === "run";
+  const runBlock = step.kind === "block" ? session.blocks[step.i] : null;
+  const statusColor = colored ? (runBlock.format === "intervalles" ? null : C.weight) : C.bg;
 
   return (
-    <SessionShell onStop={stop} onColor={colored}>
+    <SessionShell onStop={stop} onColor={colored} statusColor={statusColor}>
       {step.kind === "block" && (() => {
         const b = session.blocks[step.i];
         const intervals = b.format === "intervalles";
         if (phase === "prepare") {
-          const lines = intervals
-            ? [b.machine, `${b.intervals.count} × ${b.intervals.work}s effort / ${b.intervals.rest}s récup`, b.tip]
-            : [b.machine, `${Math.round(b.duration / 60)} min en continu`, b.tip];
+          const formatLine = intervals ? `${b.intervals.count} × ${b.intervals.work}s effort / ${b.intervals.rest}s récup` : `${Math.round(b.duration / 60)} min en continu`;
           return (
             <Stage>
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">
-                <p className="text-xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{b.name}</p>
-                {lines.filter(Boolean).map((l, i) => <p key={i} className="mt-2 max-w-sm text-sm" style={{ color: C.sub }}>{l}</p>)}
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+                <div className="w-full rounded-3xl p-6 text-center" style={cardStyle({ background: `radial-gradient(140% 110% at 50% 0%, ${C.weight}26, transparent 60%), ${C.cardGrad}` })}>
+                  <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}><Activity size={26} /></span>
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: C.weight }}>Bloc {step.i + 1}/{session.blocks.length}</p>
+                  <p className="mt-1 text-2xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{b.name}</p>
+                  <span className="mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: C.paper, color: C.sub }}>{b.machine}</span>
+                  <p className="mt-2 text-sm font-semibold" style={{ color: C.sub }}>{formatLine}</p>
+                  {b.tip && <p className="mt-2 text-sm" style={{ color: C.muted }}>{b.tip}</p>}
+                </div>
               </div>
-              <button onClick={() => setPhase("run")} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Play size={18} /> Je suis prêt</button>
+              <button onClick={() => setPhase("run")} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Je suis prêt</button>
             </Stage>
           );
         }

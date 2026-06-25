@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { X, Play, Pause, SkipForward } from "lucide-react";
-import { C } from "../core.js";
+import { C, setThemeColor } from "../core.js";
 import { NumberFlow, DurationFlow } from "./components.jsx";
 import { useCountdown } from "./timers.jsx";
 
@@ -23,11 +23,14 @@ export function useWakeLock(active) {
 // SessionShell — séance PLEIN ÉCRAN (couvre header + tabbar). Bouton Stop flottant
 // (avec confirmation) toujours accessible. `onColor` adapte le Stop sur fond coloré.
 // ════════════════════════════════════════════════════════════════════════════
-export function SessionShell({ onStop, onColor, children }) {
+export function SessionShell({ onStop, onColor, statusColor, children }) {
   useWakeLock(true);
   const [confirm, setConfirm] = useState(false);
+  // Status bar (theme-color) accordée à l'écran courant ; restaurée en sortie.
+  useEffect(() => { if (statusColor) setThemeColor(statusColor); }, [statusColor]);
+  useEffect(() => () => setThemeColor(C.bg), []);
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 80, background: C.bg, backgroundImage: C.bgImage, color: C.ink, display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 80, background: C.bg, backgroundImage: C.bgImage, color: C.ink, display: "flex", flexDirection: "column" }}>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
 
       <button onClick={() => setConfirm(true)} aria-label="Arrêter la séance"
@@ -52,16 +55,16 @@ export function SessionShell({ onStop, onColor, children }) {
   );
 }
 
-// Scène NEUTRE (série, prépa, récap) : padding + clearance pour le Stop flottant.
+// Scène NEUTRE (série, prépa, récap) : padding (avec safe-areas) + clearance Stop.
 export function Stage({ children, scroll }) {
-  return <div className="flex min-h-0 flex-1 flex-col px-5 pb-5" style={{ paddingTop: 56, overflowY: scroll ? "auto" : "visible" }}>{children}</div>;
+  return <div className="flex min-h-0 flex-1 flex-col px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 56px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)", overflowY: scroll ? "auto" : "visible" }}>{children}</div>;
 }
 
 // Scène COLORÉE plein cadre (countdown, repos, cardio, échauffement) : dégradé
-// edge-to-edge, contenu centré géant, actions en bas.
+// EDGE-TO-EDGE (jusque sous la status bar + safe-areas), contenu centré géant.
 export function ColorStage({ from, to, children, actions }) {
   return (
-    <div style={{ height: "100%", background: `linear-gradient(160deg, ${from}, ${to})`, display: "flex", flexDirection: "column", padding: "64px 18px 18px" }}>
+    <div style={{ height: "100%", background: `linear-gradient(160deg, ${from}, ${to})`, display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top) + 64px) 18px calc(env(safe-area-inset-bottom) + 18px)" }}>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">{children}</div>
       {actions && <div className="shrink-0">{actions}</div>}
     </div>
@@ -134,6 +137,7 @@ export function IntervalStage({ count, work, rest, machine, label, sound, onDone
   const [phase, setPhase] = useState("work");
   const effort = phase === "work";
   const accent = effort ? C.protein : C.weight;
+  useEffect(() => { setThemeColor(accent); }, [phase]); // eslint-disable-line
   const onEnd = () => {
     if (effort) { if (rest > 0) setPhase("rest"); else if (idx + 1 < count) setIdx((i) => i + 1); else onDone(); }
     else { if (idx + 1 < count) { setIdx((i) => i + 1); setPhase("work"); } else onDone(); }

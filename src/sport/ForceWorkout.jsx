@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play } from "lucide-react";
+import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Flame } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
 import { NumberFlow, PrescriptionBadge, DIFFS, diffColor } from "./components.jsx";
@@ -95,7 +95,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     const data = log.map(({ exercise, sets }) => ({ exercise, sets }));
     const pr = isVolumePR({ sessionId: session.id, week, completed: true, data }, workouts);
     return (
-      <SessionShell onStop={stop} onColor={false}>
+      <SessionShell onStop={stop} onColor={false} statusColor={C.bg}>
         <Stage scroll>
           <SessionSummary
             sessionName={session.name} subtitle={`${session.subtitle} · S${week}`}
@@ -109,9 +109,14 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   }
 
   const colored = step.kind === "warmup" || step.kind === "cooldown" || (step.kind === "finishCardio" && phase === "run") || (step.kind === "exercise" && (phase === "countdown" || phase === "rest"));
+  const statusColor =
+    step.kind === "warmup" || step.kind === "cooldown" ? C.weight
+      : step.kind === "finishCardio" ? (phase === "run" ? null : C.bg)
+        : step.kind === "exercise" ? (phase === "countdown" ? C.protein : phase === "rest" ? C.weight : C.bg)
+          : C.bg;
 
   return (
-    <SessionShell onStop={stop} onColor={colored}>
+    <SessionShell onStop={stop} onColor={colored} statusColor={statusColor}>
       {step.kind === "warmup" && <PhaseStage title="Échauffement" detail={session.warmup.details} seconds={session.warmup.seconds} sound={sound} onDone={goNextStep} />}
       {step.kind === "cooldown" && <PhaseStage title="Retour au calme" detail={session.cooldown.details} seconds={session.cooldown.seconds} sound={sound} onDone={goNextStep} />}
 
@@ -132,7 +137,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
         if (phase === "prepare") {
           const chargeLine = entry.charge != null ? `${entry.charge} kg${ex.loadLabel ? ` · ${ex.loadLabel}` : ""}${canAdjust ? ` · ${getDiscPlan(entry.charge)}` : ""}` : (ex.type === "bodyweight" ? "Poids du corps" : "");
-          return <PrepareExercise ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} onReady={() => { setSetIdx(0); setPhase("countdown"); }} />;
+          return <PrepareExercise ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} exIdx={exIdx} total={exs.length} onReady={() => { setSetIdx(0); setPhase("countdown"); }} />;
         }
         if (phase === "countdown") {
           return <CountdownStage seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}`} sound={sound} onDone={() => setPhase("set")} />;
@@ -194,36 +199,57 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   );
 }
 
-function PrepareExercise({ ex, entry, chargeLine, last, isTime, onReady }) {
+// Annonce d'un exercice (force) — hero énergique + infos + « Je suis prêt ».
+function PrepareExercise({ ex, entry, chargeLine, last, isTime, exIdx, total, onReady }) {
   return (
     <Stage scroll>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex items-center justify-between">
-          <p className="text-xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
-          <PrescriptionBadge presc={entry.presc} ex={ex} />
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        {/* Hero */}
+        <div className="rounded-3xl p-5" style={cardStyle({ background: `radial-gradient(140% 110% at 0% 0%, ${C.accent}26, transparent 60%), ${C.cardGrad}` })}>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Dumbbell size={12} /> À suivre · {exIdx + 1}/{total}</span>
+            <PrescriptionBadge presc={entry.presc} ex={ex} />
+          </div>
+          <p className="text-2xl font-extrabold leading-tight" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
+          <p className="mt-1 text-sm font-semibold" style={{ color: C.sub }}>{ex.sets} × {isTime ? ex.reps : `${entry.sets[0].repsTarget ?? ex.reps} reps`}{ex.perSide ? " / côté" : ""} · repos {ex.rest}s</p>
+          {chargeLine && (
+            <div className="mt-3 flex items-center gap-2.5 rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.ink }}>
+              <Dumbbell size={16} style={{ color: C.bg }} />
+              <span className="text-sm font-bold" style={{ color: C.bg }}>{chargeLine}</span>
+            </div>
+          )}
         </div>
-        <p className="mt-1 text-sm font-semibold" style={{ color: C.sub }}>{ex.sets} × {isTime ? ex.reps : `${entry.sets[0].repsTarget ?? ex.reps} reps`}{ex.perSide ? " / côté" : ""} · repos {ex.rest}s</p>
-        {chargeLine && <div className="mt-3 flex items-center gap-2 rounded-2xl p-3" style={{ backgroundColor: C.paper }}><Dumbbell size={16} style={{ color: C.accent }} /><span className="text-sm font-bold" style={{ color: C.ink }}>{chargeLine}</span></div>}
-        {last && <p className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: C.muted }}><HistoryIcon size={12} style={{ color: C.weight }} /> Dernière fois : <b style={{ color: C.sub }}>{last.weight ? `${last.weight} kg · ` : ""}{last.reps.join("/")}</b></p>}
-        <div className="mt-4 rounded-2xl p-3.5" style={cardStyle()}>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-wide" style={{ color: C.muted }}>Comment faire</p>
+
+        {last && (
+          <div className="flex items-center gap-2.5 rounded-2xl p-3.5" style={cardStyle()}>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}><HistoryIcon size={15} /></span>
+            <span className="text-sm" style={{ color: C.sub }}>Dernière fois : <b style={{ color: C.ink }}>{last.weight ? `${last.weight} kg · ` : ""}{last.reps.join("/")}</b></span>
+          </div>
+        )}
+
+        <div className="rounded-2xl p-4" style={cardStyle()}>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: C.muted }}><Info size={12} /> Comment faire</p>
           <p className="text-sm" style={{ color: C.sub }}>{ex.tech}</p>
           {ex.tips?.length > 0 && <ul className="mt-2 space-y-1.5">{ex.tips.map((t, i) => <li key={i} className="flex gap-1.5 text-sm" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span>{t}</li>)}</ul>}
         </div>
       </div>
-      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Play size={18} /> Je suis prêt</button>
+      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Je suis prêt</button>
     </Stage>
   );
 }
 
+// Annonce de la finition cardio — hero énergique centré.
 function PrepareGeneric({ title, lines, onReady }) {
   return (
     <Stage>
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">
-        <p className="text-xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{title}</p>
-        {lines.filter(Boolean).map((l, i) => <p key={i} className="mt-2 max-w-sm text-sm" style={{ color: C.sub }}>{l}</p>)}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+        <div className="w-full rounded-3xl p-6 text-center" style={cardStyle({ background: `radial-gradient(140% 110% at 50% 0%, ${C.protein}26, transparent 60%), ${C.cardGrad}` })}>
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: `${C.protein}1a`, color: C.protein }}><Flame size={26} /></span>
+          <p className="text-xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{title}</p>
+          {lines.filter(Boolean).map((l, i) => <p key={i} className="mt-2 text-sm" style={{ color: C.sub }}>{l}</p>)}
+        </div>
       </div>
-      <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Play size={18} /> Je suis prêt</button>
+      <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Je suis prêt</button>
     </Stage>
   );
 }
