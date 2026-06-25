@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, Lightbulb } from "lucide-react";
 import { C, buildAssistantPrompt } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
@@ -53,6 +53,8 @@ export function MealSuggestSheet({
   }, [slot, budK, localIdeas, pantry]);
   const thin = local.length < 3;
 
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   const ask = async () => {
     setBusy(true); setError(null);
     try {
@@ -65,11 +67,12 @@ export function MealSuggestSheet({
         dateLabel,
       });
       const { meals } = await askAssistant({ system, prompt, mode });
+      if (!mounted.current) return;
       setResults(meals);
       setLocalOpen(false); // on replie « dans tes idées » pour montrer le résultat de l'assistant
     } catch (e) {
-      setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
-    } finally { setBusy(false); }
+      if (mounted.current) setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
+    } finally { if (mounted.current) setBusy(false); }
   };
 
   const keyOf = (m, i) => `${m.title}-${i}`;

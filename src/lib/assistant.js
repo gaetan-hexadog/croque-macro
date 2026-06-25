@@ -19,29 +19,34 @@ export class AssistantError extends Error {
   }
 }
 
-// payload = { system, prompt, mode }. Renvoie { meals: [...] }.
-export async function askAssistant(payload, { signal } = {}) {
+// POST vers la function, avec session + offline + TIMEOUT/abort (filet anti-blocage :
+// la function Netlify peut timeouter silencieusement ~10-26 s). Renvoie la Response.
+async function postAssistant(body, { signal, timeoutMs = 45000, authMsg } = {}) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) throw new AssistantError("Hors-ligne — l'assistant a besoin d'une connexion.", { kind: "offline" });
   const { data } = await supabase.auth.getSession();
   const token = data?.session?.access_token;
-  if (!token) throw new AssistantError("Connecte-toi pour utiliser l'assistant.", { kind: "auth" });
-
-  let res;
+  if (!token) throw new AssistantError(authMsg || "Connecte-toi pour utiliser l'assistant.", { kind: "auth" });
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  if (signal) { if (signal.aborted) ctrl.abort(); else signal.addEventListener("abort", onAbort); }
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
-      signal,
-    });
+    return await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: ctrl.signal });
   } catch (e) {
-    // Function absente (dev local sans netlify) ou réseau coupé.
+    if (ctrl.signal.aborted && !(signal && signal.aborted)) throw new AssistantError("L'assistant a mis trop de temps — réessaie (ou simplifie la demande).", { kind: "offline" });
     throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" });
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", onAbort);
   }
+}
 
+// payload = { system, prompt, mode }. Renvoie { meals: [...] }.
+export async function askAssistant(payload, opts = {}) {
+  const res = await postAssistant(payload, { ...opts, authMsg: "Connecte-toi pour utiliser l'assistant." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
-
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
@@ -50,14 +55,8 @@ export async function askAssistant(payload, { signal } = {}) {
 }
 
 // Importe une recette depuis une URL (la function fetch la page + extrait + macros).
-export async function importRecipeFromUrl(url, { signal } = {}) {
-  const { data } = await supabase.auth.getSession();
-  const token = data?.session?.access_token;
-  if (!token) throw new AssistantError("Connecte-toi pour importer.", { kind: "auth" });
-  let res;
-  try {
-    res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ url }), signal });
-  } catch { throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" }); }
+export async function importRecipeFromUrl(url, opts = {}) {
+  const res = await postAssistant({ url }, { ...opts, authMsg: "Connecte-toi pour importer." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   let out;
@@ -68,14 +67,8 @@ export async function importRecipeFromUrl(url, { signal } = {}) {
 }
 
 // Analyse une photo de repas (base64 sans préfixe data:) → repas estimé (meals[0]).
-export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", { signal } = {}) {
-  const { data } = await supabase.auth.getSession();
-  const token = data?.session?.access_token;
-  if (!token) throw new AssistantError("Connecte-toi pour analyser une photo.", { kind: "auth" });
-  let res;
-  try {
-    res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ image: base64, media_type: mediaType }), signal });
-  } catch { throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" }); }
+export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", opts = {}) {
+  const res = await postAssistant({ image: base64, media_type: mediaType }, { ...opts, authMsg: "Connecte-toi pour analyser une photo." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   let out;
