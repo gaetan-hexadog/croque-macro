@@ -464,6 +464,7 @@ function buildAssistantPrompt({
   count, concise = false,    // mode meal : nb d'options (déf. 3) ; concise = sans étapes (planif séquentielle rapide)
   recipe, instruction,       // mode adapt : recette de départ + consigne d'adaptation
   text,                      // mode parse : description en langage naturel d'un repas mangé
+  userWish, dining,          // mode meal : consigne libre de l'utilisateur + flag « au restaurant »
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -543,6 +544,8 @@ function buildAssistantPrompt({
       ? `Propose-moi ${n} options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
       : `Propose-moi ${n} options de ${slotTxt}, équilibrées et protéinées.`);
     if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
+    if (dining) L.push("CONTEXTE : je mange AU RESTAURANT (pas de cuisine maison) — IGNORE mon frigo. Propose des PLATS À COMMANDER réalistes (pas de recette à cuisiner) ; `ingredients` = composantes principales du plat. Estime les macros de façon CONSERVATRICE (portions resto généreuses, arrondis kcal vers le haut). Dans `note`, glisse 1 conseil de commande (ex. sauce à part, doubler la protéine, pain en moins).");
+    if (userWish && userWish.trim()) L.push(`MA DEMANDE (à respecter en PRIORITÉ) : « ${userWish.trim()} ». Respecte-la même si ça sort de mes habitudes, tout en gardant le budget et les règles diététiques.`);
     if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. COMPLÈTE la journée de façon cohérente : varie les aliments (ne répète pas ce qui est déjà là), équilibre les macros.`);
     if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
     if (concise) L.push("Reste CONCIS, mais chaque ingrédient AVEC sa quantité (qty + unit) ; 1-2 variantes. N'inclus PAS les étapes de préparation.");
@@ -558,7 +561,7 @@ function buildAssistantPrompt({
     if (mode === "week") treat += " Sur la semaine, répartis 1 à 2 plaisirs maximum, pas chaque jour.";
     L.push(treat);
   }
-  L.push("Privilégie mon frigo (en portions) MAIS sans t'y limiter : complète librement avec d'autres aliments courants pour varier et atteindre les cibles.");
+  if (!dining) L.push("Privilégie mon frigo (en portions) MAIS sans t'y limiter : complète librement avec d'autres aliments courants pour varier et atteindre les cibles.");
 
   return { mode, system: sys, prompt: L.join("\n") };
 }

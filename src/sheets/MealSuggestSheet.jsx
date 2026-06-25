@@ -7,6 +7,15 @@ import MealCard from "../components/MealCard.jsx";
 import { PantrySheet } from "./PantrySheet.jsx";
 
 const SLOT_LABELS = { pdj: "petit-déjeuner", dej: "déjeuner", diner: "dîner", snack: "en-cas" };
+// Contraintes/ envies rapides (1 tap). « resto » bascule un mode dédié (pas de
+// recette, estimations conservatrices) ; les autres ajoutent une phrase au prompt.
+const WISH_CHIPS = [
+  { k: "resto", l: "🍽️ Au resto", phrase: null },
+  { k: "rapide", l: "⚡ Rapide / sans cuisson", phrase: "rapide à préparer, sans cuisson" },
+  { k: "leger", l: "🪶 Léger", phrase: "plutôt léger" },
+  { k: "proteine", l: "💪 Très protéiné", phrase: "le plus protéiné possible" },
+  { k: "sucre", l: "🍫 Sucré / plaisir", phrase: "j'ai envie de sucré, un petit plaisir raisonnable" },
+];
 
 // Idée de repas contextuelle : ouverte depuis un créneau de l'écran Jour.
 // Matchs locaux d'abord (gratuit), puis assistant à la demande. Logge dans CE créneau.
@@ -17,7 +26,10 @@ export function MealSuggestSheet({
   onLog, onSaveRecipe, dateLabel, onClose,
 }) {
   const [exclude, setExclude] = useState("");
+  const [wish, setWish] = useState("");
+  const [chips, setChips] = useState(() => new Set());
   const [pantryOpen, setPantryOpen] = useState(false);
+  const toggleChip = (k) => setChips((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
@@ -39,9 +51,11 @@ export function MealSuggestSheet({
   const ask = async () => {
     setBusy(true); setError(null);
     try {
+      const dining = chips.has("resto");
+      const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal, remP, favorites, knownFoods,
-        have: pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
+        mode: "meal", slot, remKcal, remP, favorites, knownFoods, userWish, dining,
+        have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...exclude.split(",").map((s) => s.trim()).filter(Boolean)],
         dateLabel,
       });
@@ -64,7 +78,15 @@ export function MealSuggestSheet({
         </button>
       </div>
 
-      <input value={exclude} onChange={(e) => setExclude(e.target.value)} placeholder="Exclure aujourd'hui (ex. tofu)…" className="mb-3 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+      {/* Envie / contrainte (optionnel) : chips rapides + texte libre, gardés à la régénération */}
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {WISH_CHIPS.map((c) => {
+          const on = chips.has(c.k);
+          return <button key={c.k} onClick={() => toggleChip(c.k)} className="rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={on ? { backgroundColor: C.accent, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{c.l}</button>;
+        })}
+      </div>
+      <input value={wish} onChange={(e) => setWish(e.target.value)} placeholder="Une envie, une contrainte ? (ex. des pâtes, 10 min)…" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+      <input value={exclude} onChange={(e) => setExclude(e.target.value)} placeholder="Exclure (ex. tofu)…" className="mb-3 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
 
       {local.length > 0 && (
         <div className="space-y-2">
