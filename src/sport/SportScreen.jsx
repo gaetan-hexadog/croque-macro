@@ -34,8 +34,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   useEffect(() => {
     if (!setHeader) return;
     if (active) {
-      const s = SESSIONS[active.sessionId];
-      setHeader({ title: `${s.name} · ${s.subtitle}`, subtitle: `Séance guidée · S${currentWeek}`, onBack: () => setActive(null) });
+      setHeader(null); // séance = plein écran (SessionShell couvre header + tabbar)
     } else if (preview) {
       const s = SESSIONS[preview];
       setHeader({ title: s.name, subtitle: `${s.subtitle} · ${s.day} · ${s.duration}`, onBack: () => setPreview(null) });
