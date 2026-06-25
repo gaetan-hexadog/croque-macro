@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings, Volume2, VolumeX } from "lucide-react";
+import { Settings, Volume2, VolumeX, Minus, Plus } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SESSIONS, SESSION_ORDER } from "../lib/sport.js";
@@ -10,15 +10,27 @@ const DAYS = [
 ];
 const DEFAULT_DAYS = { A: 2, B: 4, C: 6 };
 
-// ── Réglages Sport : jours de séance + son des minuteurs ─────────────────────
-export function SportSettings({ open, onClose, sport, setSport }) {
+// ── Réglages Sport : semaine du programme + jours de séance + son ────────────
+export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   const days = sport.preferences?.sessionDays || DEFAULT_DAYS;
   const soundOn = sport.soundEnabled !== false;
   const setDay = (sid, i) => setSport((s) => ({ ...s, preferences: { ...(s.preferences || {}), sessionDays: { ...days, [sid]: i } } }));
   const toggleSound = () => setSport((s) => ({ ...s, soundEnabled: !(s.soundEnabled !== false) }));
+  const setWeek = (w) => setSport((s) => ({ ...s, currentWeek: Math.min(14, Math.max(1, w)), weekManuallySet: true }));
+  const autoWeek = () => setSport((s) => ({ ...s, weekManuallySet: false }));
 
   return (
-    <Sheet open={open} onClose={onClose} title="Réglages Sport" subtitle="Jours de séance & minuteurs" icon={<Settings size={18} />} iconColor={C.accent}>
+    <Sheet open={open} onClose={onClose} title="Réglages Sport" subtitle="Semaine · jours · minuteurs" icon={<Settings size={18} />} iconColor={C.accent}>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Semaine du programme</p>
+      <div className="mb-5 rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+        <div className="flex items-center justify-center gap-4">
+          <button onClick={() => setWeek((currentWeek || 1) - 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, color: C.sub }}><Minus size={16} /></button>
+          <span className="text-xl font-extrabold tabular-nums" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>S{currentWeek}<span className="text-sm font-bold" style={{ color: C.muted }}>/14</span></span>
+          <button onClick={() => setWeek((currentWeek || 1) + 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, color: C.sub }}><Plus size={16} /></button>
+        </div>
+        <button onClick={autoWeek} className="mt-3 w-full rounded-xl py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, color: C.sub }}>{sport.weekManuallySet ? "Revenir au calcul auto (date de début)" : "Semaine calculée automatiquement ✓"}</button>
+      </div>
+
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Jours de séance</p>
       <div className="mb-5 space-y-2.5">
         {SESSION_ORDER.map((sid) => (

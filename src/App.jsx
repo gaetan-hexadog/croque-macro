@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell } from "lucide-react";
+import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId,
 } from "./core.js";
@@ -60,6 +60,7 @@ export default function PiocheRepas() {
   const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
   const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
   const [targetDismissed, setTargetDismissed] = useState(null); // poids pour lequel la suggestion de cible a été masquée
+  const [screenHeader, setScreenHeader] = useState(null); // header dynamique fourni par l'écran courant : { title, subtitle, badge, onSettings, onBack }
 
   // Navigation par historique : le geste retour de l'OS remonte dans l'app au lieu de quitter.
   const undoStack = useRef([]);
@@ -578,22 +579,36 @@ export default function PiocheRepas() {
   return (
     <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
       <div className="mx-auto w-full max-w-md px-4 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}>
-        {/* TopBar unifié : titre de la page + actions (scan / réglages), retour pour les sous-écrans */}
-        <header className="mb-4 flex items-center gap-2.5">
-          {(view === "guide" || view === "reglages") && (
-            <button onClick={navBack} aria-label="Retour" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><ChevronLeft size={20} /></button>
-          )}
-          {view === "jour"
-            ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-            : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" }[view]}</h1>}
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {view !== "reglages" && (
-              <button onClick={openSettings} aria-label="Réglages" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-                <Settings2 size={18} />
-              </button>
-            )}
-          </div>
-        </header>
+        {/* Header global unifié : retour · titre/sous-titre · data (badge) · actions.
+            Chaque écran peut le piloter via screenHeader { title, subtitle, badge, onSettings, onBack }. */}
+        {(() => {
+          const TITLES = { journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" };
+          const h = screenHeader;
+          const onBack = h?.onBack || ((view === "guide" || view === "reglages") ? navBack : null);
+          const badge = h?.badge;
+          return (
+            <header className="mb-4 flex items-center gap-2.5">
+              {onBack && (
+                <button onClick={onBack} aria-label="Retour" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><ChevronLeft size={20} /></button>
+              )}
+              <div className="min-w-0 flex-1">
+                {view === "jour" && !h
+                  ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
+                  : <h1 className="truncate text-2xl font-extrabold leading-tight" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{h?.title || TITLES[view]}</h1>}
+                {h?.subtitle && <p className="truncate text-xs" style={{ color: C.sub }}>{h.subtitle}</p>}
+              </div>
+              {badge && <span className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: badge.tone === "weight" ? `${C.weight}22` : `${C.green}1a`, color: badge.tone === "weight" ? C.weight : C.green }}>{badge.text}</span>}
+              <div className="flex shrink-0 items-center gap-2">
+                {h?.onSettings && (
+                  <button onClick={h.onSettings} aria-label="Réglages de la séance" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><SlidersHorizontal size={18} /></button>
+                )}
+                {!onBack && view !== "reglages" && (
+                  <button onClick={openSettings} aria-label="Réglages de l'app" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Settings2 size={18} /></button>
+                )}
+              </div>
+            </header>
+          );
+        })()}
 
         <Suspense fallback={<ScreenFallback />}>
         {view === "jour" && (
@@ -631,7 +646,7 @@ export default function PiocheRepas() {
           <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} />
         )}
         {view === "sport" && (
-          <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} />
+          <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} />
         )}
         {view === "reglages" && (
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />

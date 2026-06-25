@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
-  Dumbbell, Check, ChevronRight, ChevronLeft, Plus, Minus, Calendar, TrendingUp, TrendingDown,
-  Minus as Flat, AlertTriangle, Info, CalendarCheck, History as HistoryIcon, BookOpen, Settings, PenLine,
+  Dumbbell, Check, ChevronRight, TrendingUp, TrendingDown, Minus as Flat,
+  AlertTriangle, Info, CalendarCheck, History as HistoryIcon, BookOpen, PenLine,
 } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { SectionTitle } from "../components/ui.jsx";
@@ -9,12 +9,12 @@ import {
   SESSIONS, SESSION_ORDER, ADAPT_TIPS, getAdaptiveSuggestion, getGapWarning, daysBetween,
   strengthTrend, strengthSeries, assiduitySeries,
 } from "../lib/sport.js";
-import { StatTile, RadialStat, Sparkline } from "./components.jsx";
+import { Sparkline } from "./components.jsx";
 
-const FONT = "'Space Grotesk', system-ui";
-
-// ── Accueil Sport (piste B : timeline + carte force/assiduité) ───────────────
-export function SportHome({ sport, setSport, workouts, currentWeek, block, sessionDays, onOpen, onOpenDetail, onManualLog, onSettings }) {
+// ── Accueil Sport (piste B : carte progression + timeline) ───────────────────
+// Pas de header local : le header global de l'app porte titre « Sport », sous-titre
+// (semaine/phase), badge (charge) et les actions (réglages). Ici, que du contenu.
+export function SportHome({ workouts, currentWeek, sessionDays, onOpen, onOpenDetail, onManualLog }) {
   const todayDow = new Date().getDay();
   const gap = getGapWarning(workouts);
   const todaysSession = SESSION_ORDER.find((sid) => sessionDays[sid] === todayDow);
@@ -22,22 +22,7 @@ export function SportHome({ sport, setSport, workouts, currentWeek, block, sessi
 
   return (
     <div className="pb-2">
-      {/* En-tête : semaine + phase + réglages */}
-      <div className="mb-3 flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Programme · {block?.phase}</p>
-          <p style={{ color: C.ink, fontFamily: FONT }}>
-            <span className="text-2xl font-extrabold">Semaine {currentWeek}</span>
-            <span className="text-sm font-bold" style={{ color: C.muted }}> /14</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {block && <span className="rounded-full px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: block.phase === "Décharge" ? `${C.weight}22` : `${C.green}1a`, color: block.phase === "Décharge" ? C.weight : C.green }}>{block.standard}/{block.heavy} kg</span>}
-          <button onClick={onSettings} aria-label="Réglages Sport" className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Settings size={17} /></button>
-        </div>
-      </div>
-
-      <ForceAssiduityCard workouts={workouts} currentWeek={currentWeek} />
+      <ProgressCard workouts={workouts} currentWeek={currentWeek} />
 
       {gap && <Banner level={gap.level} title={gap.title} message={gap.message} />}
 
@@ -74,17 +59,16 @@ export function SportHome({ sport, setSport, workouts, currentWeek, block, sessi
         })}
       </div>
 
-      <WeekControl sport={sport} setSport={setSport} currentWeek={currentWeek} />
       <RecentHistory workouts={workouts} onOpenDetail={onOpenDetail} onManualLog={onManualLog} />
       <AdaptGuide />
     </div>
   );
 }
 
-// Carte « courbe de force + assiduité » (NOUVEAU).
-function ForceAssiduityCard({ workouts, currentWeek }) {
-  const series = strengthSeries(workouts);
-  const points = series.map((p) => p.value);
+// Carte progression : courbe de force + assiduité (le contexte semaine/phase/charge
+// est dans le header global).
+function ProgressCard({ workouts, currentWeek }) {
+  const points = strengthSeries(workouts).map((p) => p.value);
   const trend = strengthTrend(workouts);
   const ass = assiduitySeries(workouts, currentWeek, 6);
   const TrendIcon = trend?.direction === "up" ? TrendingUp : trend?.direction === "down" ? TrendingDown : Flat;
@@ -93,6 +77,7 @@ function ForceAssiduityCard({ workouts, currentWeek }) {
 
   return (
     <div className="mb-4 rounded-2xl p-4" style={cardStyle()}>
+      {/* Force */}
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-sm font-bold" style={{ color: C.ink }}>
           <TrendIcon size={15} style={{ color: trendCol }} /> {trend ? trendLabel : "Courbe de force"}
@@ -101,6 +86,8 @@ function ForceAssiduityCard({ workouts, currentWeek }) {
           ? <Sparkline points={points} color={trendCol} />
           : <span className="text-xs" style={{ color: C.muted }}>2 séances pour démarrer</span>}
       </div>
+
+      {/* Assiduité */}
       <div className="mt-3 flex items-center justify-between border-t pt-3" style={{ borderColor: C.line }}>
         <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.sub }}><CalendarCheck size={13} /> Assiduité 6 sem.</span>
         <div className="flex items-end gap-1.5">
@@ -128,30 +115,6 @@ function Banner({ level, title, message }) {
         <p className="text-sm font-bold" style={{ color: C.ink }}>{title}</p>
         <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{message}</p>
       </div>
-    </div>
-  );
-}
-
-function WeekControl({ sport, setSport, currentWeek }) {
-  const [open, setOpen] = useState(false);
-  const setWeek = (w) => setSport((s) => ({ ...s, currentWeek: Math.min(14, Math.max(1, w)), weekManuallySet: true }));
-  const auto = () => setSport((s) => ({ ...s, weekManuallySet: false }));
-  return (
-    <div className="mb-4 rounded-2xl p-3" style={cardStyle()}>
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between active:scale-95">
-        <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: C.ink }}><Calendar size={15} /> Régler la semaine</span>
-        <ChevronRight size={16} style={{ color: C.muted, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-      </button>
-      {open && (
-        <div className="mt-3 space-y-3">
-          <div className="flex items-center justify-center gap-4">
-            <button onClick={() => setWeek(currentWeek - 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.paper, color: C.sub }}><Minus size={16} /></button>
-            <span className="text-xl font-extrabold tabular-nums" style={{ color: C.ink }}>S{currentWeek}</span>
-            <button onClick={() => setWeek(currentWeek + 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.paper, color: C.sub }}><Plus size={16} /></button>
-          </div>
-          <button onClick={auto} className="w-full rounded-xl py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, color: C.sub }}>{sport.weekManuallySet ? "Revenir au calcul auto (date de début)" : "Semaine calculée automatiquement ✓"}</button>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from "react";
 import { C, cardStyle } from "../core.js";
 import { getRowerResistance } from "../lib/sport.js";
-import { StepDots, SlideButton, WorkoutHeader } from "./components.jsx";
+import { StepDots, SlideButton } from "./components.jsx";
 import { PhaseTimer, IntervalTimer } from "./timers.jsx";
 
-// ── Séance cardio guidée (échauffement, intervalles, retour au calme) ────────
-export function CardioWorkout({ session, week, sound = true, onCancel, onFinish }) {
+// ── Séance cardio guidée (titre dans le header global) ───────────────────────
+export function CardioWorkout({ session, week, sound = true, onFinish }) {
   const steps = useMemo(() => [...session.blocks.map((_, i) => ({ kind: "block", i })), { kind: "numbers" }], [session]); // eslint-disable-line
   const [stepIdx, setStepIdx] = useState(0);
   const step = steps[stepIdx];
@@ -15,7 +15,9 @@ export function CardioWorkout({ session, week, sound = true, onCancel, onFinish 
 
   return (
     <div className="pb-2">
-      <WorkoutHeader title={`${session.name} · ${session.subtitle}`} subtitle={`Étape ${stepIdx + 1}/${steps.length} · S${week}`} onCancel={onCancel} />
+      <div className="mb-3 flex items-center justify-end">
+        <span className="text-xs font-semibold" style={{ color: C.sub }}>Étape {stepIdx + 1}/{steps.length}</span>
+      </div>
       <StepDots count={steps.length} idx={stepIdx} />
 
       {step.kind === "block" && (() => {

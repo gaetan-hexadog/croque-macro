@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dumbbell } from "lucide-react";
 import { C } from "../core.js";
 import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart } from "../lib/sport.js";
@@ -18,7 +18,7 @@ const DEFAULT_SESSION_DAYS = { A: 2, B: 4, C: 6 };
 // (accueil / preview / séance active / détail) + les sheets (manuel, réglages).
 // La logique du programme vit dans ../sport.js ; la sync auto-pousse `workouts`.
 // ════════════════════════════════════════════════════════════════════════════
-export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, pushNav, showToast, onDeleteWorkout }) {
+export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, pushNav, showToast, onDeleteWorkout, setHeader }) {
   const [active, setActive] = useState(null);     // { sessionId }
   const [preview, setPreview] = useState(null);   // sessionId
   const [detail, setDetail] = useState(null);     // entry
@@ -29,6 +29,29 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   const currentWeek = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(startDate);
   const block = getCurrentBlock(currentWeek);
   const sessionDays = sport.preferences?.sessionDays || DEFAULT_SESSION_DAYS;
+
+  // Pilote le header global (title / subtitle / badge / actions / retour) selon le sous-écran.
+  useEffect(() => {
+    if (!setHeader) return;
+    if (active) {
+      const s = SESSIONS[active.sessionId];
+      setHeader({ title: `${s.name} · ${s.subtitle}`, subtitle: `Séance guidée · S${currentWeek}`, onBack: () => setActive(null) });
+    } else if (preview) {
+      const s = SESSIONS[preview];
+      setHeader({ title: s.name, subtitle: `${s.subtitle} · ${s.day} · ${s.duration}`, onBack: () => setPreview(null) });
+    } else if (detail) {
+      const s = SESSIONS[detail.sessionId];
+      setHeader({ title: s ? s.name : detail.sessionId, subtitle: `${s ? s.subtitle + " · " : ""}S${detail.week}${detail.manual ? " · manuel" : ""}`, onBack: () => setDetail(null) });
+    } else {
+      setHeader({
+        title: "Sport",
+        subtitle: `Semaine ${currentWeek} · ${block?.phase || ""}`,
+        badge: block ? { text: `${block.standard}/${block.heavy} kg`, tone: block.phase === "Décharge" ? "weight" : "green" } : null,
+        onSettings: () => setSettingsOpen(true),
+      });
+    }
+    return () => setHeader(null);
+  }, [active, preview, detail, currentWeek, block, setHeader]);
 
   const openPreview = (sessionId) => { if (pushNav) pushNav(() => setPreview(null)); setPreview(sessionId); };
   const startSession = (sessionId) => { setPreview(null); if (pushNav) pushNav(() => setActive(null)); setActive({ sessionId }); };
@@ -71,13 +94,13 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   return (
     <>
       <SportHome
-        sport={sport} setSport={setSport} workouts={workouts}
-        currentWeek={currentWeek} block={block} sessionDays={sessionDays}
+        workouts={workouts}
+        currentWeek={currentWeek} sessionDays={sessionDays}
         onOpen={openPreview} onOpenDetail={openDetail}
-        onManualLog={() => setManualOpen(true)} onSettings={() => setSettingsOpen(true)}
+        onManualLog={() => setManualOpen(true)}
       />
       <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} onSave={saveManual} showToast={showToast} />
-      <SportSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} sport={sport} setSport={setSport} />
+      <SportSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} sport={sport} setSport={setSport} currentWeek={currentWeek} />
     </>
   );
 }

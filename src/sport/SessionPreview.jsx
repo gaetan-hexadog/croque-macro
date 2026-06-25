@@ -2,14 +2,13 @@ import React from "react";
 import { Play, Info } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { getExercisePrescription, getRowerResistance, getDiscPlan, formatTime } from "../lib/sport.js";
-import { PrescriptionBadge, WorkoutHeader } from "./components.jsx";
+import { PrescriptionBadge } from "./components.jsx";
 
-// ── Consultation d'une séance avant de la démarrer ───────────────────────────
+// ── Consultation d'une séance avant de la démarrer (titre dans le header global) ─
 export function SessionPreview({ session, week, workouts, done, onBack, onStart }) {
   const cardio = session.type === "cardio";
   return (
     <div className="pb-24">
-      <WorkoutHeader title={`${session.name} · ${session.subtitle}`} subtitle={`${session.day} · ${session.duration} · S${week}`} onCancel={onBack} />
       {done && <Banner title="Séance déjà faite cette semaine" message="Tu peux la refaire ou la consulter — elle reste marquée comme faite." />}
 
       {session.warmup && <PhaseCard label={`Échauffement · ${session.warmup.duration}`} detail={session.warmup.details} />}

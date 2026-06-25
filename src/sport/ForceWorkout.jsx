@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Clock, Plus, Minus, SkipForward, Info, History as HistoryIcon, ChevronRight } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
-import { NumberFlow, DurationFlow, SessionProgress, PrescriptionBadge, StepDots, WorkoutHeader, DIFFS, diffColor } from "./components.jsx";
+import { NumberFlow, DurationFlow, SessionProgress, PrescriptionBadge, StepDots, DIFFS, diffColor } from "./components.jsx";
 import { PhaseTimer, IntervalTimer, playBeep } from "./timers.jsx";
 import { SessionSummary } from "./SessionSummary.jsx";
 
@@ -115,12 +115,11 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "70vh" }}>
-      <WorkoutHeader
-        title={`${session.name} · ${session.subtitle}`}
-        subtitle={`Étape ${stepIdx + 1}/${steps.length} · S${week}`}
-        onCancel={onCancel}
-        right={<span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: C.paper, color: C.sub }}><Clock size={12} /> <DurationFlow seconds={elapsed} size={13} color={C.sub} /></span>}
-      />
+      {/* Bandeau de séance : étape + chrono (le titre est dans le header global) */}
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold" style={{ color: C.sub }}>Étape {stepIdx + 1}/{steps.length}</span>
+        <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: C.paper, color: C.sub }}><Clock size={12} /> <DurationFlow seconds={elapsed} size={13} color={C.sub} /></span>
+      </div>
       <StepDots count={steps.length} idx={stepIdx} />
 
       {step.kind === "warmup" && (

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Timer, Dumbbell, Flame, Plus, Minus, Trash2, Pencil, Check, X } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { SESSIONS, sessionVolume, formatTime } from "../lib/sport.js";
-import { StatTile, WorkoutHeader, DIFFS, diffColorByValue } from "./components.jsx";
+import { StatTile, DIFFS, diffColorByValue } from "./components.jsx";
 
 const FONT = "'Space Grotesk', system-ui";
 const copy = (o) => JSON.parse(JSON.stringify(o || []));
@@ -28,14 +28,13 @@ export function SessionDetail({ entry, onBack, onSave, onDelete }) {
 
   return (
     <div className="pb-6">
-      <WorkoutHeader
-        title={`${s ? s.name : entry.sessionId}${entry.manual ? " · manuel" : ""}`}
-        subtitle={`${s ? s.subtitle : ""} · S${entry.week} · ${relDate(entry.date)}`}
-        onCancel={onBack}
-        right={editing
-          ? <button onClick={cancel} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><X size={18} /></button>
-          : <button onClick={() => setEditing(true)} aria-label="Modifier" className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Pencil size={16} /></button>}
-      />
+      {/* Ligne date + édition (le titre/sous-titre sont dans le header global) */}
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-xs font-medium" style={{ color: C.muted }}>{relDate(entry.date)}</span>
+        {editing
+          ? <button onClick={cancel} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><X size={14} /> Annuler</button>
+          : <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Pencil size={14} /> Modifier</button>}
+      </div>
 
       {/* Tuiles récap */}
       <div className="mb-4 grid grid-cols-3 gap-2.5">

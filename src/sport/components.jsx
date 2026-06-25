@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Check, ChevronsRight, ChevronLeft } from "lucide-react";
+import { Check, ChevronsRight } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { DIFFICULTY_OPTIONS } from "../lib/sport.js";
 
@@ -169,22 +169,6 @@ export function StepDots({ count, idx }) {
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="h-1 flex-1 rounded-full transition-colors" style={{ backgroundColor: i <= idx ? C.green : C.line }} />
       ))}
-    </div>
-  );
-}
-
-// ── WorkoutHeader : en-tête commun des écrans de séance ──────────────────────
-export function WorkoutHeader({ title, subtitle, onCancel, right }) {
-  return (
-    <div className="mb-3 flex items-center gap-3">
-      <button onClick={onCancel} aria-label="Retour" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-        <ChevronLeft size={20} />
-      </button>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-base font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{title}</p>
-        {subtitle && <p className="truncate text-xs" style={{ color: C.sub }}>{subtitle}</p>}
-      </div>
-      {right}
     </div>
   );
 }
