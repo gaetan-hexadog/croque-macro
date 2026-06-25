@@ -404,7 +404,7 @@ export default function PiocheRepas() {
     const raw = picker.slot, key = picksKey(raw);
     setDay((d) => {
       const arr = [...(d.picks[key] || [])];
-      const item = { ...meal, qty: 1 };
+      const item = { ...meal, qty: 1, id: newId("pk") };
       if (picker.index != null) arr[picker.index] = item; else arr.push(item);
       return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[raw] || 8) } };
     });
@@ -458,9 +458,9 @@ export default function PiocheRepas() {
   ], [customRecipes, combos, customMeals]);
   const deleteMeal = (m) => { if (m.kind === "recette") deleteRecipe(m.id); else if (m.kind === "combo") deleteCombo(m.id); else deleteCustomMeal(m.id); };
   const useMealEntry = (m, slotOverride) => {
-    if (m.kind === "combo") { const slot = slotOverride || m.slot || "dej", key = picksKey(slot); const ck = (m.items || []).reduce((a, it) => a + (it.kcal || 0) * (it.qty || 1), 0), cp = (m.items || []).reduce((a, it) => a + (it.p || 0) * (it.qty || 1), 0); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1 }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); toastAdd(m.name, ck, cp); return; }
+    if (m.kind === "combo") { const slot = slotOverride || m.slot || "dej", key = picksKey(slot); const ck = (m.items || []).reduce((a, it) => a + (it.kcal || 0) * (it.qty || 1), 0), cp = (m.items || []).reduce((a, it) => a + (it.p || 0) * (it.qty || 1), 0); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1, id: newId("pk") }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); toastAdd(m.name, ck, cp); return; }
     const slot = slotOverride || (m.kind === "recette" ? (m.cat || "dej") : (m.slots && m.slots[0]) || "dej"), key = picksKey(slot);
-    const item = { name: m.name, kcal: m.kcal, p: m.p, qty: 1 };
+    const item = { name: m.name, kcal: m.kcal, p: m.p, qty: 1, id: newId("pk") };
     if (m.kind === "recette") { if (m.ingredients?.length) item.ingredients = m.ingredients; if (m.steps?.length) item.steps = m.steps; if (m.emoji) item.emoji = m.emoji; }
     setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), item].slice(0, 8) } }));
     bumpUsage(m.name);
@@ -468,14 +468,14 @@ export default function PiocheRepas() {
   };
   const useIdea = (idea) => {
     const slot = idea.cat, key = picksKey(slot);
-    const item = { name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1 };
+    const item = { name: idea.name, kcal: idea.kcal, p: idea.p, qty: 1, id: newId("pk") };
     setDay((d) => { const arr = [...(d.picks[key] || []), item]; return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[slot] || 8) } }; });
     bumpUsage(idea.name);
   };
   // Assistant : logguer une suggestion dans un créneau, ou l'enregistrer en recette.
   const logSuggestion = (m, slot) => {
     const s = slot || m.slot || "dej", key = picksKey(s);
-    const item = { name: m.title, kcal: Math.round(m.kcal), p: Math.round(m.protein), qty: 1 };
+    const item = { name: m.title, kcal: Math.round(m.kcal), p: Math.round(m.protein), qty: 1, id: newId("pk") };
     const ings = (m.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim())).filter(Boolean);
     if (ings.length) item.ingredients = ings;
     if (Array.isArray(m.steps) && m.steps.length) item.steps = m.steps;
@@ -498,7 +498,7 @@ export default function PiocheRepas() {
       const d = prev[iso] || EMPTY_DAY();
       const picks = { ...(d.picks || {}) };
       for (const k of Object.keys(picks)) if (Array.isArray(picks[k])) picks[k] = picks[k].filter((it) => !it.planned);
-      entries.forEach(({ slot, meal }) => { const key = picksKey(slot || meal.slot || "dej"); picks[key] = [...(picks[key] || []), { name: meal.title, kcal: Math.round(meal.kcal), p: Math.round(meal.protein), qty: 1, planned: true }].slice(0, CAP[slot] || 8); });
+      entries.forEach(({ slot, meal }) => { const key = picksKey(slot || meal.slot || "dej"); picks[key] = [...(picks[key] || []), { name: meal.title, kcal: Math.round(meal.kcal), p: Math.round(meal.protein), qty: 1, planned: true, id: newId("pk") }].slice(0, CAP[slot] || 8); });
       return { ...prev, [iso]: { ...d, picks } };
     });
   };
@@ -536,11 +536,12 @@ export default function PiocheRepas() {
   // Quick-log : ajout direct d'un aliment fréquent/récent dans un créneau.
   const quickAdd = (slot, item) => {
     const key = picksKey(slot);
-    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { name: item.name, kcal: item.kcal, p: item.p, qty: 1 }].slice(0, CAP[slot] || 8) } }));
+    const pk = { name: item.name, kcal: item.kcal, p: item.p, qty: 1, id: newId("pk") };
+    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), pk].slice(0, CAP[slot] || 8) } }));
     bumpUsage(item.name);
-    toastAdd(item.name, item.kcal, item.p, () => setDay((d) => ({ ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).slice(0, -1) } })));
+    toastAdd(item.name, item.kcal, item.p, () => setDay((d) => ({ ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((x) => x.id !== pk.id) } })));
   };
-  const addExtra = (extra) => { setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1 }] } })); toastAdd(extra.name, extra.kcal, extra.p); };
+  const addExtra = (extra) => { setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1, id: newId("pk") }] } })); toastAdd(extra.name, extra.kcal, extra.p); };
   const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: [] } }));
   const toggleTraining = () => setDay((d) => ({ ...d, training: !d.training }));
   const resetDay = () => { const prev = day; setDay(() => ({ ...EMPTY_DAY() })); showToast("Journée vidée", () => setDay(() => prev)); };

@@ -329,7 +329,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
         <>
           <ul className="mt-1.5">
             {meals.map((m, i) => (
-              <MealItemRow key={i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe} />
+              <MealItemRow key={m.id || i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe} />
             ))}
           </ul>
           {onSaveCombo && (naming ? (
@@ -377,7 +377,7 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
       ) : (
         <ul className="mt-1.5">
           {items.map(({ m, slot, i, plaisir }, idx) => (
-            <MealItemRow key={`${slot}-${i}`} m={m} accent={plaisir ? C.extra : color} plaisir={plaisir} first={idx === 0}
+            <MealItemRow key={m.id || `${slot}-${i}`} m={m} accent={plaisir ? C.extra : color} plaisir={plaisir} first={idx === 0}
               onQty={onQty ? (nv) => onQty(slot, i, nv) : undefined}
               onRemove={() => onClear(slot, i)}
               onEdit={onEdit ? (patch) => onEdit(slot, i, patch) : undefined}
