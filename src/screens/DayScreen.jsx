@@ -23,15 +23,23 @@ function QuickChips({ items = [], onQuick, color }) {
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack }) {
   const [showTpl, setShowTpl] = useState(false);
   const [dismissRebal, setDismissRebal] = useState(false);
   const [viewRecipe, setViewRecipe] = useState(null);
   // Bottom-sheets « + » (Logger) et « Assistant » — false = fermé, null = global, "<slot>" = ciblé.
   const [addSlot, setAddSlot] = useState(false);
   const [assistSlot, setAssistSlot] = useState(false);
+  // Sheets « feuilles » (consultation recette, modèles) dans l'historique : le geste
+  // retour OS les ferme au lieu de changer d'écran. Les menus Add/Assistant restent en
+  // état local — ils enchaînent vers d'autres sheets, l'historique provoquerait du
+  // télescopage (navBack + pushNav au même tick).
+  const nav = (close) => (pushNav ? pushNav(close) : null);
+  const closeNav = () => (navBack ? navBack() : null);
   const openAdd = (slot = null) => setAddSlot(slot);
   const openAssist = (slot = null) => setAssistSlot(slot);
+  const openRecipe = (m) => { nav(() => setViewRecipe(null)); setViewRecipe(m); };
+  const openTpl = () => { nav(() => setShowTpl(false)); setShowTpl(true); };
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
   const canFwd = activeDate < addDays(TODAY, 14); // on peut avancer jusqu'à +14 j (voir les repas planifiés)
@@ -249,15 +257,15 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => openAssist("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => openAssist("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => openAssist("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
-        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => openAssist("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={setViewRecipe} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => openAssist("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => openAssist("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => openAssist("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} />
+        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => openAssist("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
       </div>
 
       {/* Modèles & copie de journée — accès discret */}
       <div className="mt-3 flex items-center justify-center gap-4">
-        <button onClick={() => setShowTpl(true)} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.sub }}><Layers size={13} /> Modèles & copie</button>
+        <button onClick={openTpl} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.sub }}><Layers size={13} /> Modèles & copie</button>
         {ribbon.length > 0 && <button onClick={onReset} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Vider la journée</button>}
       </div>
 
@@ -268,7 +276,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
 
-      {viewRecipe && <RecipeViewSheet m={viewRecipe} onClose={() => setViewRecipe(null)} />}
+      {viewRecipe && <RecipeViewSheet m={viewRecipe} onClose={closeNav} />}
 
       {addSlot !== false && (
         <AddSheet slot={addSlot} habituals={habituals} onClose={() => setAddSlot(false)}
@@ -284,11 +292,11 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       {showTpl && (
         <TemplatesSheet
           templates={templates} hasContent={ribbon.length > 0} hasPrevDay={hasPrevDay}
-          onCopyPrev={() => { onCopyPrev(); setShowTpl(false); }}
+          onCopyPrev={() => { onCopyPrev(); closeNav(); }}
           onSave={(name) => onSaveTemplate(name)}
-          onLoad={(id) => { onLoadTemplate(id); setShowTpl(false); }}
+          onLoad={(id) => { onLoadTemplate(id); closeNav(); }}
           onDelete={onDeleteTemplate}
-          onClose={() => setShowTpl(false)}
+          onClose={closeNav}
         />
       )}
     </div>

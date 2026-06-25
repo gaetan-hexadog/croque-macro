@@ -90,6 +90,8 @@ export default function PiocheRepas() {
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
+  const openIdea = useCallback((slot) => { pushNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [pushNav]);
+  const openQuickLog = useCallback(() => { pushNav(() => setQuickLogOpen(false)); setQuickLogOpen(true); }, [pushNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
@@ -519,7 +521,7 @@ export default function PiocheRepas() {
       setDay((d) => ({ ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((it) => !it.planned) } }));
       showToast(`${SLOTS[slot]?.label || "Repas"} prévu retiré`, () => setDay((d) => ({ ...d, picks: { ...d.picks, [key]: prevArr } })));
     }
-    setIdeaSlot(slot);
+    openIdea(slot);
   };
   const addShakeBase = (it) => setShakeBases((a) => [...a, { id: newId("sb"), name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
@@ -666,10 +668,11 @@ export default function PiocheRepas() {
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             sportInfo={sportInfo} recomp={recomp} onGoSport={() => go("sport")}
-            onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={() => setQuickLogOpen(true)} onPlan={() => go("idees")} onRebalance={rebalanceSlot}
+            onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={openQuickLog} onPlan={() => go("idees")} onRebalance={rebalanceSlot}
+            pushNav={pushNav} navBack={navBack}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
-            onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
-            habituals={habituals} onHabitual={(it) => quickAdd(it.slot, it)} onSuggestNow={() => setIdeaSlot(suggestSlotNow())}
+            onPick={openPicker} onIdea={openIdea} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
+            habituals={habituals} onHabitual={(it) => quickAdd(it.slot, it)} onSuggestNow={() => openIdea(suggestSlotNow())}
             onClear={clearSlot} onQty={setQty} onEditItem={editItem} onSkip={toggleSkip} onReset={resetDay}
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
@@ -730,7 +733,7 @@ export default function PiocheRepas() {
         <QuickLogSheet
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           onLog={(m, slot) => logSuggestion(m, slot)}
-          onClose={() => setQuickLogOpen(false)} />
+          onClose={navBack} />
       )}
       {ideaSlot && (
         <MealSuggestSheet
@@ -740,7 +743,7 @@ export default function PiocheRepas() {
           localIdeas={[...customRecipes, ...library.recipes]}
           pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
           onLog={logSuggestion} onSaveRecipe={saveSuggestion}
-          dateLabel={fmtFull(activeDate)} onClose={() => setIdeaSlot(null)} />
+          dateLabel={fmtFull(activeDate)} onClose={navBack} />
       )}
       <Suspense fallback={null}>
         {accountOpen && (
