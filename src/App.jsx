@@ -427,10 +427,10 @@ export default function PiocheRepas() {
     if (!clean.length || !name || !name.trim()) return;
     setCombos((c) => [{ id: newId("combo"), name: name.trim(), slot, items: clean, created: Date.now() }, ...c].slice(0, 60));
   };
-  const deleteCombo = (id) => setCombos((c) => c.filter((x) => x.id !== id));
+  const deleteCombo = (id) => { const it = combos.find((x) => x.id === id); setCombos((c) => c.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimé`, () => setCombos((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
   const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: newId("rec"), custom: true }, ...cur].slice(0, 200));
-  const deleteRecipe = (id) => setCustomRecipes((cur) => cur.filter((x) => x.id !== id));
+  const deleteRecipe = (id) => { const it = customRecipes.find((x) => x.id === id); setCustomRecipes((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimée`, () => setCustomRecipes((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   const updateRecipe = (id, patch) => setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   // Frigo/placard : staples avec interrupteur dispo (out=true → pas dispo aujourd'hui)
   // + macros optionnelles (kcal/p) renseignables au scan, éditables.
@@ -449,7 +449,7 @@ export default function PiocheRepas() {
   });
   const togglePantry = (id) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, out: !x.out } : x));
   const updatePantry = (id, patch) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
-  const removePantry = (id) => setPantry((cur) => cur.filter((x) => x.id !== id));
+  const removePantry = (id) => { const it = pantry.find((x) => x.id === id); setPantry((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} retiré du frigo`, () => setPantry((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
   const meals = useMemo(() => [
     ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
@@ -558,13 +558,13 @@ export default function PiocheRepas() {
     const t = templates.find((x) => x.id === id);
     if (t) setDay(() => ({ picks: clone(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training }));
   };
-  const deleteTemplate = (id) => setTemplates((t) => t.filter((x) => x.id !== id));
+  const deleteTemplate = (id) => { const it = templates.find((x) => x.id === id); setTemplates((t) => t.filter((x) => x.id !== id)); if (it) showToast(`Modèle « ${it.name} » supprimé`, () => setTemplates((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   const saveCustomMeal = (meal) => setCustomMeals((cur) => {
     const m = { ...meal, slots: meal.slots || ["pdj", "dej", "diner", "snack"], tags: meal.tags || [], desc: meal.desc || "Enregistré", custom: true };
     const others = cur.filter((x) => x.id !== m.id);
     return [m, ...others].slice(0, 200);
   });
-  const deleteCustomMeal = (id) => setCustomMeals((cur) => cur.filter((x) => x.id !== id));
+  const deleteCustomMeal = (id) => { const it = customMeals.find((x) => x.id === id); setCustomMeals((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimé`, () => setCustomMeals((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   const updateCustomMeal = (id, patch) => setCustomMeals((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   const setWeight = (iso, kg) => setWeights((w) => {
     const n = { ...w };
