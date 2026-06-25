@@ -655,7 +655,7 @@ export default function PiocheRepas() {
         })()}
       </div>
 
-      <div className="mx-auto w-full max-w-md px-4" style={{ paddingTop: headerH, paddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}>
+      <div className="mx-auto w-full max-w-md px-4" style={{ paddingTop: headerH + 18, paddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}>
         <Suspense fallback={<ScreenFallback />}>
         {view === "jour" && (
           <DayScreen
