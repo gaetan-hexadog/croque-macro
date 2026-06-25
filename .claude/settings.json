@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rtk proxy *)"
+      "Bash(rtk proxy *)",
+      "Read(//Users/gaetan/Desktop/GitHub/fitness-tracker/fitness-tracker/src/**)",
+      "Bash(rtk grep *)",
+      "Read(//Users/gaetan/Desktop/GitHub/fitness-tracker/fitness-tracker/**)",
+      "Bash(rtk ls *)",
+      "Bash(find /Users/gaetan/Downloads/fitness-app -type f -name \"*.json\" | grep -E \"\\(tsconfig|next\\\\.config\\)\" | head -5)",
+      "Read(//Users/gaetan/Downloads/fitness-app/**)",
+      "Bash(rtk find *)"
     ]
   }
 }

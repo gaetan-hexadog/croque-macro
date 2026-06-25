@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell } from "lucide-react";
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./lib/sport.js";
+import { loadLive } from "./sport/liveSession.js";
 import { getLibrarySync, refreshLibrary } from "./lib/library.js";
 import { supabase } from "./lib/supabaseClient.js";
 import { pullAll, pushDays, pushWeights, pushAppState, pushWorkouts, deleteWorkout as deleteWorkoutRow, mergeAppState } from "./lib/sync.js";
@@ -61,6 +62,8 @@ export default function PiocheRepas() {
   const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
   const [targetDismissed, setTargetDismissed] = useState(null); // poids pour lequel la suggestion de cible a été masquée
   const [screenHeader, setScreenHeader] = useState(null); // header dynamique fourni par l'écran courant : { title, subtitle, badge, onSettings, onBack }
+  const headerRef = useRef(null);
+  const [headerH, setHeaderH] = useState(60); // hauteur du header fixe (mesurée) → décalage du contenu
 
   // Navigation par historique : le geste retour de l'OS remonte dans l'app au lieu de quitter.
   const undoStack = useRef([]);
@@ -76,6 +79,11 @@ export default function PiocheRepas() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+  // Au démarrage : si une séance était en cours (PWA tuée en arrière-plan), on ouvre
+  // directement l'onglet Sport pour la reprendre.
+  useEffect(() => { if (loadLive()) setView("sport"); }, []);
+  // Hauteur du header fixe → décalage du contenu (re-mesure quand le header change).
+  useLayoutEffect(() => { if (headerRef.current) setHeaderH(headerRef.current.offsetHeight); }, [view, screenHeader, session]);
   const go = useCallback((v) => { if (v === viewRef.current) return; const prev = viewRef.current; pushNav(() => setView(prev)); setView(v); }, [pushNav]);
   const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
   const openSettings = useCallback(() => go("reglages"), [go]);
@@ -500,6 +508,19 @@ export default function PiocheRepas() {
     setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, planned: false } : m) } }; });
     if (it) toastAdd(`${it.name} validé`, (it.kcal || 0) * (it.qty || 1), (it.p || 0) * (it.qty || 1));
   };
+  // Rééquilibrage : un repas planifié ne rentre plus (après un plaisir) → on retire
+  // SES items planifiés (avec undo) puis on ouvre l'assistant sur ce créneau (budget
+  // réduit → proposera plus léger). Un seul créneau à la fois (appel court, pas de 504).
+  const rebalanceSlot = (slot) => {
+    const key = picksKey(slot);
+    const prevArr = day.picks?.[key] || [];
+    const removed = prevArr.filter((it) => it.planned);
+    if (removed.length) {
+      setDay((d) => ({ ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((it) => !it.planned) } }));
+      showToast(`${SLOTS[slot]?.label || "Repas"} prévu retiré`, () => setDay((d) => ({ ...d, picks: { ...d.picks, [key]: prevArr } })));
+    }
+    setIdeaSlot(slot);
+  };
   const addShakeBase = (it) => setShakeBases((a) => [...a, { id: newId("sb"), name: it.name, kcal: it.kcal, p: it.p }]);
   const delShakeBase = (id) => setShakeBases((a) => a.filter((x) => x.id !== id));
   const addShakeLiquid = (it) => setShakeLiquids((a) => [...a, { id: newId("sl"), name: it.name, kcal: it.kcal, p: it.p }]);
@@ -601,16 +622,16 @@ export default function PiocheRepas() {
 
   return (
     <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
-      <div className="mx-auto w-full max-w-md px-4 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}>
-        {/* Header global unifié : retour · titre/sous-titre · data (badge) · actions.
-            Chaque écran peut le piloter via screenHeader { title, subtitle, badge, onSettings, onBack }. */}
+      {/* Header global FIXE + blur (cohérent avec la tab bar du bas) — piloté par
+          screenHeader { title, subtitle, badge, onSettings, onBack } selon l'écran. */}
+      <div ref={headerRef} className="fixed inset-x-0 top-0 z-30" style={{ background: C.nav, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: `1px solid ${C.line}`, paddingTop: "env(safe-area-inset-top)" }}>
         {(() => {
           const TITLES = { journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" };
           const h = screenHeader;
           const onBack = h?.onBack || ((view === "guide" || view === "reglages") ? navBack : null);
           const badge = h?.badge;
           return (
-            <header className="mb-4 flex items-center gap-2.5">
+            <header className="mx-auto flex max-w-md items-center gap-2.5 px-4 py-2.5">
               {onBack && (
                 <button onClick={onBack} aria-label="Retour" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><ChevronLeft size={20} /></button>
               )}
@@ -632,7 +653,9 @@ export default function PiocheRepas() {
             </header>
           );
         })()}
+      </div>
 
+      <div className="mx-auto w-full max-w-md px-4" style={{ paddingTop: headerH, paddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}>
         <Suspense fallback={<ScreenFallback />}>
         {view === "jour" && (
           <DayScreen
@@ -642,7 +665,7 @@ export default function PiocheRepas() {
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
             sportInfo={sportInfo} recomp={recomp} onGoSport={() => go("sport")}
-            onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={() => setQuickLogOpen(true)} onPlan={() => go("idees")}
+            onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={() => setQuickLogOpen(true)} onPlan={() => go("idees")} onRebalance={rebalanceSlot}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker} onIdea={(slot) => setIdeaSlot(slot)} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
             habituals={habituals} onHabitual={(it) => quickAdd(it.slot, it)} onSuggestNow={() => setIdeaSlot(suggestSlotNow())}

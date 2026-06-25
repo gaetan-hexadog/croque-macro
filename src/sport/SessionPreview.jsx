@@ -1,15 +1,25 @@
 import React from "react";
-import { Play, Info } from "lucide-react";
+import { Play, Info, Tent } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { getExercisePrescription, getRowerResistance, getDiscPlan, formatTime } from "../lib/sport.js";
 import { PrescriptionBadge } from "./components.jsx";
 
 // ── Consultation d'une séance avant de la démarrer (titre dans le header global) ─
-export function SessionPreview({ session, week, workouts, done, onBack, onStart }) {
+export function SessionPreview({ session, week, workouts, done, onBack, onStart, onAdapt }) {
   const cardio = session.type === "cardio";
   return (
     <div className="pb-24">
       {done && <Banner title="Séance déjà faite cette semaine" message="Tu peux la refaire ou la consulter — elle reste marquée comme faite." />}
+
+      {onAdapt && (
+        <button onClick={onAdapt} className="mb-3 flex w-full items-center gap-3 rounded-2xl p-3 text-left active:scale-[0.99]" style={{ backgroundColor: session.adapted ? `${C.accent}14` : C.paper, border: `1px solid ${session.adapted ? C.accent + "55" : C.line}` }}>
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Tent size={17} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold" style={{ color: C.ink }}>{session.adapted ? "Séance adaptée ✓" : "Adapter (matériel / temps)"}</span>
+            <span className="block text-xs" style={{ color: C.muted }}>{session.adapted ? "Touche pour ré-adapter" : "Pas tout le matériel ? Peu de temps ?"}</span>
+          </span>
+        </button>
+      )}
 
       {session.warmup && <PhaseCard label={`Échauffement · ${session.warmup.duration}`} detail={session.warmup.details} />}
 

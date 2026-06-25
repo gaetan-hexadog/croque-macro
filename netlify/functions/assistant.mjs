@@ -81,8 +81,62 @@ const PROPOSE_TOOL = {
   },
 };
 
+// Adaptation d'une séance de sport au matériel / temps dispo (mode vacances).
+const ADAPT_TOOL = {
+  name: "adapt_workout",
+  description: "Renvoie la séance adaptée au matériel et au temps disponibles.",
+  input_schema: {
+    type: "object",
+    properties: {
+      exercises: {
+        type: "array",
+        description: "Exercices adaptés, dans l'ordre.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Nom du mouvement adapté." },
+            sets: { type: "integer" },
+            reps: { type: "string", description: "Reps ou durée : « 10 », « 8/jambe », « 40s »." },
+            rest: { type: "integer", description: "Repos entre séries, en secondes." },
+            load: { type: "string", description: "Charge/lest : « 16 kg », « élastique », « poids du corps ». Optionnel." },
+            tech: { type: "string", description: "Comment l'exécuter, 1-2 phrases, en français." },
+            tips: { type: "array", items: { type: "string" }, description: "1-3 conseils courts." },
+          },
+          required: ["name", "sets", "reps", "rest", "tech"],
+        },
+      },
+      note: { type: "string", description: "Résumé court de l'adaptation (matériel/temps)." },
+    },
+    required: ["exercises"],
+  },
+};
+
 const json = (status, obj) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
+
+// Affinage IA d'une séance selon le matériel dispo (+ temps). Renvoie { exercises }.
+async function adaptWorkoutAI(body, apiKey) {
+  const w = body.workout, eq = body.equipment || {}, minutes = body.minutes;
+  if (!w || !Array.isArray(w.exercises)) return json(400, { error: "Séance manquante." });
+  const have = Object.entries(eq).filter(([, v]) => v).map(([k]) => k).join(", ") || "aucun matériel (poids du corps uniquement)";
+  const sys = "Tu es coach de musculation. On te donne une séance prévue et le matériel réellement disponible (et parfois un temps limité). Adapte la séance pour qu'elle reste efficace et sûre AVEC CE MATÉRIEL et dans le temps imparti, en gardant l'esprit de la séance (groupes musculaires, intensité). Pour chaque exercice, donne un mouvement réalisable, ses sets/reps/repos et une technique courte en français. Réponds UNIQUEMENT via l'outil adapt_workout.";
+  const exLines = w.exercises.map((e) => `- ${e.name} : ${e.sets}×${e.reps}, repos ${e.rest}s${e.loadLabel ? `, ${e.loadLabel}` : ""}`).join("\n");
+  const prompt = `Séance prévue : ${w.name} (${w.type || "force"}).\nExercices :\n${exLines}\n\nMatériel disponible : ${have}.\n${minutes ? `Temps disponible : ${minutes} minutes — ajuste le volume si nécessaire.` : ""}\nAdapte cette séance.`;
+  let data;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 2000, system: sys, messages: [{ role: "user", content: prompt }], tools: [ADAPT_TOOL], tool_choice: { type: "tool", name: "adapt_workout" } }),
+    });
+    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+    data = await res.json();
+  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
+  const tool = (data.content || []).find((c) => c.type === "tool_use" && c.name === "adapt_workout");
+  const exercises = tool?.input?.exercises;
+  if (!Array.isArray(exercises)) return json(502, { error: "Réponse inattendue de Claude." });
+  return json(200, { exercises, note: tool.input.note, model: MODEL });
+}
 
 // ── Import d'une recette depuis une URL ──────────────────────────────────────
 const IMPORT_TOOL = {
@@ -249,6 +303,7 @@ export default async (req) => {
   // 3bis) Import d'une recette depuis une URL.
   if (body && typeof body.url === "string" && body.url.trim()) return importRecipe(body.url.trim(), apiKey);
   if (body && typeof body.image === "string") return analyzePhoto(body.image, body.media_type, apiKey);
+  if (body && body.workout) return adaptWorkoutAI(body, apiKey);
 
   const { system, prompt, mode = "meal" } = body || {};
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });

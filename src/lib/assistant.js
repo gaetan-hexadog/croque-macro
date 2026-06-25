@@ -84,3 +84,24 @@ export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", { signa
   if (!out || !Array.isArray(out.meals) || !out.meals.length) throw new AssistantError("Aucun repas reconnu.", { kind: "server" });
   return out.meals[0];
 }
+
+// Affine une séance de sport selon le matériel/temps dispo (mode vacances).
+// payload = { workout:{name,type,exercises:[{name,sets,reps,rest,loadLabel}]}, equipment:{...}, minutes? }
+// Renvoie { exercises:[{name,sets,reps,rest,load,tech,tips}], note }.
+export async function adaptWorkout({ workout, equipment, minutes }, { signal } = {}) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new AssistantError("Connecte-toi pour utiliser l'assistant.", { kind: "auth" });
+  let res;
+  try {
+    res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ workout, equipment, minutes }), signal });
+  } catch { throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" }); }
+  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
+  let out;
+  try { out = await res.json(); } catch { out = null; }
+  if (!res.ok) throw new AssistantError(out?.error || `Adaptation impossible (${res.status}).`, { status: res.status, kind: "server" });
+  if (!out || !Array.isArray(out.exercises) || !out.exercises.length) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+  return out;
+}

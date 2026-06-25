@@ -1,8 +1,8 @@
 import React from "react";
-import { Settings, Volume2, VolumeX, Minus, Plus } from "lucide-react";
+import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
-import { SESSIONS, SESSION_ORDER } from "../lib/sport.js";
+import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT } from "../lib/sport.js";
 
 const DAYS = [
   { i: 1, l: "Lun" }, { i: 2, l: "Mar" }, { i: 3, l: "Mer" }, { i: 4, l: "Jeu" },
@@ -18,6 +18,10 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   const toggleSound = () => setSport((s) => ({ ...s, soundEnabled: !(s.soundEnabled !== false) }));
   const setWeek = (w) => setSport((s) => ({ ...s, currentWeek: Math.min(14, Math.max(1, w)), weekManuallySet: true }));
   const autoWeek = () => setSport((s) => ({ ...s, weekManuallySet: false }));
+  const vacationMode = !!sport.vacationMode;
+  const equipment = { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) };
+  const toggleVacation = () => setSport((s) => ({ ...s, vacationMode: !s.vacationMode }));
+  const toggleEquip = (id) => setSport((s) => ({ ...s, equipment: { ...DEFAULT_EQUIPMENT, ...(s.equipment || {}), [id]: !({ ...DEFAULT_EQUIPMENT, ...(s.equipment || {}) }[id]) } }));
 
   return (
     <Sheet open={open} onClose={onClose} title="Réglages Sport" subtitle="Semaine · jours · minuteurs" icon={<Settings size={18} />} iconColor={C.accent}>
@@ -46,6 +50,28 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
             </div>
           </div>
         ))}
+      </div>
+
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Mode vacances</p>
+      <div className="mb-5 rounded-2xl p-1" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+        <button onClick={toggleVacation} className="flex w-full items-center gap-3 rounded-xl p-2.5 active:scale-[0.99]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: vacationMode ? `${C.accent}1a` : C.card, color: vacationMode ? C.accent : C.muted }}><Tent size={17} /></span>
+          <span className="flex-1 text-left"><span className="block text-sm font-bold" style={{ color: C.ink }}>Adapter au matériel dispo</span><span className="block text-xs" style={{ color: C.muted }}>Toutes les séances utilisent le matériel coché</span></span>
+          <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: vacationMode ? C.accent : C.card, color: vacationMode ? "#fff" : C.sub }}>{vacationMode ? "Activé" : "Off"}</span>
+        </button>
+        {vacationMode && (
+          <div className="grid grid-cols-2 gap-2 p-2 pt-1">
+            {EQUIPMENT.map((it) => {
+              const on = !!equipment[it.id];
+              return (
+                <button key={it.id} onClick={() => toggleEquip(it.id)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: on ? `${C.green}1a` : C.card, border: `1px solid ${on ? C.green : C.line}` }}>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md" style={{ backgroundColor: on ? C.green : C.paper, color: "#fff" }}>{on && <Check size={13} />}</span>
+                  <span className="text-sm font-semibold" style={{ color: C.ink }}>{it.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Minuteurs</p>

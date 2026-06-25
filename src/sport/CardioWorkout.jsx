@@ -1,54 +1,62 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Play, Check } from "lucide-react";
 import { C } from "../core.js";
 import { getRowerResistance } from "../lib/sport.js";
 import { SlideButton } from "./components.jsx";
 import { SessionShell, Stage, PhaseStage, IntervalStage } from "./SessionShell.jsx";
+import { saveLive, clearLive } from "./liveSession.js";
 
 const FONT = "'Space Grotesk', system-ui";
 
 // ════════════════════════════════════════════════════════════════════════════
-// CardioWorkout — séance cardio PLEIN ÉCRAN : écran « prêt ? » avant chaque bloc
-// (on change de machine), puis intervalles chronométrés auto-enchaînés (bips
-// 3-2-1) ou bloc continu. Saisie des chiffres + slide pour enregistrer.
+// CardioWorkout — cardio PLEIN ÉCRAN : « prêt ? » avant chaque bloc (changement de
+// machine) puis intervalles chronométrés (bips 3-2-1). Progression persistée.
 // ════════════════════════════════════════════════════════════════════════════
-export function CardioWorkout({ session, week, sound = true, onCancel, onFinish }) {
+export function CardioWorkout({ session, week, sound = true, onCancel, onFinish, resume }) {
   const steps = useMemo(() => [...session.blocks.map((_, i) => ({ kind: "block", i })), { kind: "numbers" }], [session]); // eslint-disable-line
-  const [stepIdx, setStepIdx] = useState(0);
+  const isResume = resume && resume.kind === "cardio" && resume.sessionId === session.id;
+  const [stepIdx, setStepIdx] = useState(isResume ? Math.min(resume.stepIdx, steps.length - 1) : 0);
+  const [phase, setPhase] = useState(isResume ? (resume.phase === "run" ? "prepare" : resume.phase) : "prepare");
+  const [cardio, setCardio] = useState(isResume && resume.cardio ? resume.cardio : { distance: "", rowerLevel: getRowerResistance(week), ropeJumps: "", rpe: "", notes: "" });
   const step = steps[stepIdx];
-  const [phase, setPhase] = useState("prepare");
   const goNext = () => { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); setPhase("prepare"); };
-  const [cardio, setCardio] = useState({ distance: "", rowerLevel: getRowerResistance(week), ropeJumps: "", rpe: "", notes: "" });
   const set = (k, v) => setCardio((c) => ({ ...c, [k]: v }));
+  const stop = () => { clearLive(); onCancel(); };
 
-  const subtitleFor = () => (step.kind === "numbers" ? "Tes chiffres" : session.blocks[step.i].name);
+  useEffect(() => {
+    if (step.kind === "numbers") { clearLive(); return; }
+    saveLive({ kind: "cardio", sessionId: session.id, week, session, stepIdx, phase, cardio });
+  }, [stepIdx, phase, cardio]); // eslint-disable-line
+
+  const colored = step.kind === "block" && phase === "run";
 
   return (
-    <SessionShell title={session.name} subtitle={subtitleFor()} onStop={onCancel}>
+    <SessionShell onStop={stop} onColor={colored}>
       {step.kind === "block" && (() => {
         const b = session.blocks[step.i];
         const intervals = b.format === "intervalles";
         if (phase === "prepare") {
           const lines = intervals
-            ? [`${b.machine}`, `${b.intervals.count} × ${b.intervals.work}s effort / ${b.intervals.rest}s récup`, b.tip]
-            : [`${b.machine}`, `${Math.round(b.duration / 60)} min en continu`, b.tip];
+            ? [b.machine, `${b.intervals.count} × ${b.intervals.work}s effort / ${b.intervals.rest}s récup`, b.tip]
+            : [b.machine, `${Math.round(b.duration / 60)} min en continu`, b.tip];
           return (
-            <Stage actions={
+            <Stage>
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">
+                <p className="text-xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{b.name}</p>
+                {lines.filter(Boolean).map((l, i) => <p key={i} className="mt-2 max-w-sm text-sm" style={{ color: C.sub }}>{l}</p>)}
+              </div>
               <button onClick={() => setPhase("run")} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Play size={18} /> Je suis prêt</button>
-            }>
-              <p className="text-xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{b.name}</p>
-              {lines.filter(Boolean).map((l, i) => <p key={i} className="mt-2 max-w-sm text-sm" style={{ color: C.sub }}>{l}</p>)}
             </Stage>
           );
         }
         return intervals
           ? <IntervalStage count={b.intervals.count} work={b.intervals.work} rest={b.intervals.rest} machine={b.machine} label={b.name} sound={sound} onDone={goNext} />
-          : <PhaseStage title={`${b.name} · ${b.machine}`} detail={b.tip} seconds={b.duration} sound={sound} accent={C.weight} onDone={goNext} />;
+          : <PhaseStage title={`${b.name} · ${b.machine}`} detail={b.tip} seconds={b.duration} sound={sound} onDone={goNext} />;
       })()}
 
       {step.kind === "numbers" && (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto">
+        <Stage scroll>
+          <div className="min-h-0 flex-1">
             <p className="mb-1 text-lg font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>Séance bouclée 🔥</p>
             <p className="mb-3 text-sm" style={{ color: C.sub }}>Note tes chiffres (facultatif).</p>
             <div className="grid grid-cols-2 gap-2">
@@ -59,10 +67,8 @@ export function CardioWorkout({ session, week, sound = true, onCancel, onFinish 
             </div>
             <textarea value={cardio.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Notes…" className="mt-2 w-full rounded-xl p-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
           </div>
-          <div className="shrink-0 pt-3">
-            <SlideButton label="Glisser pour enregistrer" color={C.green} icon={Check} onConfirm={() => onFinish({ cardioData: cardio })} />
-          </div>
-        </div>
+          <div className="mt-3"><SlideButton label="Glisser pour enregistrer" color={C.green} icon={Check} onConfirm={() => { clearLive(); onFinish({ cardioData: cardio }); }} /></div>
+        </Stage>
       )}
     </SessionShell>
   );

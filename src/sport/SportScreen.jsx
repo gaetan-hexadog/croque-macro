@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell } from "lucide-react";
 import { C } from "../core.js";
-import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart } from "../lib/sport.js";
+import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT } from "../lib/sport.js";
 import { SportHome } from "./SportHome.jsx";
 import { SessionPreview } from "./SessionPreview.jsx";
 import { ForceWorkout } from "./ForceWorkout.jsx";
@@ -9,6 +9,8 @@ import { CardioWorkout } from "./CardioWorkout.jsx";
 import { SessionDetail } from "./SessionDetail.jsx";
 import { ManualLogSheet } from "./ManualLogSheet.jsx";
 import { SportSettings } from "./SportSettings.jsx";
+import { AdaptSheet } from "./AdaptSheet.jsx";
+import { loadLive } from "./liveSession.js";
 
 const FONT = "'Space Grotesk', system-ui";
 const DEFAULT_SESSION_DAYS = { A: 2, B: 4, C: 6 };
@@ -19,16 +21,34 @@ const DEFAULT_SESSION_DAYS = { A: 2, B: 4, C: 6 };
 // La logique du programme vit dans ../sport.js ; la sync auto-pousse `workouts`.
 // ════════════════════════════════════════════════════════════════════════════
 export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, pushNav, showToast, onDeleteWorkout, setHeader }) {
-  const [active, setActive] = useState(null);     // { sessionId }
+  const [active, setActive] = useState(null);     // { sessionId, session, resume }
   const [preview, setPreview] = useState(null);   // sessionId
   const [detail, setDetail] = useState(null);     // entry
   const [manualOpen, setManualOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [adaptFor, setAdaptFor] = useState(null); // sessionId pour la sheet d'adaptation
+  const [overrides, setOverrides] = useState({}); // { sessionId: séance adaptée ponctuelle }
 
   const startDate = sport.startDate || null;
   const currentWeek = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(startDate);
   const block = getCurrentBlock(currentWeek);
   const sessionDays = sport.preferences?.sessionDays || DEFAULT_SESSION_DAYS;
+
+  // Séance effective : override ponctuel > mode vacances (adaptation auto) > programme.
+  const effectiveSession = (sid) => {
+    if (overrides[sid]) return overrides[sid];
+    if (sport.vacationMode) return adaptSession(SESSIONS[sid], { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) });
+    return SESSIONS[sid];
+  };
+
+  // Reprise auto d'une séance interrompue (PWA rechargée en arrière-plan).
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || !startDate) return;
+    resumedRef.current = true;
+    const live = loadLive();
+    if (live && live.sessionId && live.session) setActive({ sessionId: live.sessionId, session: live.session, resume: live });
+  }, [startDate]);
 
   // Pilote le header global (title / subtitle / badge / actions / retour) selon le sous-écran.
   useEffect(() => {
@@ -53,8 +73,13 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   }, [active, preview, detail, currentWeek, block, setHeader]);
 
   const openPreview = (sessionId) => { if (pushNav) pushNav(() => setPreview(null)); setPreview(sessionId); };
-  const startSession = (sessionId) => { setPreview(null); if (pushNav) pushNav(() => setActive(null)); setActive({ sessionId }); };
+  const startSession = (sessionId) => { setPreview(null); if (pushNav) pushNav(() => setActive(null)); setActive({ sessionId, session: effectiveSession(sessionId) }); };
   const openDetail = (entry) => { if (pushNav) pushNav(() => setDetail(null)); setDetail(entry); };
+  const useAdapted = (adapted, eq) => {
+    setOverrides((o) => ({ ...o, [adaptFor]: adapted }));
+    setSport((s) => ({ ...s, equipment: { ...DEFAULT_EQUIPMENT, ...(s.equipment || {}), ...eq } }));
+    setAdaptFor(null);
+  };
 
   const finishSession = (sessionId, payload) => {
     const id = `W${currentWeek}-${sessionId}`;
@@ -72,9 +97,9 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   }
 
   if (active) {
-    const session = SESSIONS[active.sessionId];
+    const session = active.session;
     const props = {
-      session, week: currentWeek, sound: sport.soundEnabled !== false,
+      session, week: currentWeek, sound: sport.soundEnabled !== false, resume: active.resume,
       onCancel: () => setActive(null), onFinish: (d) => finishSession(active.sessionId, d),
     };
     return session.type === "cardio"
@@ -83,7 +108,12 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   }
 
   if (preview) {
-    return <SessionPreview session={SESSIONS[preview]} week={currentWeek} workouts={workouts} done={!!workouts[`W${currentWeek}-${preview}`]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} />;
+    return (
+      <>
+        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} done={!!workouts[`W${currentWeek}-${preview}`]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} />
+        <AdaptSheet open={!!adaptFor} onClose={() => setAdaptFor(null)} session={adaptFor ? SESSIONS[adaptFor] : null} equipment={{ ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) }} onUse={useAdapted} showToast={showToast} />
+      </>
+    );
   }
 
   if (detail) {
