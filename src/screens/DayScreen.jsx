@@ -596,15 +596,35 @@ const SLOT_NAMES = { pdj: "petit-déj", dej: "déjeuner", diner: "dîner", snack
 // Bottom-sheet « Logger un repas » (validé design-lab) : habituels 1-tap + méthodes.
 // `slot` = créneau ciblé, ou null pour un log global (l'habituel garde son créneau).
 function AddSheet({ slot, habituals = [], onClose, onQuickAdd, onPick, onPhotoLog, onScan, onAssist, onOpenCuisine }) {
+  const [manual, setManual] = useState(false);
+  const [f, setF] = useState({ name: "", kcal: "", p: "" });
   const title = slot ? `Ajouter · ${SLOT_NAMES[slot]}` : "Logger un repas";
   const hab = slot ? [...habituals].sort((a, b) => (a.slot === slot ? -1 : 0) - (b.slot === slot ? -1 : 0)) : habituals;
+  const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) && n >= 0 ? Math.round(n) : 0; };
+  const addManual = () => { if (!f.name.trim()) return; onQuickAdd(slot || "snack", { name: f.name.trim(), kcal: num(f.kcal), p: num(f.p) }); onClose(); };
+  const fld = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
   const methods = [
+    slot && { i: Pencil, l: "Saisir à la main", d: "Nom, kcal, protéines", c: C.green, inline: true, act: () => setManual(true) },
     slot && onPick && { i: Search, l: "Piocher", d: "Suggestions adaptées au créneau", c: SLOT_UI[slot].color, act: () => onPick(slot) },
     onPhotoLog && { i: Camera, l: "Photo / décrire", d: "IA vision ou langage naturel", c: C.accent, act: onPhotoLog },
     onScan && { i: ScanLine, l: "Scanner", d: "Code-barres → macros", c: C.protein, act: onScan },
     onAssist && { i: Wand2, l: "Assistant", d: "Proposer / compléter", c: C.accent, act: () => onAssist(slot || null) },
     onOpenCuisine && { i: Soup, l: "Ma cuisine", d: "Recettes, repas, aliments", c: C.weight, act: onOpenCuisine },
   ].filter(Boolean);
+
+  if (manual) {
+    return (
+      <Sheet open onClose={onClose} title="Saisir à la main" subtitle={slot ? SLOT_NAMES[slot] : ""} icon={<Pencil size={18} />} iconColor={C.green} onBack={() => setManual(false)}>
+        <input value={f.name} onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))} autoFocus placeholder="Nom (ex. salade de lentilles)…" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+        <div className="mb-3 flex gap-2">
+          <input value={f.kcal} onChange={(e) => setF((s) => ({ ...s, kcal: e.target.value }))} inputMode="numeric" placeholder="kcal" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} onKeyDown={(e) => e.key === "Enter" && addManual()} />
+          <input value={f.p} onChange={(e) => setF((s) => ({ ...s, p: e.target.value }))} inputMode="numeric" placeholder="prot. (g)" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} onKeyDown={(e) => e.key === "Enter" && addManual()} />
+        </div>
+        <button onClick={addManual} disabled={!f.name.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: C.green }}><Plus size={16} /> Ajouter</button>
+      </Sheet>
+    );
+  }
+
   return (
     <Sheet open onClose={onClose} title={title} subtitle="Tout part d'ici" icon={<Plus size={18} />} iconColor={C.accent}>
       {hab.length > 0 && (<>
@@ -619,10 +639,10 @@ function AddSheet({ slot, habituals = [], onClose, onQuickAdd, onPick, onPhotoLo
           ))}
         </div>
       </>)}
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Autres méthodes</p>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Ajouter</p>
       <div className="grid grid-cols-2 gap-2">
-        {methods.map(({ i: Icon, l, d, c, act }) => (
-          <button key={l} onClick={() => { onClose(); act(); }} className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+        {methods.map(({ i: Icon, l, d, c, inline, act }) => (
+          <button key={l} onClick={() => { if (inline) act(); else { onClose(); act(); } }} className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${c}1a`, color: c }}><Icon size={16} /></span>
             <span className="min-w-0"><span className="block text-xs font-bold" style={{ color: C.ink }}>{l}</span><span className="block text-[10px]" style={{ color: C.muted }}>{d}</span></span>
           </button>
