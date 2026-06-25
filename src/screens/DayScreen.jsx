@@ -640,15 +640,21 @@ function RecipeViewSheet({ m, onClose }) {
   const ings = m.ingredients || [], steps = m.steps || [];
   return (
     <Sheet open onClose={onClose} title={m.name} subtitle={`${r0(m.kcal)} kcal · ${r0(m.p)} g prot.`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <BookOpen size={18} />} iconColor={C.weight}>
-      {ings.length > 0 && (<>
-        <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
-        <ul className="mb-4 space-y-1">{ings.map((it, i) => <li key={i} className="flex gap-2 text-sm" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span><span>{it}</span></li>)}</ul>
-      </>)}
-      {steps.length > 0 && (<>
-        <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Préparation</p>
-        <ol className="space-y-2">{steps.map((st, i) => <li key={i} className="flex gap-2 text-sm" style={{ color: C.sub }}><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}>{i + 1}</span><span>{st}</span></li>)}</ol>
-      </>)}
-      {ings.length === 0 && steps.length === 0 && <p className="text-sm" style={{ color: C.muted }}>Pas de détail de recette pour cet item.</p>}
+      <div className="space-y-5">
+        {ings.length > 0 && (
+          <section>
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
+            <ul className="space-y-2.5">{ings.map((it, i) => <li key={i} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: C.ink }}><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.green }} /><span>{it}</span></li>)}</ul>
+          </section>
+        )}
+        {steps.length > 0 && (
+          <section>
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Préparation</p>
+            <ol className="space-y-3.5">{steps.map((st, i) => <li key={i} className="flex gap-3 text-sm leading-relaxed" style={{ color: C.ink }}><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}>{i + 1}</span><span className="pt-0.5">{st}</span></li>)}</ol>
+          </section>
+        )}
+        {ings.length === 0 && steps.length === 0 && <p className="text-sm" style={{ color: C.muted }}>Pas de détail de recette pour cet item.</p>}
+      </div>
     </Sheet>
   );
 }

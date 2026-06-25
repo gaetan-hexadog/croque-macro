@@ -66,7 +66,7 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
   ];
 
   return (
-    <div className="space-y-4 px-1">
+    <div className="space-y-5 px-1">
       {/* Recherche */}
       <div className="relative">
         <Search size={16} style={{ color: C.muted, position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
@@ -75,10 +75,10 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
       </div>
 
       {/* Hub d'actions */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-2.5">
         {HUB.map(({ i: Icon, l, c, act, badge }) => act && (
-          <button key={l} onClick={act} className="relative flex flex-col items-center gap-1.5 rounded-2xl py-3 active:scale-95" style={cardStyle()}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${c}1a`, color: c }}><Icon size={18} /></span>
+          <button key={l} onClick={act} className="relative flex flex-col items-center gap-2 rounded-2xl py-4 active:scale-95" style={cardStyle()}>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${c}1a`, color: c }}><Icon size={19} /></span>
             <span className="text-[11px] font-semibold" style={{ color: C.ink }}>{l}</span>
             {badge ? <span className="absolute right-1.5 top-1.5 rounded-full px-1.5 text-[9px] font-bold" style={{ backgroundColor: c, color: "#fff" }}>{badge}</span> : null}
           </button>
@@ -88,13 +88,13 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
       {/* Récents & favoris */}
       {!nq && filter === "all" && recents.length > 0 && (
         <div>
-          <div className="mb-2 flex items-center gap-1.5 px-1"><Clock size={13} style={{ color: C.accent }} /><span className="text-xs font-bold uppercase tracking-widest" style={{ color: C.sub }}>Récents & favoris</span></div>
-          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          <div className="mb-2.5 flex items-center gap-1.5 px-1"><Clock size={13} style={{ color: C.accent }} /><span className="text-xs font-bold uppercase tracking-widest" style={{ color: C.sub }}>Récents & favoris</span></div>
+          <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             {recents.map((m) => (
-              <button key={`r-${m.kind}-${m.id}`} onClick={() => setDetail(m)} className="flex w-36 shrink-0 flex-col rounded-2xl p-3 text-left active:scale-95" style={cardStyle()}>
+              <button key={`r-${m.kind}-${m.id}`} onClick={() => setDetail(m)} className="flex w-40 shrink-0 flex-col rounded-2xl p-3.5 text-left active:scale-95" style={cardStyle()}>
                 <span className="text-2xl">{m.emoji || "🍽️"}</span>
-                <span className="mt-1 truncate text-xs font-bold" style={{ color: C.ink }}>{m.name}</span>
-                <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>
+                <span className="mt-1.5 truncate text-xs font-bold" style={{ color: C.ink }}>{m.name}</span>
+                <span className="mt-0.5 text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>
               </button>
             ))}
           </div>
@@ -111,7 +111,7 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
       ) : (
         <div>
           {/* Filtres */}
-          <div className="mb-2 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             {FILTERS.map(([k, l]) => (
               <button key={k} onClick={() => setFilter(k)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={filter === k ? { backgroundColor: C.ink, color: C.bg } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{l}</button>
             ))}
@@ -120,13 +120,13 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
           {list.length === 0 ? (
             <p className="py-10 text-center text-sm" style={{ color: C.muted }}>Rien ne correspond.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {list.map((m) => {
                 const c = kindColor(m.kind);
                 return (
-                  <div key={`${m.kind}-${m.id}`} className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5" style={cardStyle()}>
+                  <div key={`${m.kind}-${m.id}`} className="flex items-center gap-3 rounded-2xl px-4 py-3" style={cardStyle()}>
                     <button onClick={() => setDetail(m)} className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-70">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg" style={{ background: `${c}1a` }}>{m.emoji || "🍽️"}</span>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg" style={{ background: `${c}1a` }}>{m.emoji || "🍽️"}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5"><span className="truncate text-sm font-bold" style={{ color: C.ink }}>{m.name}</span>{favSet.has(m.name) && <Star size={11} fill={C.protein} color={C.protein} />}</span>
                         <span className="mt-0.5 flex items-center gap-1.5">
@@ -180,22 +180,35 @@ function DetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete }) {
   const add = (slot) => { const labels = variantLabels(m, varSel); onUse({ ...m, kcal: eff.kcal, p: eff.p, name: labels.length ? `${m.name} · ${labels.join(", ")}` : m.name }, slot); onClose(); };
   return (
     <Sheet open onClose={onClose} title={m.name} subtitle={`${eff.kcal} kcal · ${eff.p} g prot.${varSel.size ? " · ajusté" : ""}`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <ChefHat size={18} />} iconColor={meta.color}>
-      {m.desc && <p className="mb-3 text-sm" style={{ color: C.sub }}>{m.desc}</p>}
-      {m.items?.length > 0 && (<>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Composé de</p>
-        <ul className="mb-3 space-y-1">{m.items.map((it, i) => <li key={i} className="flex justify-between text-sm" style={{ color: C.sub }}><span>{it.name}{it.qty > 1 ? ` ×${it.qty}` : ""}</span><span style={{ color: C.muted }}>{it.kcal} kcal</span></li>)}</ul>
-      </>)}
-      {m.ingredients?.length > 0 && (<>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
-        <ul className="mb-3 space-y-1">{m.ingredients.map((it, i) => <li key={i} className="flex gap-2 text-sm" style={{ color: C.sub }}><span style={{ color: meta.color }}>•</span><span>{it}</span></li>)}</ul>
-      </>)}
-      {m.steps?.length > 0 && (<>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Préparation</p>
-        <ol className="mb-3 space-y-1.5">{m.steps.map((st, i) => <li key={i} className="flex gap-2 text-sm" style={{ color: C.sub }}><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}>{i + 1}</span><span>{st}</span></li>)}</ol>
-      </>)}
+      <div className="space-y-5">
+        {m.desc && <p className="text-sm leading-relaxed" style={{ color: C.sub }}>{m.desc}</p>}
+        {m.items?.length > 0 && (
+          <section>
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Composé de</p>
+            <ul className="space-y-2.5">{m.items.map((it, i) => <li key={i} className="flex items-baseline justify-between gap-3 text-sm" style={{ color: C.ink }}><span>{it.name}{it.qty > 1 ? ` ×${it.qty}` : ""}</span><span className="shrink-0 tabular-nums" style={{ color: C.muted }}>{it.kcal} kcal</span></li>)}</ul>
+          </section>
+        )}
+        {m.ingredients?.length > 0 && (
+          <section>
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
+            <ul className="space-y-2.5">{m.ingredients.map((it, i) => <li key={i} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: C.ink }}><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} /><span>{it}</span></li>)}</ul>
+          </section>
+        )}
+        {m.steps?.length > 0 && (
+          <section>
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Préparation</p>
+            <ol className="space-y-3.5">{m.steps.map((st, i) => <li key={i} className="flex gap-3 text-sm leading-relaxed" style={{ color: C.ink }}><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}>{i + 1}</span><span className="pt-0.5">{st}</span></li>)}</ol>
+          </section>
+        )}
+        {hasVariants && (
+          <section>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Variantes</p>
+            <VariantChips variants={m.variants} sel={varSel} onToggle={toggleVar} />
+          </section>
+        )}
+      </div>
 
-      {hasVariants && <div className="mb-3"><VariantChips variants={m.variants} sel={varSel} onToggle={toggleVar} /></div>}
-
+      <div className="mt-5">
       {picking ? (
         <div className="flex items-center gap-1.5">
           <span className="mr-1 text-xs font-semibold" style={{ color: C.muted }}>À quel repas ?</span>
@@ -209,6 +222,7 @@ function DetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete }) {
           <button onClick={onDelete} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={17} /></button>
         </div>
       )}
+      </div>
     </Sheet>
   );
 }
