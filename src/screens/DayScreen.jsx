@@ -23,8 +23,9 @@ function QuickChips({ items = [], onQuick, color }) {
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance }) {
   const [showTpl, setShowTpl] = useState(false);
+  const [dismissRebal, setDismissRebal] = useState(false);
   const [viewRecipe, setViewRecipe] = useState(null);
   // Bottom-sheets « + » (Logger) et « Assistant » — false = fermé, null = global, "<slot>" = ciblé.
   const [addSlot, setAddSlot] = useState(false);
@@ -62,6 +63,16 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
     ...(picks.extras || []).map((e) => seg(e, C.extra)),
   ].filter(Boolean);
 
+  // Nudge rééquilibrage : les repas PLANIFIÉS font dépasser la cible (ex. après un
+  // plaisir) → proposer de réadapter le plus lourd des planifiés (plus léger).
+  const planOverflow = Math.round((totals.kcal + planned.kcal) - settings.kcal);
+  const rebalSlot = (() => {
+    const arrs = [["pdj", picks.pdj], ["dej", picks.dej], ["diner", picks.diner], ["snack", picks.snacks]];
+    const withK = arrs.map(([s, arr]) => [s, (arr || []).filter((it) => it && it.planned).reduce((a, it) => a + (it.kcal || 0) * (it.qty || 1), 0)]).filter(([, k]) => k > 0).sort((a, b) => b[1] - a[1]);
+    return withK[0]?.[0];
+  })();
+  const showRebal = isToday && onRebalance && planOverflow > 80 && rebalSlot && !dismissRebal;
+
   const touchRef = useRef(null);
   const onTouchStart = (e) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
   const onTouchEnd = (e) => {
@@ -95,6 +106,19 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
             <button onClick={onApplyTarget} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Check size={15} /> Ajuster ma cible</button>
             <button onClick={onDismissTarget} className="rounded-xl px-4 py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>Plus tard</button>
           </div>
+        </div>
+      )}
+
+      {/* Nudge rééquilibrage : un repas prévu ne rentre plus → réadapter plus léger */}
+      {showRebal && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${C.accent}14`, border: `1px solid ${C.accent}55` }}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.accent}26`, color: C.accent }}><Sparkles size={17} /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold" style={{ color: C.ink }}>Tes repas prévus dépassent (+{planOverflow} kcal)</p>
+            <p className="text-xs" style={{ color: C.sub }}>Réadapter ton {SLOTS[rebalSlot].label.toLowerCase()} en plus léger ?</p>
+          </div>
+          <button onClick={() => onRebalance(rebalSlot)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: C.accent }}>Réadapter</button>
+          <button onClick={() => setDismissRebal(true)} className="shrink-0 rounded-full p-1 active:scale-90" style={{ color: C.muted }} aria-label="Ignorer"><X size={16} /></button>
         </div>
       )}
 

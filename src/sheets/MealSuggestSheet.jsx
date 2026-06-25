@@ -30,6 +30,7 @@ export function MealSuggestSheet({
   const [wish, setWish] = useState("");
   const [chips, setChips] = useState(() => new Set());
   const [indulge, setIndulge] = useState(false); // « je me fais plaisir » → budget = restant du jour entier
+  const [localOpen, setLocalOpen] = useState(true); // bloc « dans tes idées » — replié quand l'assistant répond
   const [pantryOpen, setPantryOpen] = useState(false);
   const toggleChip = (k) => setChips((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   // Budget effectif : marge du créneau (défaut) ou restant du jour entier (mode plaisir).
@@ -65,6 +66,7 @@ export function MealSuggestSheet({
       });
       const { meals } = await askAssistant({ system, prompt, mode });
       setResults(meals);
+      setLocalOpen(false); // on replie « dans tes idées » pour montrer le résultat de l'assistant
     } catch (e) {
       setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
     } finally { setBusy(false); }
@@ -105,18 +107,28 @@ export function MealSuggestSheet({
       <input value={wish} onChange={(e) => setWish(e.target.value)} placeholder="Une envie, une contrainte ? (ex. des pâtes, 10 min)…" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
       <input value={exclude} onChange={(e) => setExclude(e.target.value)} placeholder="Exclure (ex. tofu)…" className="mb-3 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
 
-      {local.length > 0 && (
+      {local.length > 0 && (localOpen ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Dans tes idées</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Dans tes idées</p>
+            {results && <button onClick={() => setLocalOpen(false)} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Masquer</button>}
+          </div>
           {local.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `l${i}`)} saved={savedKeys.has(`l${i}`)} />)}
         </div>
-      )}
+      ) : (
+        <button onClick={() => setLocalOpen(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+          <Lightbulb size={13} /> Voir mes idées ({local.length})
+        </button>
+      ))}
 
-      <button onClick={ask} disabled={busy} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95"
-        style={{ backgroundColor: thin || results ? C.green : "transparent", color: thin || results ? "#fff" : C.green, border: `1.5px solid ${C.green}` }}>
-        {busy ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-        {busy ? "L'assistant réfléchit…" : results ? "Régénérer" : thin ? "Peu d'idées ici — demander à l'assistant" : "Demander à l'assistant"}
-      </button>
+      {/* Avant toute génération : demander à l'assistant */}
+      {!results && (
+        <button onClick={ask} disabled={busy} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95"
+          style={{ backgroundColor: thin ? C.green : "transparent", color: thin ? "#fff" : C.green, border: `1.5px solid ${C.green}` }}>
+          {busy ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
+          {busy ? "L'assistant réfléchit…" : thin ? "Peu d'idées ici — demander à l'assistant" : "Demander à l'assistant"}
+        </button>
+      )}
 
       {error && (
         <div className="mt-3 flex items-start gap-2 rounded-2xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
@@ -133,6 +145,9 @@ export function MealSuggestSheet({
         <div className="mt-3 space-y-2 pb-2">
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Proposé par l'assistant</p>
           {results.map((m, i) => <MealCard key={keyOf(m, i)} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `r${i}`)} saved={savedKeys.has(`r${i}`)} />)}
+          <button onClick={ask} disabled={busy} className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: "transparent", color: C.green, border: `1.5px solid ${C.green}` }}>
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {busy ? "L'assistant réfléchit…" : "Régénérer"}
+          </button>
         </div>
       )}
 
