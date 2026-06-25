@@ -74,6 +74,9 @@ export default function PiocheRepas() {
   useEffect(() => { let on = true; refreshLibrary().then((lib) => { if (on) setLibrary(lib); }); return () => { on = false; }; }, []);
   const pushNav = useCallback((undo) => { undoStack.current.push(undo); try { window.history.pushState({ cm: undoStack.current.length }, ""); } catch (e) {} }, []);
   const navBack = useCallback(() => { if (undoStack.current.length) window.history.back(); }, []);
+  // Transition sheet→sheet SANS empiler : on remplace l'undo du dessus (réutilise
+  // l'entrée d'historique courante). Évite le télescopage de navBack()+pushNav() au même tick.
+  const replaceNav = useCallback((undo) => { const s = undoStack.current; if (s.length) s[s.length - 1] = undo; else pushNav(undo); }, [pushNav]);
   useEffect(() => {
     const onPop = () => { const u = undoStack.current.pop(); if (u) u(); };
     window.addEventListener("popstate", onPop);
@@ -92,6 +95,10 @@ export default function PiocheRepas() {
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
   const openIdea = useCallback((slot) => { pushNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [pushNav]);
   const openQuickLog = useCallback(() => { pushNav(() => setQuickLogOpen(false)); setQuickLogOpen(true); }, [pushNav]);
+  // Depuis la pioche : on bascule vers Photo / Assistant en réutilisant l'entrée d'historique
+  // de la pioche (le geste retour ferme alors la nouvelle sheet, pas l'écran derrière).
+  const pickerToQuickLog = useCallback(() => { setPicker(null); replaceNav(() => setQuickLogOpen(false)); setQuickLogOpen(true); }, [replaceNav]);
+  const pickerToIdea = useCallback((slot) => { setPicker(null); replaceNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [replaceNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
   // Sync : miroir de l'état courant (refs, pour lire des valeurs fraîches dans les callbacks async)
@@ -727,7 +734,8 @@ export default function PiocheRepas() {
         <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...customMeals]} usage={usage} combos={combos} pantry={pantry} presets={library.presets} onAddExtra={addExtra} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
           bases={library.pool.filter((m) => (m.tags || []).includes("shake-base"))} liquids={library.pool.filter((m) => (m.tags || []).includes("shake-liquid"))}
           recipes={[...customRecipes, ...library.recipes]} onAddRecipe={addRecipe}
-          shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
+          shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack}
+          habituals={habituals} onQuickAdd={quickAdd} onPhotoLog={pickerToQuickLog} onAssist={pickerToIdea} />
       )}
       {toolOpen && (
         <Sheet open onClose={navBack} title="Scanner un produit" subtitle="Feu nutritionnel & ajout au jour" icon={<ScanLine size={18} />} iconColor={C.protein}>

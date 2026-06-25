@@ -189,9 +189,12 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
 }
 
 // Fiche d'un item : détail + variantes + ajout à un créneau + Adapter/Modifier/Supprimer.
+// Créneau du moment (heure locale) → mis en avant dans la fiche.
+const nowSlot = () => { const h = new Date().getHours(); return h < 11 ? "pdj" : h < 15 ? "dej" : h < 18 ? "snack" : "diner"; };
+
 function DetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete }) {
   const [varSel, setVarSel] = useState(() => new Set());
-  const [picking, setPicking] = useState(false);
+  const now = nowSlot();
   const meta = kindMeta[m.kind] || kindMeta.aliment;
   const hasVariants = Array.isArray(m.variants) && m.variants.length > 0;
   const eff = applyVariants(m, varSel);
@@ -227,20 +230,27 @@ function DetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete }) {
         )}
       </div>
 
-      <div className="mt-5">
-      {picking ? (
-        <div className="flex items-center gap-1.5">
-          <span className="mr-1 text-xs font-semibold" style={{ color: C.muted }}>À quel repas ?</span>
-          {SLOT_CHOICES.map(([k, l]) => <button key={k} onClick={() => add(k)} className="flex-1 rounded-lg py-2 text-xs font-bold active:scale-95" style={{ backgroundColor: `${meta.color}1a`, color: meta.color }}>{l}</button>)}
+      <div className="mt-5 space-y-3">
+        {/* Ajout direct à un créneau (1 tap) — « maintenant » mis en avant. */}
+        <div>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Ajouter à</p>
+          <div className="grid grid-cols-4 gap-2">
+            {SLOT_CHOICES.map(([k, l]) => {
+              const hot = k === now;
+              return <button key={k} onClick={() => add(k)} className="flex flex-col items-center gap-0.5 rounded-xl py-2.5 text-xs font-bold active:scale-95" style={hot ? { backgroundColor: C.green, color: "#fff" } : { backgroundColor: `${meta.color}14`, color: meta.color }}>{l}{hot && <span className="text-[8px] font-semibold opacity-90">maintenant</span>}</button>;
+            })}
+          </div>
         </div>
-      ) : (
-        <div className="flex gap-2">
-          <button onClick={() => setPicking(true)} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Plus size={16} /> Ajouter à un créneau</button>
-          {onAdapt && <button onClick={onAdapt} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }} aria-label="Adapter avec l'assistant"><Wand2 size={17} /></button>}
-          {onEdit && <button onClick={onEdit} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={17} /></button>}
-          <button onClick={onDelete} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={17} /></button>
-        </div>
-      )}
+        {(onAdapt || onEdit) && (
+          <div className="flex gap-2">
+            {onAdapt && <button onClick={onAdapt} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><Wand2 size={15} /> Adapter</button>}
+            {onEdit && <button onClick={onEdit} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><Pencil size={15} /> Modifier</button>}
+            <button onClick={onDelete} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={16} /></button>
+          </div>
+        )}
+        {!onAdapt && !onEdit && (
+          <button onClick={onDelete} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }}><Trash2 size={15} /> Supprimer</button>
+        )}
       </div>
     </Sheet>
   );

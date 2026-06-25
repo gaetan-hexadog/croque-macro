@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie } from "lucide-react";
+import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie, Camera, Wand2 } from "lucide-react";
 import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "../core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
@@ -128,7 +128,7 @@ function MethodBtn({ icon: Icon, color, label, onClick }) {
   );
 }
 
-export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], pantry = [], presets = [], onChoose, onAddExtra, onApplyCombo, onDeleteCombo, bases = [], liquids = [], recipes = [], onAddRecipe, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose }) {
+export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {}, combos = [], pantry = [], presets = [], onChoose, onAddExtra, onApplyCombo, onDeleteCombo, bases = [], liquids = [], recipes = [], onAddRecipe, shakeBases = [], shakeLiquids = [], onAddShakeBase, onDelShakeBase, onAddShakeLiquid, onDelShakeLiquid, onSave, onDeleteCustom, onClose, habituals = [], onQuickAdd, onPhotoLog, onAssist }) {
   const ui = SLOT_UI[slotKey];
   const [q, setQ] = useState("");
   const [panel, setPanel] = useState("main");          // main | shake | combos | off
@@ -173,6 +173,8 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
     setCName(""); setCKcal(""); setCP(""); setCF(""); setCS(""); setCustomOpen(false);
   };
   const customValid = cName.trim() && !isNaN(parseInt(cKcal, 10));
+  // Habituels pertinents pour ce créneau (les plus probables d'abord) — ajout 1 tap.
+  const slotHab = (habituals || []).filter(Boolean).slice().sort((a, b) => (a.slot === slotKey ? -1 : 0) - (b.slot === slotKey ? -1 : 0)).slice(0, 6);
 
   return (
     <>
@@ -206,6 +208,18 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 </>
               ) : (
                 <>
+                  {onQuickAdd && slotHab.length > 0 && (
+                    <div className="mb-4">
+                      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}><Plus size={13} /> Tes habituels · 1 tap</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {slotHab.map((h) => (
+                          <button key={h.name} onClick={() => { onQuickAdd(slotKey, h); onClose(); }} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+                            {h.name} <span style={{ color: C.muted }}>{h.kcal}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {suggestions.length > 0 && (
                     <div className="mb-4">
                       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}><Sparkles size={13} /> Suggéré pour ce repas</p>
@@ -239,6 +253,8 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
               {/* Autres moyens d'ajout (secondaire, sous les raccourcis) */}
               <p className="mb-2 mt-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Autre moyen</p>
               <div className="grid grid-cols-3 gap-1.5">
+                {onAssist && <MethodBtn icon={Wand2} color={C.accent} label="Assistant" onClick={() => onAssist(slotKey)} />}
+                {onPhotoLog && <MethodBtn icon={Camera} color={C.accent} label="Photo / décrire" onClick={onPhotoLog} />}
                 <MethodBtn icon={Refrigerator} color={C.weight} label="Frigo" onClick={() => setPanel("frigo")} />
                 <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
                 <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
