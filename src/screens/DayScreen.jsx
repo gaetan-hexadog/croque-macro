@@ -385,24 +385,19 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm,
   const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
   const topBorder = first ? "none" : `1px solid ${C.line}`;
 
-  if (editing) {
-    return (
-      <li className="py-2.5" style={{ borderTop: topBorder }}>
-        <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Nom" className="mb-2 w-full rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
-        <div className="mb-2 flex gap-2">
-          <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="decimal" placeholder="kcal" className="w-full min-w-0 rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
-          <input value={p} onChange={(e) => setP(e.target.value)} inputMode="decimal" placeholder="prot. (g)" className="w-full min-w-0 rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
-        </div>
-        <div className="flex gap-2">
-          <button onClick={save} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: accent }}><Check size={15} /> Enregistrer</button>
-          <button onClick={cancel} className="rounded-xl px-3 py-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }} aria-label="Annuler"><X size={16} /></button>
-        </div>
-      </li>
-    );
-  }
-
   return (
     <li style={{ borderTop: topBorder }}>
+      {editing && (
+        <Sheet open onClose={cancel} title="Modifier l'aliment" subtitle="Nom, kcal, protéines" icon={<Pencil size={18} />} iconColor={accent}>
+          <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Nom" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+          <div className="mb-3 flex gap-2">
+            <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="decimal" placeholder="kcal" className="w-full min-w-0 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+            <input value={p} onChange={(e) => setP(e.target.value)} inputMode="decimal" placeholder="prot. (g)" className="w-full min-w-0 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+          </div>
+          {q !== 1 && <p className="mb-2 text-xs" style={{ color: C.muted }}>Valeurs par portion · quantité ×{fmtQty(q)} appliquée à part.</p>}
+          <button onClick={save} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: accent }}><Check size={16} /> Enregistrer</button>
+        </Sheet>
+      )}
       <div className="flex items-center gap-2.5 py-2.5">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: plaisir ? C.extra : accent, opacity: planned ? 0.5 : 1 }} />
         <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left active:opacity-70">

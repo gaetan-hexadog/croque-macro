@@ -32,7 +32,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
 
   const add = () => { if (!f.name.trim()) return; onAdd(f.name.trim(), { unit: f.unit, qty: num(f.qty), kcal100: num(f.kcal100), p100: num(f.p100) }); setF(blank); };
   const startEdit = (it) => { setEditId(it.id); setE({ name: it.name, unit: it.unit || "g", qty: it.qty ?? "", kcal100: it.kcal100 ?? "", p100: it.p100 ?? "" }); };
-  const saveEdit = () => { onUpdate && onUpdate(editId, { unit: e.unit, qty: Math.round(num(e.qty) * 10) / 10 || undefined, kcal100: Math.round(num(e.kcal100)) || undefined, p100: Math.round(num(e.p100) * 10) / 10 || undefined }); setEditId(null); };
+  const saveEdit = () => { onUpdate && onUpdate(editId, { name: e.name.trim() || undefined, unit: e.unit, qty: Math.round(num(e.qty) * 10) / 10 || undefined, kcal100: Math.round(num(e.kcal100)) || undefined, p100: Math.round(num(e.p100) * 10) / 10 || undefined }); setEditId(null); };
 
   const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
   const UnitSelect = ({ value, onChange }) => (
@@ -54,25 +54,12 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: it.out ? C.muted : C.green }} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm" style={{ color: it.out ? C.muted : C.ink, textDecoration: it.out ? "line-through" : "none" }}>{it.name}</span>
-          {editId !== it.id && describe(it) && <span className="text-[11px]" style={{ color: C.muted }}>{describe(it)}</span>}
+          {describe(it) && <span className="text-[11px]" style={{ color: C.muted }}>{describe(it)}</span>}
         </span>
         <button onClick={() => onToggle(it.id)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={it.out ? { backgroundColor: `${C.green}1f`, color: C.green } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}>{it.out ? <><RotateCcw size={11} /> Remettre</> : "Rupture"}</button>
-        {onUpdate && <button onClick={() => (editId === it.id ? setEditId(null) : startEdit(it))} className="shrink-0 p-1.5 active:scale-90" style={{ color: C.muted }} aria-label="Éditer"><Pencil size={14} /></button>}
+        {onUpdate && <button onClick={() => startEdit(it)} className="shrink-0 p-1.5 active:scale-90" style={{ color: C.muted }} aria-label="Éditer"><Pencil size={14} /></button>}
         <button onClick={() => onRemove(it.id)} className="shrink-0 p-1.5 active:scale-90" style={{ color: C.muted }} aria-label="Supprimer"><Trash2 size={15} /></button>
       </div>
-      {editId === it.id && (
-        <div className="mt-2 space-y-2">
-          <div className="flex gap-2">
-            <input value={e.qty} onChange={setEd("qty")} inputMode="decimal" placeholder="Quantité" className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" style={fld} />
-            <UnitSelect value={e.unit} onChange={setEd("unit")} />
-          </div>
-          <div className="flex gap-2">
-            <input value={e.kcal100} onChange={setEd("kcal100")} inputMode="numeric" placeholder={`kcal /100${e.unit}`} className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" style={fld} />
-            <input value={e.p100} onChange={setEd("p100")} inputMode="numeric" placeholder={`prot. /100${e.unit}`} className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" style={fld} />
-            <button onClick={saveEdit} className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={14} /></button>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -126,6 +113,22 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
         <p className="px-1 text-xs leading-relaxed" style={{ color: C.muted }}>Passe en <b style={{ color: C.over }}>rupture</b> ce qui te manque. L'assistant peut n'utiliser qu'une <b style={{ color: C.ink }}>partie</b> d'un aliment (chocolat, compote, yaourt…) grâce à la densité /100.</p>
       </div>
     </div>
+
+    {/* Édition d'un aliment — bottom-sheet (au lieu d'un form inline). */}
+    {editId != null && (
+      <Sheet open onClose={() => setEditId(null)} title="Modifier l'aliment" subtitle="Nom, quantité, densité" icon={<Pencil size={18} />} iconColor={C.weight} z={50}>
+        <input value={e.name} onChange={setEd("name")} placeholder="Nom" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+        <div className="mb-2 flex gap-2">
+          <input value={e.qty} onChange={setEd("qty")} inputMode="decimal" placeholder="Quantité que j'ai" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+          <UnitSelect value={e.unit} onChange={setEd("unit")} />
+        </div>
+        <div className="mb-3 flex gap-2">
+          <input value={e.kcal100} onChange={setEd("kcal100")} inputMode="numeric" placeholder={`kcal /100${e.unit}`} className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+          <input value={e.p100} onChange={setEd("p100")} inputMode="numeric" placeholder={`prot. /100${e.unit}`} className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
+        </div>
+        <button onClick={saveEdit} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={16} /> Enregistrer</button>
+      </Sheet>
+    )}
 
     {/* Scan/recherche OFF — bottom-sheet PAR-DESSUS le frigo (le frigo reste monté). */}
     {scanning && (
