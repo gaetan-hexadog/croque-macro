@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, streakCount,
 } from "./core.js";
@@ -25,6 +25,7 @@ const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0
 
 export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport }) {
   const [showTpl, setShowTpl] = useState(false);
+  const [viewRecipe, setViewRecipe] = useState(null);
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
   const canFwd = activeDate < addDays(TODAY, 14); // on peut avancer jusqu'à +14 j (voir les repas planifiés)
@@ -105,8 +106,8 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       )}
 
-      {/* Bande de semaine : navigation + statut de chaque jour (pastille colorée) */}
-      <div className="mb-4 rounded-2xl px-2 py-2" style={cardStyle()}>
+      {/* Bande de semaine : navigation + statut de chaque jour — intégrée (hors card) */}
+      <div className="mb-4 pb-3" style={{ borderBottom: `1px solid ${C.line}` }}>
         <div className="mb-1 flex items-center justify-between px-1">
           <button onClick={() => setActiveDate(addDays(activeDate, -7))} className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ color: C.sub }} aria-label="Semaine précédente"><ChevronLeft size={18} /></button>
           <div className="flex items-center gap-2">
@@ -193,31 +194,32 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
             <ChevronRight size={15} style={{ color: C.muted }} />
           </span>
         </button>
-      </section>
 
-      {/* Log rapide : habituels en 1 tap + suggestion contextuelle (parcours « je viens de manger ») */}
-      {isToday && (habituals.length > 0 || onSuggestNow) && (
-        <div className="mb-4">
-          <SectionTitle right={onSuggestNow && (
-            <button onClick={onSuggestNow} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><Sparkles size={13} /> Propose-moi</button>
-          )}>Log rapide</SectionTitle>
-          {habituals.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-              {habituals.map((it) => (
-                <button key={it.name} onClick={() => onHabitual(it)} className="flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left active:scale-95" style={cardStyle()}>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[it.slot].color}1f`, color: SLOT_UI[it.slot].color }}><Plus size={15} /></span>
-                  <span className="min-w-0">
-                    <span className="block max-w-34 truncate text-xs font-bold" style={{ color: C.ink }}>{it.name}</span>
-                    <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{it.kcal} kcal · {it.p} g</span>
-                  </span>
-                </button>
-              ))}
+        {/* Log rapide intégré au dashboard : habituels en 1 tap + suggestion contextuelle */}
+        {isToday && (habituals.length > 0 || onSuggestNow) && (
+          <div className="mt-4 border-t pt-3" style={{ borderColor: C.line }}>
+            <div className="mb-2 flex items-center justify-between px-0.5">
+              <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Log rapide</span>
+              {onSuggestNow && <button onClick={onSuggestNow} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><Sparkles size={13} /> Propose-moi</button>}
             </div>
-          ) : (
-            <p className="px-1 text-xs" style={{ color: C.muted }}>Tes aliments récurrents s'afficheront ici pour un ajout en 1 tap.</p>
-          )}
-        </div>
-      )}
+            {habituals.length > 0 ? (
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                {habituals.map((it) => (
+                  <button key={it.name} onClick={() => onHabitual(it)} className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[it.slot].color}1f`, color: SLOT_UI[it.slot].color }}><Plus size={15} /></span>
+                    <span className="min-w-0">
+                      <span className="block max-w-34 truncate text-xs font-bold" style={{ color: C.ink }}>{it.name}</span>
+                      <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{it.kcal} kcal · {it.p} g</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="px-0.5 text-xs" style={{ color: C.muted }}>Tes aliments récurrents s'afficheront ici pour un ajout en 1 tap.</p>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Les repas — une carte distincte par repas */}
       <SectionTitle className="mt-1" right={
@@ -243,10 +245,10 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onIdea={onIdea ? () => onIdea("pdj") : undefined} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} quick={quickPicks.pdj} onQuick={onQuick ? (it) => onQuick("pdj", it) : undefined} onSkip={onSkip} onSaveCombo={onSaveCombo} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onIdea={onIdea ? () => onIdea("dej") : undefined} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} quick={quickPicks.dej} onQuick={onQuick ? (it) => onQuick("dej", it) : undefined} onSaveCombo={onSaveCombo} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onIdea={onIdea ? () => onIdea("diner") : undefined} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} quick={quickPicks.diner} onQuick={onQuick ? (it) => onQuick("diner", it) : undefined} onSaveCombo={onSaveCombo} />
-        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} quick={quickPicks.snack} onQuick={onQuick ? (it) => onQuick("snack", it) : undefined} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => onPick("pdj")} onIdea={onIdea ? () => onIdea("pdj") : undefined} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} quick={quickPicks.pdj} onQuick={onQuick ? (it) => onQuick("pdj", it) : undefined} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => onPick("dej")} onIdea={onIdea ? () => onIdea("dej") : undefined} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} quick={quickPicks.dej} onQuick={onQuick ? (it) => onQuick("dej", it) : undefined} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => onPick("diner")} onIdea={onIdea ? () => onIdea("diner") : undefined} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} quick={quickPicks.diner} onQuick={onQuick ? (it) => onQuick("diner", it) : undefined} onSaveCombo={onSaveCombo} onViewRecipe={setViewRecipe} />
+        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => onPick("snack")} onIdea={onIdea ? () => onIdea("snack") : undefined} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} quick={quickPicks.snack} onQuick={onQuick ? (it) => onQuick("snack", it) : undefined} onViewRecipe={setViewRecipe} />
       </div>
 
       {/* Poids du jour */}
@@ -255,6 +257,8 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       </div>
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
+
+      {viewRecipe && <RecipeViewSheet m={viewRecipe} onClose={() => setViewRecipe(null)} />}
 
       {showTpl && (
         <TemplatesSheet
@@ -271,7 +275,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 }
 
 
-function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, quick, onQuick }) {
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, quick, onQuick, onViewRecipe }) {
   const ui = SLOT_UI[slotKey];
   const Icon = SLOTS[slotKey].icon;
   const [naming, setNaming] = useState(false);
@@ -301,18 +305,18 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
           <QuickChips items={quick} onQuick={onQuick} color={ui.color} />
           <div className="flex items-center gap-2">
             <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}><Search size={15} /> Piocher · ~{r0(target.kcal)} kcal</button>
-            {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-11 items-center justify-center gap-1.5 rounded-2xl px-4 active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={17} /> Idée</button>}
+            {onIdea && <button onClick={onIdea} title="Assistant pour ce repas" className="flex h-11 items-center justify-center gap-1.5 rounded-2xl px-4 active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={17} /> Assistant</button>}
           </div>
         </>
       ) : (
         <div className="space-y-2">
           <QuickChips items={quick} onQuick={onQuick} color={ui.color} />
           {meals.map((m, i) => (
-            <MealItemRow key={i} m={m} accent={ui.color} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} />
+            <MealItemRow key={i} m={m} accent={ui.color} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe} />
           ))}
           <div className="flex items-center gap-2 pt-0.5">
             <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Plus size={15} /> Ajouter</button>
-            {onIdea && <button onClick={onIdea} title="Une idée (assistant)" className="flex h-10 items-center justify-center gap-1.5 rounded-2xl px-3.5 active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={16} /> Idée</button>}
+            {onIdea && <button onClick={onIdea} title="Assistant pour ce repas" className="flex h-10 items-center justify-center gap-1.5 rounded-2xl px-3.5 active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={16} /> Assistant</button>}
           </div>
           {onSaveCombo && (naming ? (
             <div className="flex items-center gap-2 pt-1">
@@ -332,7 +336,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
 
 // « À-côtés » : fusion En-cas + Plaisirs en une section. Les items « plaisir »
 // (ex-extras) portent un tag. Routage par slot ("snack" | "extras").
-function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm, quick, onQuick }) {
+function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm, quick, onQuick, onViewRecipe }) {
   const color = SLOT_UI.snack.color;
   const items = [
     ...snacks.map((m, i) => ({ m, slot: "snack", i, plaisir: false })),
@@ -350,7 +354,7 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {onIdea && <button onClick={onIdea} aria-label="Une idée (assistant)" className="flex h-8 w-8 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Lightbulb size={15} /></button>}
+          {onIdea && <button onClick={onIdea} aria-label="Assistant pour ce repas" className="flex h-8 w-8 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={15} /></button>}
           <button onClick={onAdd} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>
         </div>
       </div>
@@ -365,6 +369,7 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
               onRemove={() => onClear(slot, i)}
               onEdit={onEdit ? (patch) => onEdit(slot, i, patch) : undefined}
               onConfirm={onConfirm ? () => onConfirm(slot, i) : undefined}
+              onViewRecipe={onViewRecipe}
               bg={plaisir ? `${C.extra}14` : undefined} />
           ))}
         </div>
@@ -373,8 +378,9 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
   );
 }
 
-function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, plaisir, bg }) {
+function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, onViewRecipe, plaisir, bg }) {
   const q = m.qty || 1;
+  const hasRecipe = !!(m.ingredients?.length || m.steps?.length);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(m.name);
   const [kcal, setKcal] = useState(String(m.kcal));
@@ -423,6 +429,7 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm,
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <QtyStepper value={q} onChange={onQty} accent={accent} />
           <div className="flex gap-1.5">
+            {hasRecipe && onViewRecipe && <button onClick={() => onViewRecipe(m)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }} aria-label="Voir la recette"><BookOpen size={14} /></button>}
             {onEdit && <button onClick={() => setEditing(true)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={14} /></button>}
             {onReplace && <button onClick={onReplace} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Shuffle size={14} /></button>}
             <button onClick={onRemove} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
@@ -539,6 +546,24 @@ function WeightCard({ date, weight, onWeight }) {
         </button>
       )}
     </div>
+  );
+}
+
+// Fiche recette consultable depuis un repas loggé (si l'item porte ingrédients/étapes).
+function RecipeViewSheet({ m, onClose }) {
+  const ings = m.ingredients || [], steps = m.steps || [];
+  return (
+    <Sheet open onClose={onClose} title={m.name} subtitle={`${r0(m.kcal)} kcal · ${r0(m.p)} g prot.`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <BookOpen size={18} />} iconColor={C.weight}>
+      {ings.length > 0 && (<>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
+        <ul className="mb-4 space-y-1">{ings.map((it, i) => <li key={i} className="flex gap-2 text-sm" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span><span>{it}</span></li>)}</ul>
+      </>)}
+      {steps.length > 0 && (<>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Préparation</p>
+        <ol className="space-y-2">{steps.map((st, i) => <li key={i} className="flex gap-2 text-sm" style={{ color: C.sub }}><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}>{i + 1}</span><span>{st}</span></li>)}</ol>
+      </>)}
+      {ings.length === 0 && steps.length === 0 && <p className="text-sm" style={{ color: C.muted }}>Pas de détail de recette pour cet item.</p>}
+    </Sheet>
   );
 }
 

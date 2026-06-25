@@ -423,7 +423,9 @@ export default function PiocheRepas() {
   const useMealEntry = (m, slotOverride) => {
     if (m.kind === "combo") { const slot = slotOverride || m.slot || "dej", key = picksKey(slot); const ck = (m.items || []).reduce((a, it) => a + (it.kcal || 0) * (it.qty || 1), 0), cp = (m.items || []).reduce((a, it) => a + (it.p || 0) * (it.qty || 1), 0); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1 }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); toastAdd(m.name, ck, cp); return; }
     const slot = slotOverride || (m.kind === "recette" ? (m.cat || "dej") : (m.slots && m.slots[0]) || "dej"), key = picksKey(slot);
-    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { name: m.name, kcal: m.kcal, p: m.p, qty: 1 }].slice(0, 8) } }));
+    const item = { name: m.name, kcal: m.kcal, p: m.p, qty: 1 };
+    if (m.kind === "recette") { if (m.ingredients?.length) item.ingredients = m.ingredients; if (m.steps?.length) item.steps = m.steps; if (m.emoji) item.emoji = m.emoji; }
+    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), item].slice(0, 8) } }));
     bumpUsage(m.name);
     toastAdd(m.name, m.kcal, m.p);
   };
@@ -436,7 +438,12 @@ export default function PiocheRepas() {
   // Assistant : logguer une suggestion dans un créneau, ou l'enregistrer en recette.
   const logSuggestion = (m, slot) => {
     const s = slot || m.slot || "dej", key = picksKey(s);
-    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), { name: m.title, kcal: Math.round(m.kcal), p: Math.round(m.protein), qty: 1 }].slice(0, CAP[s] || 8) } }));
+    const item = { name: m.title, kcal: Math.round(m.kcal), p: Math.round(m.protein), qty: 1 };
+    const ings = (m.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim())).filter(Boolean);
+    if (ings.length) item.ingredients = ings;
+    if (Array.isArray(m.steps) && m.steps.length) item.steps = m.steps;
+    if (m.emoji) item.emoji = m.emoji;
+    setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), item].slice(0, CAP[s] || 8) } }));
     bumpUsage(m.title);
     toastAdd(m.title, m.kcal, m.protein);
   };
