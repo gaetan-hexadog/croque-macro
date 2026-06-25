@@ -29,15 +29,18 @@ export function MealSuggestSheet({
   const [exclude, setExclude] = useState("");
   const [wish, setWish] = useState("");
   const [chips, setChips] = useState(() => new Set());
+  const [indulge, setIndulge] = useState(false); // « je me fais plaisir » → budget = restant du jour entier
   const [pantryOpen, setPantryOpen] = useState(false);
   const toggleChip = (k) => setChips((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  // Budget effectif : marge du créneau (défaut) ou restant du jour entier (mode plaisir).
+  const budK = indulge ? dayRemKcal : remKcal, budP = indulge ? dayRemP : remP;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
   const [savedKeys, setSavedKeys] = useState(() => new Set());
 
   const local = useMemo(() => {
-    const cap = remKcal > 0 ? remKcal * 1.1 : Infinity;
+    const cap = budK > 0 ? budK * 1.1 : Infinity;
     const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     const out = pantry.filter((x) => x.out).map((x) => deburr(x.name)).filter(Boolean);
     const hasRupture = (r) => { const hay = deburr(r.name + " " + (r.ingredients || []).map((i) => (typeof i === "string" ? i : i.name)).join(" ")); return out.some((o) => hay.includes(o)); };
@@ -46,7 +49,7 @@ export function MealSuggestSheet({
       .sort((a, b) => (b.p || 0) - (a.p || 0))
       .slice(0, 4)
       .map((r) => ({ title: r.name, emoji: r.emoji, kcal: r.kcal, protein: r.p, slot, ingredients: r.ingredients?.map((s) => (typeof s === "string" ? { name: s } : s)) || [], steps: r.steps || [] }));
-  }, [slot, remKcal, localIdeas, pantry]);
+  }, [slot, budK, localIdeas, pantry]);
   const thin = local.length < 3;
 
   const ask = async () => {
@@ -55,7 +58,7 @@ export function MealSuggestSheet({
       const dining = chips.has("resto");
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal, remP, favorites, knownFoods, userWish, dining, reserveKcal, weekBalance,
+        mode: "meal", slot, remKcal: budK, remP: budP, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal,
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...exclude.split(",").map((s) => s.trim()).filter(Boolean)],
         dateLabel,
@@ -73,14 +76,22 @@ export function MealSuggestSheet({
   return (
     <Sheet open onClose={onClose} title="Une idée de repas" subtitle={`Pour le ${SLOT_LABELS[slot] || "repas"}`} icon={<Lightbulb size={18} />} iconColor={C.green}>
       <div className="flex items-center justify-between pb-1.5">
-        <p className="text-xs" style={{ color: C.sub }}>Marge {SLOT_LABELS[slot] || "repas"} : <span className="font-bold" style={{ color: remKcal <= 0 ? C.over : C.ink }}>{Math.round(Math.max(0, remKcal))} kcal</span> · <span className="font-bold" style={{ color: C.protein }}>{Math.round(Math.max(0, remP))} g</span></p>
+        <p className="text-xs" style={{ color: C.sub }}>{indulge ? "Plaisir · restant du jour" : `Marge ${SLOT_LABELS[slot] || "repas"}`} : <span className="font-bold" style={{ color: budK <= 0 ? C.over : C.ink }}>{Math.round(Math.max(0, budK))} kcal</span> · <span className="font-bold" style={{ color: C.protein }}>{Math.round(Math.max(0, budP))} g</span></p>
         <button onClick={() => setPantryOpen(true)} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
           <Refrigerator size={13} /> Frigo{pantry.filter((x) => !x.out).length ? ` · ${pantry.filter((x) => !x.out).length}` : ""}
         </button>
       </div>
+      {reserveKcal > 50 && (
+        <div className="mb-2 flex gap-1.5 rounded-xl p-1" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+          <button onClick={() => setIndulge(false)} className="flex-1 rounded-lg py-1.5 text-[11px] font-bold active:scale-95" style={!indulge ? { backgroundColor: C.ink, color: C.bg } : { color: C.sub }}>Dans ma marge</button>
+          <button onClick={() => setIndulge(true)} className="flex-1 rounded-lg py-1.5 text-[11px] font-bold active:scale-95" style={indulge ? { backgroundColor: C.accent, color: "#fff" } : { color: C.sub }}>🍫 Je me fais plaisir</button>
+        </div>
+      )}
       <p className="pb-3 text-[11px]" style={{ color: C.muted }}>
-        {reserveKcal > 50
-          ? <>≈{Math.round(reserveKcal)} kcal réservés à tes repas à venir (sur {Math.round(Math.max(0, dayRemKcal))} restant aujourd'hui).{remKcal <= 0 ? " Peu de place — l'assistant proposera très léger." : ""}</>
+        {indulge
+          ? <>Tu assumes le plaisir — l'assistant rééquilibrera : tes <b style={{ color: C.sub }}>repas à venir devront être plus légers</b>.</>
+          : reserveKcal > 50
+          ? <>≈{Math.round(reserveKcal)} kcal réservés à tes repas à venir (sur {Math.round(Math.max(0, dayRemKcal))} restant aujourd'hui).{budK <= 0 ? " Peu de place — l'assistant proposera très léger." : ""}</>
           : <>Tout ton restant du jour est dispo pour ce repas.</>}
       </p>
 
