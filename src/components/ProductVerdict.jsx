@@ -10,7 +10,7 @@ export function ProductVerdict({ C, verdict, note = "verdict · /100 g" }) {
     bad: { c: C.over, e: "🔴", l: "À surveiller" },
   };
   return (
-    <div className="rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+    <div className="rounded-2xl cm-card" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
       <div className="mb-2 flex items-center justify-between">
         <span className="rounded-full px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: `${FLAG[verdict.flag].c}22`, color: FLAG[verdict.flag].c }}>{FLAG[verdict.flag].e} {FLAG[verdict.flag].l}</span>
         <span className="text-[11px]" style={{ color: C.muted }}>{note}</span>

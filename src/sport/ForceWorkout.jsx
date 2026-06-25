@@ -145,7 +145,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
             <div className="mb-3"><SessionProgress done={doneSets} total={totalSets} showCount={false} /></div>
 
             {showTips && (
-              <div className="mb-3 rounded-2xl p-3.5" style={cardStyle()}>
+              <div className="mb-3 rounded-2xl cm-card" style={cardStyle()}>
                 <p className="text-xs" style={{ color: C.sub }}>{ex.tech}</p>
                 {ex.tips?.length > 0 && <ul className="mt-2 space-y-1">{ex.tips.map((t, i) => <li key={i} className="flex gap-1.5 text-xs" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span>{t}</li>)}</ul>}
               </div>

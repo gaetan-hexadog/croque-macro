@@ -46,7 +46,7 @@ export function SessionDetail({ entry, onBack, onSave, onDelete }) {
 
       {/* Force : exercices + séries */}
       {!cardio && data.map((ex, ei) => (
-        <div key={ei} className="mb-2.5 rounded-2xl p-3.5" style={cardStyle()}>
+        <div key={ei} className="mb-2.5 rounded-2xl cm-card" style={cardStyle()}>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-bold" style={{ color: C.ink }}>{ex.exercise}</p>
             {ex.sets[0]?.weight != null && <span className="text-xs font-bold" style={{ color: C.sub }}>{ex.sets[0].weight} kg</span>}
@@ -79,7 +79,7 @@ export function SessionDetail({ entry, onBack, onSave, onDelete }) {
 
       {/* Cardio : chiffres */}
       {cardio && (
-        <div className="mb-2.5 rounded-2xl p-4" style={cardStyle()}>
+        <div className="mb-2.5 rounded-2xl cm-card" style={cardStyle()}>
           {[["distance", "Distance rameur (m)"], ["rowerLevel", "Résistance rameur"], ["ropeJumps", "Sauts à la corde"], ["rpe", "Effort perçu /10"]].map(([k, label]) => (
             <div key={k} className="flex items-center justify-between py-1.5">
               <span className="text-sm" style={{ color: C.sub }}>{label}</span>
@@ -106,7 +106,7 @@ export function SessionDetail({ entry, onBack, onSave, onDelete }) {
       {editing ? (
         <button onClick={save} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={18} /> Enregistrer les modifications</button>
       ) : confirmDel ? (
-        <div className="rounded-2xl p-4" style={{ backgroundColor: `${C.over}12`, border: `1px solid ${C.over}44` }}>
+        <div className="rounded-2xl cm-card" style={{ backgroundColor: `${C.over}12`, border: `1px solid ${C.over}44` }}>
           <p className="mb-3 text-center text-sm font-semibold" style={{ color: C.ink }}>Supprimer cette séance ? C'est définitif.</p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmDel(false)} className="flex-1 rounded-xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, color: C.sub, border: `1px solid ${C.line}` }}>Annuler</button>

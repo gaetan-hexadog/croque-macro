@@ -45,7 +45,7 @@ export function JournalScreen({ days, weights, settings, onOpen, activeDate }) {
               const pct = Math.min(100, (t.kcal / settings.kcal) * 100);
               const under = t.kcal > 0 && t.kcal <= settings.kcal;
               return (
-                <button key={iso} onClick={() => onOpen(iso)} className="flex w-full items-center gap-3 rounded-2xl p-4 text-left active:scale-95" style={cardStyle({ border: `1px solid ${iso === activeDate ? C.green : C.line}` })}>
+                <button key={iso} onClick={() => onOpen(iso)} className="flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-95" style={cardStyle({ border: `1px solid ${iso === activeDate ? C.green : C.line}` })}>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-bold capitalize" style={{ color: C.ink }}>{iso === TODAY ? "Aujourd'hui" : fmtShort(iso)}</p>

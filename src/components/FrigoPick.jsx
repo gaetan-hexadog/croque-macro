@@ -25,7 +25,7 @@ export function FrigoPick({ pantry = [], accent = C.weight, onPick }) {
           <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="decimal" autoFocus className="w-24 rounded-xl px-3 py-2 text-center text-sm font-bold outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
           <span className="text-sm" style={{ color: C.muted }}>{unit}</span>
         </div>
-        <div className="flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: C.card }}>
+        <div className="flex items-center justify-between rounded-2xl cm-card" style={{ backgroundColor: C.card }}>
           <p className="leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>
             <span className="text-2xl font-extrabold" style={{ color: C.ink }}>{kcal} <span className="text-sm font-medium" style={{ color: C.sub }}>kcal</span></span>
             <span className="block text-xs font-semibold" style={{ color: C.protein }}>{p} g prot.</span>

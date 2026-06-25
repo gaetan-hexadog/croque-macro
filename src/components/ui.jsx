@@ -10,7 +10,7 @@ import { C } from "../core.js";
 // alignée à droite (ex. « Modèles », « Tout voir »).
 export function SectionTitle({ children, right, className = "" }) {
   return (
-    <div className={`mb-2.5 flex items-end justify-between px-1 ${className}`}>
+    <div className={`mb-3 flex items-end justify-between px-1 ${className}`}>
       <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: C.sub }}>{children}</h2>
       {right}
     </div>

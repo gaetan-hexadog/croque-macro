@@ -164,7 +164,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   // ── Vue scan ──
   if (scanning) {
     return (
-      <div className="rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+      <div className="rounded-3xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
         <p className="mb-2 text-sm font-semibold" style={{ color: C.ink }}>Vise le code-barres…</p>
         <div className="overflow-hidden rounded-2xl" style={{ backgroundColor: "#000", aspectRatio: "4 / 3" }}>
           <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -185,7 +185,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
       </label>
     );
     return (
-      <div className="rounded-3xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+      <div className="rounded-3xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
         <div className="mb-1 flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-base font-bold" style={{ color: C.ink }}>{selected.name}</p>
@@ -198,7 +198,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
         </button>
 
         {editing && (
-          <div className="mb-3 grid grid-cols-4 gap-2 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+          <div className="mb-3 grid grid-cols-4 gap-2 rounded-2xl cm-card" style={{ backgroundColor: C.paper }}>
             <p className="col-span-4 -mb-1 text-[11px]" style={{ color: C.sub }}>Valeurs pour 100 {unit} (corrige si OFF se trompe) :</p>
             {mField("kcal", "kcal")}
             {mField("p", "prot.")}
@@ -219,7 +219,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+        <div className="mt-3 flex items-center justify-between rounded-2xl cm-card" style={{ backgroundColor: C.paper }}>
           <div className="leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>
             <p className="text-2xl font-extrabold" style={{ color: C.ink }}>{calc.kcal} <span className="text-sm font-medium" style={{ color: C.sub }}>kcal</span></p>
             <p className="text-xs font-semibold" style={{ color: C.protein }}>{fmt(calc.p)} g prot.{calc.c != null ? <span style={{ color: C.muted }}> · {fmt(calc.c)} g gluc · {fmt(calc.f)} g lip</span> : null}</p>
@@ -257,12 +257,12 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
       </button>
 
       {loading && <div className="flex items-center justify-center gap-2 py-6 text-sm" style={{ color: C.muted }}><Loader size={15} className="animate-spin" /> Recherche…</div>}
-      {error && !loading && <p className="rounded-2xl p-3 text-sm" style={{ backgroundColor: C.paper, color: C.sub }}>{error}</p>}
+      {error && !loading && <p className="rounded-2xl cm-card text-sm" style={{ backgroundColor: C.paper, color: C.sub }}>{error}</p>}
 
       {!loading && results.length > 0 && (
         <div className="space-y-2">
           {results.map((p) => (
-            <button key={p.code} onClick={() => pick(p)} className="flex w-full items-center gap-3 rounded-2xl p-3 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+            <button key={p.code} onClick={() => pick(p)} className="flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{p.name}</p>
                 <p className="truncate text-xs" style={{ color: C.sub }}>{p.brand || "—"} · <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(p.per100.kcal)} kcal / 100 {p.liquid ? "ml" : "g"}</span></p>

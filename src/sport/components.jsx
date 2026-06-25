@@ -49,7 +49,7 @@ export function DurationFlow({ seconds, size = 40, color = C.ink }) {
 // ── StatTile : tuile à dégradé radial teinté ─────────────────────────────────
 export function StatTile({ icon: Icon, color = C.accent, value, unit, label, animate = false, size = 24 }) {
   return (
-    <div className="rounded-2xl p-3.5" style={cardStyle({ background: `radial-gradient(130% 130% at 0% 0%, ${color}24, transparent 58%), ${C.cardGrad}` })}>
+    <div className="rounded-2xl cm-card" style={cardStyle({ background: `radial-gradient(130% 130% at 0% 0%, ${color}24, transparent 58%), ${C.cardGrad}` })}>
       {Icon && <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-full" style={{ backgroundColor: `${color}26`, color }}><Icon size={16} /></span>}
       <div className="flex items-baseline gap-1">
         {animate

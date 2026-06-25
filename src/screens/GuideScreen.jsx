@@ -262,7 +262,7 @@ export function GuideScreen({ onAddExtra, dateLabel, settings }) {
         <RefRow icon={Wine} label="Vin" value="~125 kcal" hint="par verre de 15 cl" />
       </GuideBlock>
 
-      <div className="rounded-2xl p-4" style={cardStyle()}>
+      <div className="rounded-2xl cm-card" style={cardStyle()}>
         <p className="text-sm font-semibold" style={{ color: C.ink }}>Le réflexe</p>
         <p className="mt-1 text-sm" style={{ color: C.sub }}>Quelle que soit la source, logge le résultat dans <span style={{ color: C.extra, fontWeight: 600 }}>Extras</span> (presets boissons inclus). L'alcool compte vraiment : 7 kcal/g et il met la combustion des graisses en pause le temps d'être éliminé.</p>
       </div>
@@ -296,7 +296,7 @@ function GuideBlock({ icon: Icon, color, title, desc, children, defaultOpen = fa
 
 function AppCard({ name, role, url, tint }) {
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-2xl p-3 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, textDecoration: "none" }}>
+    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-2xl cm-card active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, textDecoration: "none" }}>
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold" style={{ backgroundColor: `${tint}26`, color: tint }}>{name[0]}</span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold" style={{ color: C.ink }}>{name}</p>
@@ -310,7 +310,7 @@ function AppCard({ name, role, url, tint }) {
 
 function RefRow({ icon: Icon, label, value, hint }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+    <div className="flex items-center gap-3 rounded-2xl cm-card" style={{ backgroundColor: C.paper }}>
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: C.track, color: C.sub }}><Icon size={15} /></span>
       <div className="min-w-0 flex-1">
         <p className="text-sm" style={{ color: C.ink }}><span className="font-semibold">{label}</span> · <span style={{ color: C.protein, fontWeight: 600 }}>{value}</span></p>
@@ -351,7 +351,7 @@ function DrinkCalc({ onAddExtra, dateLabel }) {
   );
 
   return (
-    <div className="mb-4 rounded-3xl p-4" style={cardStyle()}>
+    <div className="mb-4 rounded-3xl cm-card" style={cardStyle()}>
       <div className="mb-3 flex items-center gap-2">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.protein}22`, color: C.protein }}><Beer size={17} /></span>
         <h3 className="text-sm font-bold" style={{ color: C.ink }}>Calculateur boisson</h3>
@@ -385,7 +385,7 @@ function DrinkCalc({ onAddExtra, dateLabel }) {
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between rounded-2xl p-3" style={{ backgroundColor: C.paper }}>
+      <div className="mt-3 flex items-center justify-between rounded-2xl cm-card" style={{ backgroundColor: C.paper }}>
         <div>
           <p className="text-xs uppercase tracking-wide" style={{ color: C.muted }}>Estimation</p>
           <p className="text-2xl font-extrabold leading-none" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>{kcal} <span className="text-sm font-medium" style={{ color: C.sub }}>kcal</span></p>

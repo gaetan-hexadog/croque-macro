@@ -28,7 +28,7 @@ export function SportHome({ workouts, currentWeek, sessionDays, onOpen, onOpenDe
 
       {/* Timeline de la semaine */}
       <SectionTitle>Cette semaine</SectionTitle>
-      <div className="relative mb-4 pl-7">
+      <div className="relative mb-5 pl-7">
         <div className="absolute left-2.5 top-3 bottom-4" style={{ width: 2, backgroundColor: C.line }} />
         {SESSION_ORDER.map((sid) => {
           const s = SESSIONS[sid];
@@ -37,11 +37,11 @@ export function SportHome({ workouts, currentWeek, sessionDays, onOpen, onOpenDe
           const sugg = getAdaptiveSuggestion(workouts, sid);
           const dotCol = done ? C.green : isToday ? C.accent : C.muted;
           return (
-            <div key={sid} className="relative mb-2.5">
+            <div key={sid} className="relative mb-3">
               <span className="absolute -left-7 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full" style={{ backgroundColor: done || isToday ? dotCol : C.paper, border: `2px solid ${done || isToday ? dotCol : C.line}` }}>
                 {done && <Check size={11} color="#fff" />}
               </span>
-              <button onClick={() => onOpen(sid)} className="flex w-full items-center gap-3 rounded-2xl p-3.5 text-left active:scale-[0.99]" style={cardStyle(isToday && !done ? { border: `1px solid ${C.accent}`, borderTop: `1px solid ${C.accent}` } : undefined)}>
+              <button onClick={() => onOpen(sid)} className="flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle(isToday && !done ? { border: `1px solid ${C.accent}`, borderTop: `1px solid ${C.accent}` } : undefined)}>
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: done ? `${C.green}22` : C.paper, color: done ? C.green : C.sub }}>
                   {done ? <Check size={18} /> : <Dumbbell size={17} />}
                 </span>
@@ -76,7 +76,7 @@ function ProgressCard({ workouts, currentWeek }) {
   const trendLabel = trend?.direction === "up" ? "Force en hausse" : trend?.direction === "down" ? "Force en baisse" : "Force stable";
 
   return (
-    <div className="mb-4 rounded-2xl p-4" style={cardStyle()}>
+    <div className="mb-5 rounded-2xl cm-card" style={cardStyle()}>
       {/* Force */}
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-sm font-bold" style={{ color: C.ink }}>
@@ -88,7 +88,7 @@ function ProgressCard({ workouts, currentWeek }) {
       </div>
 
       {/* Assiduité */}
-      <div className="mt-3 flex items-center justify-between border-t pt-3" style={{ borderColor: C.line }}>
+      <div className="mt-4 flex items-center justify-between border-t pt-4" style={{ borderColor: C.line }}>
         <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.sub }}><CalendarCheck size={13} /> Assiduité 6 sem.</span>
         <div className="flex items-end gap-1.5">
           {ass.map((a) => (
@@ -109,7 +109,7 @@ function Banner({ level, title, message }) {
   const col = level === "warning" ? C.over : level === "good" ? C.green : C.weight;
   const Icon = level === "warning" ? AlertTriangle : Info;
   return (
-    <div className="mb-4 flex gap-3 rounded-2xl p-4" style={{ backgroundColor: `${col}14`, border: `1px solid ${col}44` }}>
+    <div className="mb-4 flex gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${col}14`, border: `1px solid ${col}44` }}>
       <Icon size={18} style={{ color: col, flexShrink: 0, marginTop: 2 }} />
       <div>
         <p className="text-sm font-bold" style={{ color: C.ink }}>{title}</p>
@@ -122,7 +122,7 @@ function Banner({ level, title, message }) {
 function RecentHistory({ workouts, onOpenDetail, onManualLog }) {
   const list = Object.values(workouts || {}).filter((e) => e?.completed).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
   return (
-    <div className="mb-4 rounded-2xl p-4" style={cardStyle()}>
+    <div className="mb-5 rounded-2xl cm-card" style={cardStyle()}>
       <div className="mb-2 flex items-center justify-between">
         <p className="flex items-center gap-2 text-sm font-bold" style={{ color: C.ink }}><HistoryIcon size={15} /> Dernières séances</p>
         <button onClick={onManualLog} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><PenLine size={13} /> Ajouter</button>
@@ -154,7 +154,7 @@ function RecentHistory({ workouts, onOpenDetail, onManualLog }) {
 function AdaptGuide() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="mb-4 rounded-2xl p-4" style={cardStyle()}>
+    <div className="mb-5 rounded-2xl cm-card" style={cardStyle()}>
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between active:scale-95">
         <span className="flex items-center gap-2 text-sm font-bold" style={{ color: C.ink }}><BookOpen size={15} /> Si ça coince…</span>
         <ChevronRight size={16} style={{ color: C.muted, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} />

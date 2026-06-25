@@ -55,14 +55,14 @@ export function RecipeAdaptSheet({ recipe, favorites = [], knownFoods = [], pant
       </button>
 
       {error && (
-        <div className="mt-3 flex items-start gap-2 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
+        <div className="mt-3 flex items-start gap-2 rounded-2xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
           <AlertCircle size={16} style={{ color: C.over, flexShrink: 0, marginTop: 1 }} />
           <p className="text-xs font-semibold" style={{ color: C.ink }}>{error.message}</p>
         </div>
       )}
 
       {result && (
-        <div className="mt-3 rounded-2xl p-3.5" style={cardStyle()}>
+        <div className="mt-3 rounded-2xl cm-card" style={cardStyle()}>
           <div className="flex items-start gap-2.5">
             <span className="text-2xl leading-none">{result.emoji || "🍽️"}</span>
             <div className="min-w-0 flex-1">

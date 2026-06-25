@@ -42,7 +42,7 @@ export function ManualLogSheet({ open, onClose, currentWeek, workouts, onSave, s
         {SESSION_ORDER.map((k) => {
           const on = sid === k;
           return (
-            <button key={k} onClick={() => setSid(k)} className="flex w-full items-center gap-3 rounded-2xl p-3.5 text-left active:scale-[0.99]" style={{ backgroundColor: C.paper, border: `1px solid ${on ? C.accent : C.line}` }}>
+            <button key={k} onClick={() => setSid(k)} className="flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={{ backgroundColor: C.paper, border: `1px solid ${on ? C.accent : C.line}` }}>
               <span className="flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold" style={{ backgroundColor: on ? C.accent : C.card, color: on ? "#fff" : C.sub }}>{k}</span>
               <span className="flex-1"><span className="block text-sm font-bold" style={{ color: C.ink }}>{SESSIONS[k].name}</span><span className="block text-xs" style={{ color: C.muted }}>{SESSIONS[k].subtitle}</span></span>
               {on && <Check size={18} style={{ color: C.accent }} />}

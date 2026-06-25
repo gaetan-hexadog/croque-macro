@@ -15,7 +15,7 @@ export function WeekStrip({ days, weights, settings, refISO, freeTonight, onOpen
   const tc = toneColor(coach.tone);
   const bal = Math.round(stats.balance);
   return (
-    <button onClick={onOpen} className="mb-4 w-full rounded-2xl p-4 text-left active:scale-95" style={cardStyle()}>
+    <button onClick={onOpen} className="mb-4 w-full rounded-2xl cm-card text-left active:scale-95" style={cardStyle()}>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Cette semaine</span>
         <ChevronRight size={15} style={{ color: C.muted }} />
@@ -80,7 +80,7 @@ export function WeekCard({ days, weights, settings, refISO }) {
       <p className="mt-3 text-sm" style={{ color: C.sub }}>{coach.detail}</p>
 
       {coach.suggestTomorrow != null && (
-        <div className="mt-3 flex items-center gap-2 rounded-2xl p-3" style={{ backgroundColor: `${tc}14`, border: `1px solid ${tc}33` }}>
+        <div className="mt-3 flex items-center gap-2 rounded-2xl cm-card" style={{ backgroundColor: `${tc}14`, border: `1px solid ${tc}33` }}>
           <Sparkles size={16} style={{ color: tc }} />
           <p className="text-sm font-semibold" style={{ color: C.ink }}>Cap de demain : ~{coach.suggestTomorrow} kcal</p>
         </div>

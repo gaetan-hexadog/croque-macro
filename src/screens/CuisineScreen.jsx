@@ -91,7 +91,7 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
           <div className="mb-2.5 flex items-center gap-1.5 px-1"><Clock size={13} style={{ color: C.accent }} /><span className="text-xs font-bold uppercase tracking-widest" style={{ color: C.sub }}>Récents & favoris</span></div>
           <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             {recents.map((m) => (
-              <button key={`r-${m.kind}-${m.id}`} onClick={() => setDetail(m)} className="flex w-40 shrink-0 flex-col rounded-2xl p-3.5 text-left active:scale-95" style={cardStyle()}>
+              <button key={`r-${m.kind}-${m.id}`} onClick={() => setDetail(m)} className="flex w-40 shrink-0 flex-col rounded-2xl cm-card text-left active:scale-95" style={cardStyle()}>
                 <span className="text-2xl">{m.emoji || "🍽️"}</span>
                 <span className="mt-1.5 truncate text-xs font-bold" style={{ color: C.ink }}>{m.name}</span>
                 <span className="mt-0.5 text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>

@@ -18,7 +18,7 @@ export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajout
   };
   const hasDetail = (meal.ingredients?.length || meal.steps?.length);
   return (
-    <div className="rounded-2xl p-3.5" style={cardStyle()}>
+    <div className="rounded-2xl cm-card" style={cardStyle()}>
       <div className="flex items-start gap-2.5">
         <span className="text-2xl leading-none">{meal.emoji || "🍽️"}</span>
         <div className="min-w-0 flex-1">

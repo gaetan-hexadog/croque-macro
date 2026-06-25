@@ -80,7 +80,7 @@ export function MealSuggestSheet({
       </button>
 
       {error && (
-        <div className="mt-3 flex items-start gap-2 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
+        <div className="mt-3 flex items-start gap-2 rounded-2xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
           <AlertCircle size={16} style={{ color: C.over, flexShrink: 0, marginTop: 1 }} />
           <div className="text-xs" style={{ color: C.sub }}>
             <p className="font-semibold" style={{ color: C.ink }}>{error.message}</p>

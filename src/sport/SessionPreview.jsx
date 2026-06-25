@@ -16,7 +16,7 @@ export function SessionPreview({ session, week, workouts, done, onBack, onStart 
       {cardio ? (
         <>
           {session.blocks.map((b, i) => (
-            <div key={i} className="mb-3 rounded-2xl p-4" style={cardStyle()}>
+            <div key={i} className="mb-3 rounded-2xl cm-card" style={cardStyle()}>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-bold" style={{ color: C.ink }}>{b.name}</p>
                 <span className="text-xs font-semibold" style={{ color: C.sub }}>{b.machine}</span>
@@ -25,7 +25,7 @@ export function SessionPreview({ session, week, workouts, done, onBack, onStart 
               <p className="mt-1 text-xs" style={{ color: C.muted }}>{b.tip}</p>
             </div>
           ))}
-          <div className="mb-3 rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}` }}>
+          <div className="mb-3 rounded-2xl cm-card" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}` }}>
             <p className="text-xs" style={{ color: C.sub }}>Résistance rameur suggérée cette semaine : <span className="font-bold" style={{ color: C.ink }}>{getRowerResistance(week)}/10</span></p>
           </div>
         </>
@@ -33,7 +33,7 @@ export function SessionPreview({ session, week, workouts, done, onBack, onStart 
         session.exercises.map((ex) => {
           const presc = getExercisePrescription(ex, week, workouts);
           return (
-            <div key={ex.name} className="mb-3 rounded-2xl p-4" style={cardStyle()}>
+            <div key={ex.name} className="mb-3 rounded-2xl cm-card" style={cardStyle()}>
               <div className="mb-1 flex items-start justify-between gap-2">
                 <p className="text-sm font-bold" style={{ color: C.ink }}>{ex.name}</p>
                 <PrescriptionBadge presc={presc} ex={ex} />
@@ -70,7 +70,7 @@ function chargeHint(ex, presc) {
 
 function Banner({ title, message }) {
   return (
-    <div className="mb-3 flex gap-3 rounded-2xl p-4" style={{ backgroundColor: `${C.green}14`, border: `1px solid ${C.green}44` }}>
+    <div className="mb-3 flex gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${C.green}14`, border: `1px solid ${C.green}44` }}>
       <Info size={18} style={{ color: C.green, flexShrink: 0, marginTop: 2 }} />
       <div>
         <p className="text-sm font-bold" style={{ color: C.ink }}>{title}</p>
@@ -82,7 +82,7 @@ function Banner({ title, message }) {
 
 function PhaseCard({ label, detail }) {
   return (
-    <div className="mb-3 rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}` }}>
+    <div className="mb-3 rounded-2xl cm-card" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}` }}>
       <p className="text-xs font-bold" style={{ color: C.sub }}>{label}</p>
       <p className="mt-0.5 text-xs" style={{ color: C.muted }}>{detail}</p>
     </div>

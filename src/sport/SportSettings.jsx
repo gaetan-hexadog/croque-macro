@@ -22,7 +22,7 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   return (
     <Sheet open={open} onClose={onClose} title="Réglages Sport" subtitle="Semaine · jours · minuteurs" icon={<Settings size={18} />} iconColor={C.accent}>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Semaine du programme</p>
-      <div className="mb-5 rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+      <div className="mb-5 rounded-2xl cm-card" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
         <div className="flex items-center justify-center gap-4">
           <button onClick={() => setWeek((currentWeek || 1) - 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, color: C.sub }}><Minus size={16} /></button>
           <span className="text-xl font-extrabold tabular-nums" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>S{currentWeek}<span className="text-sm font-bold" style={{ color: C.muted }}>/14</span></span>
@@ -34,7 +34,7 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Jours de séance</p>
       <div className="mb-5 space-y-2.5">
         {SESSION_ORDER.map((sid) => (
-          <div key={sid} className="rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+          <div key={sid} className="rounded-2xl cm-card" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
             <p className="mb-2 text-sm font-bold" style={{ color: C.ink }}>{SESSIONS[sid].name} · <span className="font-normal" style={{ color: C.sub }}>{SESSIONS[sid].subtitle}</span></p>
             <div className="flex gap-1.5">
               {DAYS.map((d) => {
@@ -49,7 +49,7 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
       </div>
 
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Minuteurs</p>
-      <button onClick={toggleSound} className="flex w-full items-center gap-3 rounded-2xl p-3.5 active:scale-[0.99]" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+      <button onClick={toggleSound} className="flex w-full items-center gap-3 rounded-2xl cm-card active:scale-[0.99]" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
         <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: soundOn ? `${C.green}1a` : C.card, color: soundOn ? C.green : C.muted }}>{soundOn ? <Volume2 size={17} /> : <VolumeX size={17} />}</span>
         <span className="flex-1 text-left text-sm font-semibold" style={{ color: C.ink }}>Bips de fin de repos / d'intervalle</span>
         <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: soundOn ? C.green : C.card, color: soundOn ? "#fff" : C.sub }}>{soundOn ? "Activés" : "Coupés"}</span>

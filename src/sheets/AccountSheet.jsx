@@ -44,7 +44,7 @@ export function AccountSheet({ session, status, onClose }) {
     <Sheet open onClose={onClose} title="Compte & synchronisation">
         {session ? (
           <div className="space-y-4">
-            <div className="rounded-2xl p-4" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+            <div className="rounded-2xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
               <p className="text-sm" style={{ color: C.ink }}>Connecté</p>
               <p className="text-sm font-medium" style={{ color: C.ink }}>{session.user.email}</p>
               <div className="mt-2 flex items-center gap-1.5 text-xs font-medium" style={{ color: statusUI.color }}>{statusUI.icon} {statusUI.label}</div>

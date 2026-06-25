@@ -18,7 +18,7 @@ function OptionCard({ meal, selected, onSelect, onSave, saved, varSel, onToggleV
   const detail = meal.ingredients?.length || meal.steps?.length;
   const eff = applyVariants(meal, varSel);
   return (
-    <div onClick={onSelect} role="button" className="cursor-pointer rounded-2xl p-3" style={{ ...cardStyle(), outline: selected ? `2px solid ${C.green}` : `1px solid transparent`, outlineOffset: -1 }}>
+    <div onClick={onSelect} role="button" className="cursor-pointer rounded-2xl cm-card" style={{ ...cardStyle(), outline: selected ? `2px solid ${C.green}` : `1px solid transparent`, outlineOffset: -1 }}>
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ border: `2px solid ${selected ? C.green : C.muted}`, backgroundColor: selected ? C.green : "transparent" }}>{selected && <Check size={12} className="text-white" />}</span>
         <span className="text-xl leading-none">{meal.emoji || "🍽️"}</span>
@@ -229,7 +229,7 @@ export default function PlanScreen({
       })()}
 
       {error && (
-        <div className="flex items-start gap-2 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
+        <div className="flex items-start gap-2 rounded-2xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
           <AlertCircle size={16} style={{ color: C.over, flexShrink: 0, marginTop: 1 }} />
           <div className="text-xs" style={{ color: C.sub }}>
             <p className="font-semibold" style={{ color: C.ink }}>{error.message}</p>

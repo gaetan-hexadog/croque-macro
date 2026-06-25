@@ -79,7 +79,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: "pan-y" }}>
       {/* Ajustement de la cible selon le poids réel (proposé, jamais imposé) */}
       {targetSuggestion && (
-        <div className="mb-4 rounded-2xl p-4" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}55` }}>
+        <div className="mb-4 rounded-2xl cm-card" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}55` }}>
           <div className="mb-2 flex items-start gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: C.weight, color: "#fff" }}><Scale size={16} /></span>
             <div className="min-w-0 flex-1">
@@ -125,7 +125,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       {/* Séance du jour (programme sport) — lien vers l'onglet Sport */}
       {sportInfo && (
-        <button onClick={onGoSport} className="mb-4 flex w-full items-center gap-3 rounded-2xl p-3.5 text-left active:scale-[0.99]" style={cardStyle(sportInfo.done ? undefined : { border: `1px solid ${C.green}`, borderTop: `1px solid ${C.green}` })}>
+        <button onClick={onGoSport} className="mb-4 flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle(sportInfo.done ? undefined : { border: `1px solid ${C.green}`, borderTop: `1px solid ${C.green}` })}>
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: sportInfo.done ? `${C.green}22` : C.paper, color: sportInfo.done ? C.green : C.sub }}>{sportInfo.done ? <Check size={18} /> : <Dumbbell size={18} />}</span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold" style={{ color: C.ink }}>Séance du jour · {sportInfo.name}</span>
@@ -137,7 +137,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       {/* Coaching recomposition : force ↔ poids */}
       {recomp && (
-        <div className="mb-4 flex gap-3 rounded-2xl p-4" style={{ backgroundColor: `${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}14`, border: `1px solid ${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}44` }}>
+        <div className="mb-4 flex gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}14`, border: `1px solid ${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}44` }}>
           <Dumbbell size={18} style={{ color: recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight, flexShrink: 0, marginTop: 2 }} />
           <div>
             <p className="text-sm font-bold" style={{ color: C.ink }}>{recomp.title}</p>
@@ -147,7 +147,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       {/* Dashboard compact : petit anneau + jauges linéaires + log rapide intégré */}
-      <section className="mb-4 rounded-3xl p-4" style={cardStyle()}>
+      <section className="mb-4 rounded-3xl cm-card" style={cardStyle()}>
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>{over ? "Dépassé" : "Restant aujourd'hui"}</span>
           <button onClick={onToggleTraining} aria-pressed={training} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={training ? { backgroundColor: `${C.weight}26`, color: C.weight } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}><Dumbbell size={12} /> Training</button>
@@ -211,7 +211,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       {/* Démarrage rapide sur jour vide : reprendre une journée type en 1 tap */}
       {ribbon.length === 0 && (hasPrevDay || templates.length > 0) && (
-        <div className="mb-3 rounded-2xl p-3" style={cardStyle()}>
+        <div className="mb-3 rounded-2xl cm-card" style={cardStyle()}>
           <p className="mb-2 px-0.5 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Démarrage rapide</p>
           <div className="flex flex-wrap gap-2">
             {hasPrevDay && (
@@ -685,7 +685,7 @@ function TemplatesSheet({ templates, hasContent, hasPrevDay, onCopyPrev, onSave,
             {templates.map((t) => {
               const tot = dayTotals(t);
               return (
-                <div key={t.id} className="flex items-center gap-2 rounded-2xl p-3" style={cardStyle()}>
+                <div key={t.id} className="flex items-center gap-2 rounded-2xl cm-card" style={cardStyle()}>
                   <button onClick={() => onLoad(t.id)} className="min-w-0 flex-1 text-left active:scale-95">
                     <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{t.name}</p>
                     <p className="text-xs" style={{ color: C.sub, fontVariantNumeric: "tabular-nums" }}>{tot.kcal} kcal · {tot.p} g prot.</p>

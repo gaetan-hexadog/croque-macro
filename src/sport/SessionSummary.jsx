@@ -20,7 +20,7 @@ export function SessionSummary({ sessionName, subtitle, stats, isPR, onSave }) {
       </div>
 
       {isPR && volumeKg > 0 && (
-        <div className="mt-4 flex items-center gap-3 rounded-2xl p-3.5" style={{ background: `linear-gradient(120deg, ${C.accent}22, transparent)`, border: `1px solid ${C.accent}44` }}>
+        <div className="mt-4 flex items-center gap-3 rounded-2xl cm-card" style={{ background: `linear-gradient(120deg, ${C.accent}22, transparent)`, border: `1px solid ${C.accent}44` }}>
           <Trophy size={22} style={{ color: C.accent }} />
           <div>
             <p className="text-sm font-extrabold" style={{ color: C.ink }}>Record de volume ! 🎉</p>
@@ -36,7 +36,7 @@ export function SessionSummary({ sessionName, subtitle, stats, isPR, onSave }) {
         {volumeKg > 0 && <StatTile icon={Flame} color={C.protein} value={volumeKg} unit="kg" label="Volume total" animate />}
       </div>
 
-      <div className="mb-4 rounded-2xl p-4 text-center" style={cardStyle()}>
+      <div className="mb-4 rounded-2xl cm-card text-center" style={cardStyle()}>
         <p className="mb-2 text-sm font-bold" style={{ color: C.ink }}>Comment tu te sens ?</p>
         <div className="flex justify-center gap-2">
           {[1, 2, 3, 4, 5].map((n) => (

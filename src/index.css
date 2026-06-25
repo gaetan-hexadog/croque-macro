@@ -2,7 +2,16 @@
 
 :root {
   color-scheme: light dark;
+  /* ── Aération centralisée ── un seul endroit pour desserrer toute l'app. ── */
+  --cm-card-pad: 1.15rem;  /* padding interne des cartes (.cm-card)   ~ p-4.5 */
+  --cm-gap: 1.25rem;       /* respiration entre blocs empilés (.cm-stack)     */
 }
+
+/* Padding de carte centralisé : remplace les p-4/p-3.5 sur les cartes premium.
+   Un seul réglage (--cm-card-pad) aère toutes les cartes d'un coup. */
+.cm-card { padding: var(--cm-card-pad); }
+/* Rythme vertical entre blocs d'un écran : remplace space-y-* sur la racine. */
+.cm-stack > * + * { margin-top: var(--cm-gap); }
 
 html,
 body,

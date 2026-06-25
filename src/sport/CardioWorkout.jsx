@@ -30,7 +30,7 @@ export function CardioWorkout({ session, week, sound = true, onFinish }) {
 
       {step.kind === "numbers" && (
         <div>
-          <div className="mb-4 rounded-2xl p-4" style={cardStyle()}>
+          <div className="mb-4 rounded-2xl cm-card" style={cardStyle()}>
             <p className="mb-3 text-sm font-bold" style={{ color: C.ink }}>Tes chiffres (facultatif)</p>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Distance rameur (m)" value={cardio.distance} onChange={(v) => set("distance", v)} />

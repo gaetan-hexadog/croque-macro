@@ -75,7 +75,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
           <ChevronRight size={16} style={{ transform: showCalc ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
         </button>
         {showCalc && (
-          <div className="mb-4 space-y-3 rounded-2xl p-4" style={cardStyle()}>
+          <div className="mb-4 space-y-3 rounded-2xl cm-card" style={cardStyle()}>
             <div className="grid grid-cols-2 gap-2">
               <Seg label="Sexe" options={[{ v: "h", l: "Homme" }, { v: "f", l: "Femme" }]} value={profile.sex} onChange={(v) => setP("sex", v)} />
               <NumField label="Âge" value={profile.age} onChange={(v) => setP("age", v)} suffix="ans" />
@@ -103,7 +103,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
           <ChevronRight size={16} style={{ transform: showBase ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
         </button>
         {showBase && (
-          <div className="mb-3 rounded-2xl p-3" style={cardStyle()}>
+          <div className="mb-3 rounded-2xl cm-card" style={cardStyle()}>
             <CustomBaseManager items={customMeals} onUpdate={onUpdateCustom} onDelete={onDeleteCustom} />
           </div>
         )}
@@ -124,7 +124,7 @@ export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, 
           <ChevronRight size={16} style={{ transform: showData ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
         </button>
         {showData && (
-          <div className="mb-4 space-y-3 rounded-2xl p-4" style={cardStyle()}>
+          <div className="mb-4 space-y-3 rounded-2xl cm-card" style={cardStyle()}>
             <p className="text-xs" style={{ color: C.sub }}>Exporte tes repas et ton poids dans un fichier, ou réimporte-les (les jours se fusionnent, l'import ne supprime rien).</p>
             <div className="flex gap-2">
               <button onClick={doExport} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.green }}><TrendingUp size={15} /> Exporter</button>

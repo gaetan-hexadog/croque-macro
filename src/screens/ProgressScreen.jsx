@@ -80,7 +80,7 @@ function TrendCard({ days, weights, period }) {
   }, [days, weights, period]);
 
   return (
-    <div className="mb-3 rounded-3xl p-4" style={cardStyle()}>
+    <div className="mb-3 rounded-3xl cm-card" style={cardStyle()}>
       <div className="mb-3 flex items-center gap-2">
         <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: C.protein }} />
         <h3 className="text-sm font-bold" style={{ color: C.ink }}>Tendance déficit</h3>
@@ -170,7 +170,7 @@ function WeightChart({ points }) {
 
 function ChartCard({ title, subtitle, accent, deltaColor, children }) {
   return (
-    <div className="mb-3 rounded-3xl p-4" style={cardStyle()}>
+    <div className="mb-3 rounded-3xl cm-card" style={cardStyle()}>
       <div className="mb-3 flex items-center gap-2">
         <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: accent }} />
         <h3 className="text-sm font-bold" style={{ color: C.ink }}>{title}</h3>
@@ -184,7 +184,7 @@ function ChartCard({ title, subtitle, accent, deltaColor, children }) {
 
 function KPI({ label, value, tint }) {
   return (
-    <div className="rounded-2xl p-3 text-center" style={cardStyle()}>
+    <div className="rounded-2xl cm-card text-center" style={cardStyle()}>
       <p className="text-lg font-extrabold leading-tight" style={{ color: tint, fontVariantNumeric: "tabular-nums", fontFamily: "'Space Grotesk', system-ui" }}>{value}</p>
       <p className="mt-0.5 text-xs" style={{ color: C.muted }}>{label}</p>
     </div>
