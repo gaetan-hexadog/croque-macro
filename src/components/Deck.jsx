@@ -220,48 +220,34 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                       </div>
                     </div>
                   )}
-                  {suggestions.length > 0 && (
-                    <div className="mb-4">
-                      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}><Sparkles size={13} /> Suggéré pour ce repas</p>
-                      <div className="space-y-2">{suggestions.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={pickFood} onDelete={onDeleteCustom} />)}</div>
-                    </div>
-                  )}
-                  {recent.length > 0 && (
-                    <div className="mb-4">
-                      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}><Clock size={13} /> Récents</p>
-                      <div className="flex flex-wrap gap-1.5">{recent.map((m) => <ChipBtn key={m.name} m={m} onChoose={pickFood} />)}</div>
-                    </div>
-                  )}
-                  {frequent.length > 0 && (
-                    <div className="mb-4">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Fréquents</p>
-                      <div className="flex flex-wrap gap-1.5">{frequent.map((m) => <ChipBtn key={m.name} m={m} onChoose={pickFood} />)}</div>
-                    </div>
-                  )}
-                  <button onClick={() => setBrowseAll((v) => !v)} className="mb-3 flex w-full items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider active:scale-95" style={{ color: C.muted }}>
-                    {browseAll ? "Réduire" : `Parcourir toute ma base (${allForSlot.length})`}
-                    <ChevronDown size={13} style={{ transform: browseAll ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                  {/* « Parcourir ma base » : suggéré + tout, replié par défaut (réduit le mur). */}
+                  <button onClick={() => setBrowseAll((v) => !v)} className="mb-3 flex w-full items-center justify-between rounded-2xl px-3.5 py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+                    <span className="flex items-center gap-1.5"><Sparkles size={14} style={{ color: ui.color }} /> {browseAll ? "Réduire" : `Parcourir ma base (${allForSlot.length})`}</span>
+                    <ChevronDown size={15} style={{ transform: browseAll ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
                   </button>
                   {browseAll && (
                     <div className="mb-2 space-y-2">
+                      {suggestions.length > 0 && <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}><Sparkles size={13} /> Suggéré pour ce repas</p>}
+                      {suggestions.map((m) => <FoodRow key={`s-${m.id}`} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={pickFood} onDelete={onDeleteCustom} />)}
+                      {suggestions.length > 0 && <div className="h-2" />}
                       {allForSlot.map((m) => <FoodRow key={m.id} m={m} accent={ui.color} fitColor={fitMeta[fitOf(m)].fg} onChoose={pickFood} onDelete={onDeleteCustom} />)}
                     </div>
                   )}
                 </>
               )}
 
-              {/* Autres moyens d'ajout (secondaire, sous les raccourcis) */}
+              {/* Méthodes d'ajout — grille compacte (toujours visible). */}
               <p className="mb-2 mt-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Autre moyen</p>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5">
                 {onAssist && <MethodBtn icon={Wand2} color={C.accent} label="Assistant" onClick={() => onAssist(slotKey)} />}
-                {onPhotoLog && <MethodBtn icon={Camera} color={C.accent} label="Photo / décrire" onClick={onPhotoLog} />}
-                <MethodBtn icon={Refrigerator} color={C.weight} label="Frigo" onClick={() => setPanel("frigo")} />
-                <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
-                <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
-                <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Mes repas" onClick={() => setPanel("combos")} />
+                {onPhotoLog && <MethodBtn icon={Camera} color={C.accent} label="Photo" onClick={onPhotoLog} />}
                 <MethodBtn icon={ScanLine} color={C.weight} label="Scanner" onClick={() => setPanel("off")} />
-                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Cookie} color={C.extra} label="Plaisirs" onClick={() => setPanel("plaisirs")} /> : <MethodBtn icon={Pencil} color={C.extra} label="Manuel" onClick={() => setCustomOpen(true)} />}
-                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Pencil} color={C.sub} label="Manuel" onClick={() => setCustomOpen(true)} /> : null}
+                <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
+                <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Repas" onClick={() => setPanel("combos")} />
+                <MethodBtn icon={Refrigerator} color={C.weight} label="Frigo" onClick={() => setPanel("frigo")} />
+                <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
+                {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Cookie} color={C.extra} label="Plaisirs" onClick={() => setPanel("plaisirs")} /> : null}
+                <MethodBtn icon={Pencil} color={C.extra} label="Manuel" onClick={() => setCustomOpen(true)} />
               </div>
 
             </>
