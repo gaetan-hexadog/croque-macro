@@ -437,9 +437,11 @@ export default function PiocheRepas() {
   // Frigo/placard : staples avec interrupteur dispo (out=true → pas dispo aujourd'hui)
   // + macros optionnelles (kcal/p) renseignables au scan, éditables.
   // data : { unit, qty (stock total), kcal100, p100 (densité /100 unité) }
-  const addPantry = (name, data) => setPantry((cur) => {
+  const addPantry = (name, data) => {
     const n = String(name || "").trim();
-    if (!n || cur.some((x) => x.name.toLowerCase() === n.toLowerCase())) return cur;
+    if (!n) return;
+    const dup = pantry.find((x) => x.name.toLowerCase() === n.toLowerCase());
+    if (dup) { showToast(dup.out ? `${dup.name} était en rupture — remis dispo` : `${n} est déjà dans ton frigo`); if (dup.out) togglePantry(dup.id); return; }
     const extra = {};
     if (data) {
       if (data.unit) extra.unit = data.unit;
@@ -447,10 +449,17 @@ export default function PiocheRepas() {
       const k = Math.round(data.kcal100 || 0); if (k > 0) extra.kcal100 = k;
       const p = Math.round((data.p100 || 0) * 10) / 10; if (p > 0) extra.p100 = p;
     }
-    return [{ id: newId("pan"), name: n, out: false, ...extra }, ...cur].slice(0, 120);
-  });
+    setPantry((cur) => [{ id: newId("pan"), name: n, out: false, ...extra }, ...cur].slice(0, 120));
+    showToast(`${n} ajouté au frigo`);
+  };
   const togglePantry = (id) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, out: !x.out } : x));
-  const updatePantry = (id, patch) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
+  // Patch partiel : on ignore les clés undefined (= champ laissé vide à l'édition →
+  // garder l'ancienne valeur au lieu de l'effacer, sinon nom/macros passaient à undefined).
+  const updatePantry = (id, patch) => setPantry((cur) => cur.map((x) => {
+    if (x.id !== id) return x;
+    const clean = {}; for (const kk in patch) if (patch[kk] !== undefined) clean[kk] = patch[kk];
+    return { ...x, ...clean };
+  }));
   const removePantry = (id) => { const it = pantry.find((x) => x.id === id); setPantry((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} retiré du frigo`, () => setPantry((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
   const meals = useMemo(() => [
@@ -693,7 +702,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} />
+          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} />
         )}
         {view === "sport" && (
           <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} />
@@ -721,8 +730,8 @@ export default function PiocheRepas() {
           shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack} />
       )}
       {toolOpen && (
-        <Sheet open onClose={navBack} title="Scanner un produit" subtitle="Feu nutritionnel & ajout" icon={<ScanLine size={18} />} iconColor={C.protein}>
-          <p className="mb-3 text-xs" style={{ color: C.muted }}>Scanne ou cherche un produit pour voir son feu 🟢/🟠/🔴 et l'enregistrer dans ta base (« je consomme ça »).</p>
+        <Sheet open onClose={navBack} title="Scanner un produit" subtitle="Feu nutritionnel & ajout au jour" icon={<ScanLine size={18} />} iconColor={C.protein}>
+          <p className="mb-3 text-xs" style={{ color: C.muted }}>Scanne ou cherche un produit pour voir son feu 🟢/🟠/🔴. <span style={{ color: C.sub }}>« Ajouter »</span> l'inscrit dans tes <span style={{ color: C.sub }}>en-cas d'aujourd'hui</span> ; <span style={{ color: C.sub }}>« je consomme ça »</span> le garde dans ta base pour le retrouver.</p>
           <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={saveCustomMeal} />
         </Sheet>
       )}

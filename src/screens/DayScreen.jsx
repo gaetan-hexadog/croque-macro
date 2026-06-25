@@ -435,10 +435,10 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm,
         <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left active:opacity-70">
           {plaisir && <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${C.extra}26`, color: C.extra }}>PLAISIR</span>}
           <span className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}{q !== 1 && <span style={{ color: accent }}> ×{fmtQty(q)}</span>}</span>
-          {hasRecipe && <span role="button" onClick={(e) => { e.stopPropagation(); onViewRecipe && onViewRecipe(m); }} className="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[9px] font-bold active:scale-95" style={{ backgroundColor: `${C.weight}22`, color: C.weight }}><BookOpen size={9} /> RECETTE</span>}
         </button>
+        {hasRecipe && <button onClick={() => onViewRecipe && onViewRecipe(m)} className="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1 text-[9px] font-bold active:scale-95" style={{ backgroundColor: `${C.weight}22`, color: C.weight }} aria-label="Voir la recette"><BookOpen size={9} /> RECETTE</button>}
         <span className="shrink-0 text-[11px] tabular-nums" style={{ color: C.muted }}>{r0(m.kcal * q)} · {r0(m.p * q)} g</span>
-        <button onClick={() => setOpen((o) => !o)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded active:scale-90" style={{ color: C.muted }} aria-label="Actions"><ChevronRight size={15} style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} /></button>
+        <button onClick={() => setOpen((o) => !o)} className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg active:scale-90" style={{ color: C.muted }} aria-label="Actions"><ChevronRight size={16} style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} /></button>
       </div>
 
       {open && (

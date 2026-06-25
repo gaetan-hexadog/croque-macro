@@ -38,6 +38,18 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill 
   const addIng = () => setIngRows((rows) => [...rows, { qty: "", unit: "", name: "" }]);
   const delIng = (i) => setIngRows((rows) => rows.length > 1 ? rows.filter((_, idx) => idx !== i) : rows);
   const valid = name.trim() && !isNaN(parseInt(kcal, 10)) && slots.length > 0;
+  // Garde anti perte de saisie : si l'utilisateur a touché au form et ferme par
+  // erreur (X / geste retour), on confirme avant d'abandonner.
+  const initSlots = src?.slots?.length ? src.slots : src?.cat ? [src.cat] : (defaultSlots && defaultSlots.length ? defaultSlots : ["dej"]);
+  const initIng = src?.ingredients?.length ? src.ingredients.map(parseIng) : [{ qty: "", unit: "", name: "" }];
+  const dirty =
+    name.trim() !== (src?.name || "").trim() ||
+    kcal !== (src != null ? String(src.kcal ?? "") : "") ||
+    p !== (src != null ? String(src.p ?? "") : "") ||
+    steps !== (src?.steps?.length ? src.steps.join("\n") : "") ||
+    JSON.stringify(ingRows) !== JSON.stringify(initIng) ||
+    JSON.stringify(slots) !== JSON.stringify(initSlots);
+  const guardedClose = () => { if (dirty && !window.confirm("Abandonner cette recette ? Tes saisies seront perdues.")) return; onClose(); };
   const submit = () => {
     if (!valid) return;
     onAdd({
@@ -51,7 +63,7 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill 
   const field = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
   const lab = "mb-1 block text-xs font-semibold uppercase tracking-wide";
   return (
-    <Sheet open onClose={onClose} title={editing ? "Modifier la recette" : "Nouvelle recette"} icon={<Soup size={18} />} iconColor={C.green}>
+    <Sheet open onClose={guardedClose} title={editing ? "Modifier la recette" : "Nouvelle recette"} icon={<Soup size={18} />} iconColor={C.green}>
       <label className={lab} style={{ color: C.sub }}>Nom</label>
       <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Ex. Bowl tofu cacahuète" className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
 

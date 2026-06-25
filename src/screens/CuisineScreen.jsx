@@ -19,7 +19,7 @@ const FILTERS = [["all", "Tout"], ["fav", "⭐ Favoris"], ["recette", "Recettes"
 
 // « Ma cuisine » — hub d'actions + accès rapide récents/favoris + bibliothèque
 // cherchable/filtrable. Item → fiche (variantes, Adapter) → ajout à un créneau.
-export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, pantry = [], favorites = [], knownFoods = [] }) {
+export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, pantry = [], favorites = [], knownFoods = [] }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [adding, setAdding] = useState(false);
@@ -55,7 +55,14 @@ export function CuisineScreen({ meals = [], onUse, onDelete, onAddRecipe, onEdit
   const matches = (m) => !nq || deburr(m.name + " " + (m.ingredients || []).join(" ") + " " + (m.items || []).map((i) => i.name).join(" ")).includes(nq);
   const passFilter = (m) => filter === "all" || (filter === "fav" ? favSet.has(m.name) : m.kind === filter);
   const list = meals.filter((m) => matches(m) && passFilter(m));
-  const recents = meals.filter((m) => favSet.has(m.name)).slice(0, 8);
+  // « Récents & favoris » : items réellement utilisés récemment (usage.last desc),
+  // puis les favoris pas encore utilisés. Avant, on n'affichait QUE les favoris.
+  const recents = meals
+    .map((m) => ({ m, last: usage[m.name]?.last || 0, fav: favSet.has(m.name) }))
+    .filter((x) => x.last > 0 || x.fav)
+    .sort((a, b) => (b.last - a.last) || (Number(b.fav) - Number(a.fav)))
+    .slice(0, 8)
+    .map((x) => x.m);
   const empty = meals.length === 0;
 
   const HUB = [

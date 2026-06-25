@@ -57,8 +57,8 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
           {describe(it) && <span className="text-[11px]" style={{ color: C.muted }}>{describe(it)}</span>}
         </span>
         <button onClick={() => onToggle(it.id)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={it.out ? { backgroundColor: `${C.green}1f`, color: C.green } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}>{it.out ? <><RotateCcw size={11} /> Remettre</> : "Rupture"}</button>
-        {onUpdate && <button onClick={() => startEdit(it)} className="shrink-0 p-1.5 active:scale-90" style={{ color: C.muted }} aria-label="Éditer"><Pencil size={14} /></button>}
-        <button onClick={() => onRemove(it.id)} className="shrink-0 p-1.5 active:scale-90" style={{ color: C.muted }} aria-label="Supprimer"><Trash2 size={15} /></button>
+        {onUpdate && <button onClick={() => startEdit(it)} className="flex h-9 w-9 shrink-0 items-center justify-center active:scale-90" style={{ color: C.muted }} aria-label="Éditer"><Pencil size={15} /></button>}
+        <button onClick={() => onRemove(it.id)} className="flex h-9 w-9 shrink-0 items-center justify-center active:scale-90" style={{ color: C.muted }} aria-label="Supprimer"><Trash2 size={15} /></button>
       </div>
     </div>
   );
