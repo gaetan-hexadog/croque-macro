@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Check, Search, X, Pencil, Refrigerator, Globe, Loader2, Wand2, ChefHat, ScanLine, Star, Clock } from "lucide-react";
+import { Plus, Trash2, Check, Search, X, Pencil, Refrigerator, Globe, Loader2, Wand2, ChefHat, ScanLine, Star, Clock, BookOpen, ChevronRight } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
@@ -19,7 +19,7 @@ const FILTERS = [["all", "Tout"], ["fav", "⭐ Favoris"], ["recette", "Recettes"
 
 // « Ma cuisine » — hub d'actions + accès rapide récents/favoris + bibliothèque
 // cherchable/filtrable. Item → fiche (variantes, Adapter) → ajout à un créneau.
-export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, pantry = [], favorites = [], knownFoods = [] }) {
+export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], knownFoods = [] }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [adding, setAdding] = useState(false);
@@ -149,6 +149,18 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
             </div>
           )}
         </div>
+      )}
+
+      {/* Accès au guide nutritionnel (sinon enterré dans Réglages) */}
+      {onOpenGuide && (
+        <button onClick={onOpenGuide} className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left active:scale-95" style={cardStyle()}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><BookOpen size={17} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold" style={{ color: C.ink }}>Guide & repères</span>
+            <span className="block text-[11px]" style={{ color: C.muted }}>Règles diététiques, suppléments, cibles</span>
+          </span>
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
       )}
 
       {/* ── Sheets ── */}

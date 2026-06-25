@@ -263,10 +263,10 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => openAssist("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
       </div>
 
-      {/* Modèles & copie de journée — accès discret */}
-      <div className="mt-3 flex items-center justify-center gap-4">
-        <button onClick={openTpl} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.sub }}><Layers size={13} /> Modèles & copie</button>
-        {ribbon.length > 0 && <button onClick={onReset} className="text-xs font-semibold active:scale-95" style={{ color: C.muted }}>Vider la journée</button>}
+      {/* Modèles & copie de journée — actions secondaires, en pilules lisibles */}
+      <div className="mt-3 flex items-center justify-center gap-2.5">
+        <button onClick={openTpl} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Layers size={13} /> Modèles & copie</button>
+        {ribbon.length > 0 && <button onClick={onReset} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={12} /> Vider la journée</button>}
       </div>
 
       {/* Poids du jour */}

@@ -157,7 +157,7 @@ export default function PiocheRepas() {
       const localDays = stateRef.current.days || {};
       const localWeights = stateRef.current.weights || {};
       const localWorkouts = stateRef.current.workouts || {};
-      setDays((l) => ({ ...l, ...remote.days }));
+      setDays((l) => ({ ...l, ...normDays(remote.days || {}) }));
       setWeights((l) => ({ ...l, ...remote.weights }));
       setWorkouts((l) => ({ ...l, ...remote.workouts }));
       // Fusion sans perte : on unionne local + remote (collections par id), on applique, on repousse.
@@ -702,7 +702,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} />
+          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} />
         )}
         {view === "sport" && (
           <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} />
