@@ -149,8 +149,11 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       {/* Dashboard compact : petit anneau + jauges linéaires + log rapide intégré */}
-      <section className="relative mb-4 rounded-3xl p-4" style={cardStyle()}>
-        <button onClick={onToggleTraining} aria-pressed={training} title="Jour d'entraînement" className="absolute right-3.5 top-3.5 z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={training ? { backgroundColor: `${C.weight}26`, color: C.weight } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}><Dumbbell size={12} /> Training</button>
+      <section className="mb-4 rounded-3xl p-4" style={cardStyle()}>
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>{over ? "Dépassé" : "Restant aujourd'hui"}</span>
+          <button onClick={onToggleTraining} aria-pressed={training} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={training ? { backgroundColor: `${C.weight}26`, color: C.weight } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}><Dumbbell size={12} /> Training</button>
+        </div>
         <div className="flex items-center gap-4">
           <MiniRing over={over}
             kcalPct={totals.kcal / settings.kcal} protPct={totals.p / settings.protein}
@@ -180,20 +183,6 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
             </p>
           </div>
         </div>
-
-        {/* Bilan de la semaine, fusionné dans la jauge — tap → Suivi */}
-        <button onClick={onOpenWeek} className="mt-3 flex w-full items-center justify-between rounded-2xl px-3.5 py-2.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
-          <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>
-            Cette semaine
-            {WTrend && <span className="flex items-center gap-0.5 normal-case" style={{ color: C.weight }}><WTrend size={13} /> poids</span>}
-          </span>
-          <span className="flex items-center gap-2">
-            {wstats.logged >= 2
-              ? <span className="text-sm font-bold tabular-nums" style={{ color: wBalColor }}>{wBal >= 0 ? `+${wBal}` : wBal} kcal</span>
-              : <span className="text-xs" style={{ color: C.muted }}>bilan en cours</span>}
-            <ChevronRight size={15} style={{ color: C.muted }} />
-          </span>
-        </button>
 
         {/* Log rapide intégré au dashboard : habituels en 1 tap + entrée « Logger » */}
         {isToday && (
