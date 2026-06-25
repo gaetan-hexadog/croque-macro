@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, streakCount,
 } from "./core.js";
@@ -158,8 +158,8 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           <MiniRing over={over}
             kcalPct={totals.kcal / settings.kcal} protPct={totals.p / settings.protein}
             kcalPlanPct={(totals.kcal + planned.kcal) / settings.kcal} protPlanPct={(totals.p + planned.p) / settings.protein}>
-            <span className="leading-none text-3xl font-bold" style={{ color: over ? C.over : C.ink, fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>{r0(Math.abs(remKcal))}</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{over ? "au-dessus" : "restant"}</span>
+            <span className="leading-none text-2xl font-bold" style={{ color: over ? C.over : C.ink, fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>{r0(Math.abs(remKcal))}</span>
+            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider" style={{ color: C.muted }}>kcal {over ? "de trop" : "restantes"}</span>
           </MiniRing>
           <div className="min-w-0 flex-1 space-y-2.5">
             <div>
@@ -317,7 +317,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
               <button onClick={() => { setNaming(false); setComboName(""); }} className="shrink-0 rounded-xl px-2 py-2 text-sm active:scale-95" style={{ color: C.muted }}>Annuler</button>
             </div>
           ) : (
-            <button onClick={() => setNaming(true)} className="mt-1.5 ml-4 text-xs font-semibold active:scale-95" style={{ color: C.muted }}>+ Enregistrer comme repas réutilisable</button>
+            <button onClick={() => setNaming(true)} className="mt-1 ml-4 flex items-center gap-1 text-[11px] active:scale-95" style={{ color: C.muted }}><Bookmark size={11} /> Enregistrer ce repas</button>
           ))}
         </>
       )}
@@ -467,8 +467,8 @@ function QtyStepper({ value, onChange, accent = C.ink }) {
 
 
 // Petit anneau double (kcal + protéines) + arc « prévu » pâle — pour le dashboard compact.
-function MiniRing({ kcalPct, protPct, kcalPlanPct = 0, protPlanPct = 0, over, size = 108, children }) {
-  const sw = 11, gap = 4, r1 = size / 2 - sw / 2, r2 = r1 - sw - gap;
+function MiniRing({ kcalPct, protPct, kcalPlanPct = 0, protPlanPct = 0, over, size = 112, children }) {
+  const sw = 9, gap = 5, r1 = size / 2 - sw / 2, r2 = r1 - sw - gap;
   const c1 = 2 * Math.PI * r1, c2 = 2 * Math.PI * r2, cl = (v) => Math.max(0, Math.min(1, v));
   const kc = over ? C.over : C.green, pc = C.protein;
   const arc = (r, c, pct, color, op = 1) => <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw} strokeDasharray={`${c * cl(pct)} ${c}`} strokeLinecap="round" opacity={op} transform={`rotate(-90 ${size / 2} ${size / 2})`} style={{ transition: "stroke-dasharray .6s ease" }} />;

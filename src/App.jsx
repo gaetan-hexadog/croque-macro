@@ -51,7 +51,6 @@ export default function PiocheRepas() {
   const [toolOpen, setToolOpen] = useState(false);
   const [toast, setToast] = useState(null);             // { msg, undo }
   const showToast = useCallback((msg, undo) => setToast({ msg, undo, id: Date.now() }), []);
-  const [fabOpen, setFabOpen] = useState(false);        // menu d'actions rapides (bouton central +)
   const [quickLogOpen, setQuickLogOpen] = useState(false); // log rapide photo / texte
   const [frigoOpen, setFrigoOpen] = useState(false);    // gestion du frigo/placard (accès global)
   const [cuisineAdd, setCuisineAdd] = useState(false);  // signal : ouvrir le formulaire « ajouter recette » en arrivant sur Cuisine
@@ -81,7 +80,6 @@ export default function PiocheRepas() {
   const openSettings = useCallback(() => go("reglages"), [go]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
-  const openFab = useCallback(() => setFabOpen(true), []); // menu simple : pas d'entrée d'historique (évitait le télescopage à la fermeture)
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
   // Transition Réglages → Compte : on réutilise l'entrée d'historique des réglages
   // (au lieu d'empiler back()+pushState dans le même tick, qui se télescopaient).
@@ -582,9 +580,6 @@ export default function PiocheRepas() {
             ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
             : <h1 className="min-w-0 truncate text-2xl font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{{ journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" }[view]}</h1>}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-              <ScanLine size={18} />
-            </button>
             {view !== "reglages" && (
               <button onClick={openSettings} aria-label="Réglages" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
                 <Settings2 size={18} />
@@ -645,7 +640,7 @@ export default function PiocheRepas() {
       </div>
 
       {/* Navigation */}
-      <TabBar view={view} setView={go} onFab={openFab} />
+      <TabBar view={view} setView={go} />
 
       {picker && (
         <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...customMeals]} usage={usage} combos={combos} pantry={pantry} presets={library.presets} onAddExtra={addExtra} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
@@ -661,30 +656,6 @@ export default function PiocheRepas() {
       )}
       {frigoOpen && (
         <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} />
-      )}
-      {fabOpen && (
-        <Sheet open onClose={() => setFabOpen(false)} title="Que veux-tu faire ?" icon={<Plus size={18} />} iconColor={C.accent}>
-          <div className="space-y-2 pb-2">
-            {[
-              { l: "Logger un repas", s: "Photo ou description", icon: Plus, c: C.green, act: () => setQuickLogOpen(true) },
-              { l: "Planifier", s: "Ma journée ou ma semaine", icon: CalendarRange, c: C.weight, act: () => go("idees") },
-              { l: "Scanner un produit", s: "Code-barres → macros & feu", icon: ScanLine, c: C.protein, act: openTool },
-              { l: "Ajouter une recette", s: "Créer ou importer (URL)", icon: Soup, c: C.extra, act: () => { setCuisineAdd(true); go("cuisine"); } },
-            ].map((a) => {
-              const Icon = a.icon;
-              return (
-                <button key={a.l} onClick={() => { setFabOpen(false); a.act(); }} className="flex w-full items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left active:scale-[0.98]" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: `${a.c}1f`, color: a.c }}><Icon size={21} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold" style={{ color: C.ink }}>{a.l}</span>
-                    <span className="block text-xs" style={{ color: C.muted }}>{a.s}</span>
-                  </span>
-                  <ChevronRight size={18} style={{ color: C.muted }} />
-                </button>
-              );
-            })}
-          </div>
-        </Sheet>
       )}
       {quickLogOpen && (
         <QuickLogSheet
@@ -721,7 +692,7 @@ function ScreenFallback() {
   );
 }
 
-function TabBar({ view, setView, onFab }) {
+function TabBar({ view, setView }) {
   // 4 onglets + bouton central « + ». Progrès vit dans le header (icône en haut).
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
@@ -740,11 +711,6 @@ function TabBar({ view, setView, onFab }) {
   };
   return (
     <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
-      {/* FAB flottant : pleinement visible au-dessus de la barre, dégradé + ombre */}
-      <button onClick={onFab} aria-label="Actions rapides" className="absolute left-1/2 flex h-14 w-14 items-center justify-center rounded-full active:scale-90"
-        style={{ top: 0, transform: "translate(-50%, -56%)", background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff", border: "1px solid rgba(255,255,255,0.22)", boxShadow: `0 10px 26px -6px ${C.accent}, 0 4px 12px rgba(0,0,0,0.32)`, transition: "transform .15s ease" }}>
-        <Plus size={26} strokeWidth={2.6} />
-      </button>
       <div className="mx-auto flex max-w-md">
         <Tab t={tabs[0]} />
         <Tab t={tabs[1]} />
