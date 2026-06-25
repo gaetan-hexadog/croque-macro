@@ -21,6 +21,7 @@ const WISH_CHIPS = [
 // Matchs locaux d'abord (gratuit), puis assistant à la demande. Logge dans CE créneau.
 export function MealSuggestSheet({
   slot = "dej", remKcal = 0, remP = 0,
+  dayRemKcal = 0, dayRemP = 0, reserveKcal = 0, weekBalance,
   favorites = [], knownFoods = [], localIdeas = [],
   pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
   onLog, onSaveRecipe, dateLabel, onClose,
@@ -54,7 +55,7 @@ export function MealSuggestSheet({
       const dining = chips.has("resto");
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal, remP, favorites, knownFoods, userWish, dining,
+        mode: "meal", slot, remKcal, remP, favorites, knownFoods, userWish, dining, reserveKcal, weekBalance,
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...exclude.split(",").map((s) => s.trim()).filter(Boolean)],
         dateLabel,
@@ -71,12 +72,17 @@ export function MealSuggestSheet({
 
   return (
     <Sheet open onClose={onClose} title="Une idée de repas" subtitle={`Pour le ${SLOT_LABELS[slot] || "repas"}`} icon={<Lightbulb size={18} />} iconColor={C.green}>
-      <div className="flex items-center justify-between pb-3">
-        <p className="text-xs" style={{ color: C.sub }}>Budget restant : <span className="font-bold" style={{ color: C.ink }}>{Math.round(Math.max(0, remKcal))} kcal</span> · <span className="font-bold" style={{ color: C.protein }}>{Math.round(Math.max(0, remP))} g</span></p>
+      <div className="flex items-center justify-between pb-1.5">
+        <p className="text-xs" style={{ color: C.sub }}>Marge {SLOT_LABELS[slot] || "repas"} : <span className="font-bold" style={{ color: remKcal <= 0 ? C.over : C.ink }}>{Math.round(Math.max(0, remKcal))} kcal</span> · <span className="font-bold" style={{ color: C.protein }}>{Math.round(Math.max(0, remP))} g</span></p>
         <button onClick={() => setPantryOpen(true)} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
           <Refrigerator size={13} /> Frigo{pantry.filter((x) => !x.out).length ? ` · ${pantry.filter((x) => !x.out).length}` : ""}
         </button>
       </div>
+      <p className="pb-3 text-[11px]" style={{ color: C.muted }}>
+        {reserveKcal > 50
+          ? <>≈{Math.round(reserveKcal)} kcal réservés à tes repas à venir (sur {Math.round(Math.max(0, dayRemKcal))} restant aujourd'hui).{remKcal <= 0 ? " Peu de place — l'assistant proposera très léger." : ""}</>
+          : <>Tout ton restant du jour est dispo pour ce repas.</>}
+      </p>
 
       {/* Envie / contrainte (optionnel) : chips rapides + texte libre, gardés à la régénération */}
       <div className="mb-2 flex flex-wrap gap-1.5">

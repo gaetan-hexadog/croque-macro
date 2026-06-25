@@ -465,6 +465,7 @@ function buildAssistantPrompt({
   recipe, instruction,       // mode adapt : recette de départ + consigne d'adaptation
   text,                      // mode parse : description en langage naturel d'un repas mangé
   userWish, dining,          // mode meal : consigne libre de l'utilisateur + flag « au restaurant »
+  reserveKcal,               // mode meal : budget réservé aux repas pas encore décidés (le budget ci-dessus = marge réelle)
   dateLabel, startLabel,
 } = {}) {
   const sys = [
@@ -546,6 +547,11 @@ function buildAssistantPrompt({
     if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
     if (dining) L.push("CONTEXTE : je mange AU RESTAURANT (pas de cuisine maison) — IGNORE mon frigo. Propose des PLATS À COMMANDER réalistes (pas de recette à cuisiner) ; `ingredients` = composantes principales du plat. Estime les macros de façon CONSERVATRICE (portions resto généreuses, arrondis kcal vers le haut). Dans `note`, glisse 1 conseil de commande (ex. sauce à part, doubler la protéine, pain en moins).");
     if (userWish && userWish.trim()) L.push(`MA DEMANDE (à respecter en PRIORITÉ) : « ${userWish.trim()} ». Respecte-la même si ça sort de mes habitudes, tout en gardant le budget et les règles diététiques.`);
+    if (reserveKcal > 50) L.push(`IMPORTANT — le budget ci-dessus est ma MARGE pour CE repas : j'ai d'autres repas pas encore décidés aujourd'hui (≈${r0(reserveKcal)} kcal leur sont réservés). Ne dépasse PAS cette marge. Si elle est quasi nulle, propose l'option la plus légère et protéinée possible et dis-le franchement dans la note.`);
+    if (Number.isFinite(weekBalance)) {
+      if (weekBalance > 300) L.push(`Sur la semaine je suis SOUS mon budget (+${r0(weekBalance)} kcal de marge) → un petit plaisir gourmand raisonnable est OK s'il rentre dans la marge.`);
+      else if (weekBalance < -300) L.push("Sur la semaine je suis AU-DESSUS de mon budget → reste sobre et protéiné.");
+    }
     if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. COMPLÈTE la journée de façon cohérente : varie les aliments (ne répète pas ce qui est déjà là), équilibre les macros.`);
     if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
     if (concise) L.push("Reste CONCIS, mais chaque ingrédient AVEC sa quantité (qty + unit) ; 1-2 variantes. N'inclus PAS les étapes de préparation.");

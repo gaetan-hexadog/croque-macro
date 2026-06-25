@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./lib/sport.js";
 import { getLibrarySync, refreshLibrary } from "./lib/library.js";
@@ -352,6 +352,9 @@ export default function PiocheRepas() {
     return { kcal: Math.max(0, remKcal) * w, p: Math.max(0, remP) * w };
   }, [emptyPlanned, remKcal, remP]);
 
+  // Marge hebdo (kcal sous/au-dessus du budget) — pour moduler le plaisir dans les suggestions.
+  const weekBalance = useMemo(() => { try { return weekCoach(weekStats(days, settings, activeDate, 7), settings, weights, activeDate).balance; } catch (e) { return null; } }, [days, settings, weights, activeDate]);
+
   const fitOf = useCallback((meal) => {
     const projected = totals.kcal + meal.kcal;
     if (projected <= settings.kcal * 1.04) return "ok";
@@ -687,7 +690,8 @@ export default function PiocheRepas() {
       )}
       {ideaSlot && (
         <MealSuggestSheet
-          slot={ideaSlot} remKcal={remKcal} remP={remP}
+          slot={ideaSlot} remKcal={slotTarget(ideaSlot).kcal} remP={slotTarget(ideaSlot).p}
+          dayRemKcal={remKcal} dayRemP={remP} reserveKcal={Math.max(0, remKcal - slotTarget(ideaSlot).kcal)} weekBalance={weekBalance}
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           localIdeas={[...customRecipes, ...library.recipes]}
           pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
