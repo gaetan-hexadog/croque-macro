@@ -355,6 +355,26 @@ export default function PiocheRepas() {
   // Marge hebdo (kcal sous/au-dessus du budget) — pour moduler le plaisir dans les suggestions.
   const weekBalance = useMemo(() => { try { return weekCoach(weekStats(days, settings, activeDate, 7), settings, weights, activeDate).balance; } catch (e) { return null; } }, [days, settings, weights, activeDate]);
 
+  // Marge RÉELLE pour un créneau : on réserve les repas planifiés (à leur valeur) ET
+  // les repas indécis (part équitable du reste), puis on rend la part du créneau visé.
+  const slotMargin = useCallback((S) => {
+    const sumBy = (arr, planned, key) => (arr || []).filter((it) => !!it.planned === planned).reduce((a, it) => a + (it[key] || 0) * (it.qty || 1), 0);
+    let resK = 0, resP = 0; const undecided = [];
+    ["pdj", "dej", "diner", "snack"].forEach((s) => {
+      if (s === S) return;
+      if (s === "pdj" && skipBreakfast) return;
+      const arr = picks[picksKey(s)] || [];
+      if (sumBy(arr, false, "kcal") > 0) return;                 // déjà consommé → hors remKcal
+      const pk = sumBy(arr, true, "kcal"), pp = sumBy(arr, true, "p");
+      if (pk > 0 || pp > 0) { resK += pk; resP += pp; return; }  // planifié → réservé à sa valeur
+      undecided.push(s);                                          // vide/indécis → à répartir
+    });
+    const availK = Math.max(0, remKcal - resK), availP = Math.max(0, remP - resP);
+    const poolW = undecided.reduce((a, s) => a + SLOTS[s].weight, 0) + SLOTS[S].weight;
+    const w = SLOTS[S].weight / (poolW || 1);
+    return { kcal: availK * w, p: availP * w };
+  }, [picks, skipBreakfast, remKcal, remP]);
+
   const fitOf = useCallback((meal) => {
     const projected = totals.kcal + meal.kcal;
     if (projected <= settings.kcal * 1.04) return "ok";
@@ -690,8 +710,8 @@ export default function PiocheRepas() {
       )}
       {ideaSlot && (
         <MealSuggestSheet
-          slot={ideaSlot} remKcal={slotTarget(ideaSlot).kcal} remP={slotTarget(ideaSlot).p}
-          dayRemKcal={remKcal} dayRemP={remP} reserveKcal={Math.max(0, remKcal - slotTarget(ideaSlot).kcal)} weekBalance={weekBalance}
+          slot={ideaSlot} remKcal={slotMargin(ideaSlot).kcal} remP={slotMargin(ideaSlot).p}
+          dayRemKcal={remKcal} dayRemP={remP} reserveKcal={Math.max(0, remKcal - slotMargin(ideaSlot).kcal)} weekBalance={weekBalance}
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           localIdeas={[...customRecipes, ...library.recipes]}
           pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
