@@ -120,10 +120,11 @@ function ChipBtn({ m, onChoose }) {
 
 // Moyen d'entrée compact (P2) : icône + petit label, au lieu d'un gros bouton plein.
 function MethodBtn({ icon: Icon, color, label, onClick }) {
+  // Carte pleine : toute la cellule est tappable (≥ 60px de haut), pas juste l'icône.
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1.5 active:scale-95">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: `${color}1a`, color, border: `1px solid ${C.line}` }}><Icon size={20} /></span>
-      <span className="text-[10.5px] font-semibold" style={{ color: C.sub }}>{label}</span>
+    <button onClick={onClick} className="flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3.5 active:scale-95" style={{ backgroundColor: `${color}14`, border: `1px solid ${C.line}` }}>
+      <Icon size={22} style={{ color }} />
+      <span className="text-[10.5px] font-semibold leading-none" style={{ color: C.sub }}>{label}</span>
     </button>
   );
 }
@@ -238,7 +239,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
               {/* Méthodes d'ajout — grille compacte (toujours visible). */}
               <p className="mb-2 mt-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Autre moyen</p>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-3 gap-2.5">
                 {onAssist && <MethodBtn icon={Wand2} color={C.accent} label="Assistant" onClick={() => onAssist(slotKey)} />}
                 {onPhotoLog && <MethodBtn icon={Camera} color={C.accent} label="Photo" onClick={onPhotoLog} />}
                 <MethodBtn icon={ScanLine} color={C.weight} label="Scanner" onClick={() => setPanel("off")} />
