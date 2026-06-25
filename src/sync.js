@@ -57,6 +57,11 @@ export async function pushWorkouts(userId, workoutsObj) {
   const { error } = await supabase.from("workout_logs").upsert(rows, { onConflict: "user_id,id" });
   if (error) throw error;
 }
+// Suppression d'une séance loggée (édition/correction côté UI).
+export async function deleteWorkout(userId, id) {
+  const { error } = await supabase.from("workout_logs").delete().eq("user_id", userId).eq("id", id);
+  if (error) throw error;
+}
 
 // Fusionne local + remote app_state SANS rien perdre : les collections (recettes,
 // repas, modèles, bases shake…) sont unionnées par id ; les scalaires (settings,

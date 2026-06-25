@@ -6,7 +6,7 @@ import {
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./sport.js";
 import { getLibrarySync, refreshLibrary } from "./library.js";
 import { supabase } from "./supabaseClient.js";
-import { pullAll, pushDays, pushWeights, pushAppState, pushWorkouts, mergeAppState } from "./sync.js";
+import { pullAll, pushDays, pushWeights, pushAppState, pushWorkouts, deleteWorkout as deleteWorkoutRow, mergeAppState } from "./sync.js";
 import { DayScreen } from "./DayScreen.jsx";
 import { Deck } from "./Deck.jsx";
 import OffSearch from "./OffSearch.jsx";
@@ -23,7 +23,7 @@ const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ 
 const GuideScreen = lazy(() => import("./GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
 const PlanScreen = lazy(() => import("./PlanScreen.jsx"));
 const CuisineScreen = lazy(() => import("./CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
-const SportScreen = lazy(() => import("./SportScreen.jsx").then((m) => ({ default: m.SportScreen })));
+const SportScreen = lazy(() => import("./sport/SportScreen.jsx").then((m) => ({ default: m.SportScreen })));
 const SettingsSheet = lazy(() => import("./Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
 const AccountSheet = lazy(() => import("./AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
 
@@ -308,6 +308,13 @@ export default function PiocheRepas() {
   }, [sport, activeDate, workouts]);
   // Coaching recomposition : croise tendance de force et tendance de poids (today).
   const recomp = useMemo(() => recompSignal(workouts, observedTrend(days, weights, TODAY)), [workouts, days, weights]);
+  // Suppression d'une séance loggée (depuis le détail) : local + remote (la sync auto
+  // ne pousse que les ajouts/modifs, jamais les suppressions → on supprime la ligne ici).
+  const deleteWorkoutEntry = useCallback((id) => {
+    setWorkouts((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    const uid = session?.user?.id;
+    if (uid) deleteWorkoutRow(uid, id).catch(() => {});
+  }, [session]);
   // Contexte pour l'assistant : favoris (fréquence d'usage + recettes favorites) et produits à macros exactes.
   const assistFavorites = useMemo(() => {
     const fromUsage = Object.entries(usage).sort((a, b) => (b[1]?.count || 0) - (a[1]?.count || 0)).slice(0, 20).map(([n]) => n);
@@ -624,7 +631,7 @@ export default function PiocheRepas() {
           <CuisineScreen meals={meals} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} />
         )}
         {view === "sport" && (
-          <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} />
+          <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} />
         )}
         {view === "reglages" && (
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />

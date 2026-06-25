@@ -517,3 +517,70 @@ export function recompSignal(workouts, observed, now = new Date()) {
   };
   return null;
 }
+
+// ════════════════════════════════════════════════════════════════
+// Suivi & traçabilité — helpers purs alimentant l'UI refondue
+// (« la dernière fois », volume, records, courbe de force, assiduité).
+// ════════════════════════════════════════════════════════════════
+
+// Dernière performance réelle sur un exercice : charge max travaillée + reps par
+// série de la dernière séance qui le contenait. null si jamais fait.
+export function getLastPerformance(history, exerciseName) {
+  const entry = lastEntryWithExercise(history, exerciseName);
+  if (!entry) return null;
+  const ex = entry.data.find((d) => d.exercise === exerciseName);
+  if (!ex || !ex.sets?.length) return null;
+  const reps = ex.sets.map((s) => s.repsDone ?? s.repsTarget).filter((r) => r != null);
+  const weights = ex.sets.map((s) => s.weight).filter((w) => w != null && w > 0);
+  return { weight: weights.length ? Math.max(...weights) : null, reps, date: entry.date };
+}
+
+// Volume (tonnage) d'une séance de force = Σ poids × reps réellement faites.
+export function sessionVolume(entry) {
+  let v = 0;
+  for (const ex of entry?.data || []) for (const s of ex.sets || []) {
+    if (s.weight != null && s.weight > 0 && s.repsDone != null) v += s.weight * s.repsDone;
+  }
+  return Math.round(v);
+}
+
+// Record de volume : l'entrée bat-elle le meilleur volume des séances précédentes
+// du même type (A/B/C) ? On exclut l'entrée elle-même (par id).
+export function isVolumePR(entry, history) {
+  const vol = sessionVolume(entry);
+  if (vol <= 0) return false;
+  const prev = Object.values(history || {})
+    .filter((e) => e?.completed && Array.isArray(e?.data) && e?.sessionId === entry.sessionId && e?.id !== entry.id)
+    .map(sessionVolume);
+  const best = prev.length ? Math.max(...prev) : 0;
+  return vol > best;
+}
+
+// Courbe de force : charge moyenne (sessionLoad) par semaine de programme.
+// Renvoie [{ week, value }] trié par semaine (pour une sparkline).
+export function strengthSeries(workouts) {
+  const byWeek = {};
+  for (const e of Object.values(workouts || {})) {
+    if (!e?.completed || !Array.isArray(e?.data) || e.week == null) continue;
+    const load = sessionLoad(e);
+    if (load == null) continue;
+    (byWeek[e.week] = byWeek[e.week] || []).push(load);
+  }
+  return Object.keys(byWeek).map(Number).sort((a, b) => a - b).map((w) => ({
+    week: w, value: Math.round((byWeek[w].reduce((s, x) => s + x, 0) / byWeek[w].length) * 10) / 10,
+  }));
+}
+
+// Assiduité : séances distinctes complétées par semaine, sur les `weeks` dernières
+// semaines jusqu'à `currentWeek`. Renvoie [{ week, done }] (done ≤ 3).
+export function assiduitySeries(workouts, currentWeek, weeks = 6) {
+  const done = {};
+  for (const e of Object.values(workouts || {})) {
+    if (!e?.completed || e.week == null) continue;
+    (done[e.week] = done[e.week] || new Set()).add(e.sessionId);
+  }
+  const start = Math.max(1, (currentWeek || 1) - weeks + 1);
+  const out = [];
+  for (let w = start; w <= (currentWeek || 1); w++) out.push({ week: w, done: done[w] ? done[w].size : 0 });
+  return out;
+}
