@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Check, ChevronsRight, ChevronLeft } from "lucide-react";
 import { C, cardStyle } from "../core.js";
-import { DIFFICULTY_OPTIONS } from "../sport.js";
+import { DIFFICULTY_OPTIONS } from "../lib/sport.js";
 
 // ════════════════════════════════════════════════════════════════════════════
 // components.jsx — briques visuelles de l'onglet Sport (toutes pures CSS/JS, sans

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { PenLine, Check } from "lucide-react";
 import { C } from "../core.js";
-import { Sheet } from "../Sheet.jsx";
-import { SESSIONS, SESSION_ORDER, getExercisePrescription } from "../sport.js";
+import { Sheet } from "../components/Sheet.jsx";
+import { SESSIONS, SESSION_ORDER, getExercisePrescription } from "../lib/sport.js";
 
 // ── Logging manuel a posteriori : enregistrer une séance déjà faite ──────────
 // On préremplit les séries d'après le programme (charge prescrite, reps cibles,

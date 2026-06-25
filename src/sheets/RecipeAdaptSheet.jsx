@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Wand2, Loader2, AlertCircle, Check, ChevronDown, RefreshCw, Plus } from "lucide-react";
-import { C, cardStyle, buildAssistantPrompt } from "./core.js";
-import { askAssistant, AssistantError } from "./assistant.js";
-import { Sheet } from "./Sheet.jsx";
+import { C, cardStyle, buildAssistantPrompt } from "../core.js";
+import { askAssistant, AssistantError } from "../lib/assistant.js";
+import { Sheet } from "../components/Sheet.jsx";
 
 const ingLine = (i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim());
 const QUICK = ["Il me manque un ingrédient", "Sans …", "Plus de protéines", "Version plus légère", "Ajoute des légumes verts", "Plus rapide"];

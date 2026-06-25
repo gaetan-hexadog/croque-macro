@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { C, cardStyle } from "../core.js";
-import { getRowerResistance } from "../sport.js";
+import { getRowerResistance } from "../lib/sport.js";
 import { StepDots, SlideButton, WorkoutHeader } from "./components.jsx";
 import { PhaseTimer, IntervalTimer } from "./timers.jsx";
 

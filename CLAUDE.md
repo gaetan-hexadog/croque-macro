@@ -1,7 +1,7 @@
 # CLAUDE.md — Croque·Macro
 
 > Constitution du projet, lue automatiquement à chaque session Claude Code.
-> Garde ce fichier court et à jour. L'état d'avancement détaillé est dans `HANDOFF.md`.
+> Garde ce fichier court et à jour. L'état d'avancement détaillé est dans `docs/HANDOFF.md`.
 
 ## Projet
 Croque·Macro — PWA de planification de repas végétariens (pioche adaptative, suivi
@@ -27,20 +27,28 @@ installée en **PWA standalone sur iPhone iOS**.
 - Souvent pressé / saute le petit-déj → privilégier le **grab-and-go** (shaker en voiture).
 
 ## Architecture du code (`src/`)
+Organisée en sous-dossiers. À la **racine de `src/`** : `App.jsx`, `main.jsx`, `core.js`, `index.css`,
+`core.test.js`. **`core.js` reste à la racine** (module central, importé partout + par le design-lab).
 - **`core.js`** — données + helpers + thème, **hors composants React**. Source unique de vérité
   pour les constantes nutritionnelles. Exporte MEALS, SLOTS, store, C/SLOT_UI, applyTheme,
   helpers de date/quantité, dayTotals, DEFAULT_COMBOS, SHAKE_BASES/LIQUIDS, etc.
   **Les constantes Clear sont centralisées** (`CLEAR_PROTEIN_DOSE`, `CLEAR_VEGAN_DOSE`,
   `GLASS_FRACTION`, `glassOf`) — un chiffre se change ICI et nulle part ailleurs.
-- **`App.jsx`** — racine `PiocheRepas` + `TabBar` (5 onglets : Jour/Journal/Progrès/Guide/Idées).
+- **`App.jsx`** — racine `PiocheRepas` + `TabBar` (4 onglets : Jour/Suivi/Cuisine/Sport).
   Détient tout le state, la navigation par History API (geste retour OS), la persistance
-  localStorage, et (en cours) la synchro Supabase.
-- **Écrans** : `DayScreen.jsx` (+ `ExtrasSheet`), `IdeasScreen.jsx`, `JournalScreen.jsx`,
-  `ProgressScreen.jsx`, `GuideScreen.jsx`, `Settings.jsx` (`SettingsSheet`), `Deck.jsx` (pioche),
-  `Week.jsx`, `OffSearch.jsx` (Open Food Facts).
-- **Bibliothèque presets/recettes (offline-first)** : `library.js` (fetch Supabase → cache
-  localStorage → fallback `library.snapshot.js`), `supabase.config.js` (URL + clé anon).
-- **Sync perso (en cours)** : `supabaseClient.js`, `sync.js`, `AccountSheet.jsx`.
+  localStorage, la synchro Supabase. Plus de FAB : les ajouts passent par l'écran Jour.
+- **`src/lib/`** — logique non-React : `sport.js`, `assistant.js`, `library.js`,
+  `openfoodfacts.js`, `sync.js`, `supabaseClient.js`, `supabase.config.js`.
+- **`src/data/`** — snapshots générés (bootstrap offline) : `foods.snapshot.js`, `library.snapshot.js`.
+- **`src/components/`** — UI partagée : `Sheet.jsx`, `Toast.jsx`, `ui.jsx` (SectionTitle),
+  `VariantChips.jsx`, `ProductVerdict.jsx`, `MealCard.jsx`, `Week.jsx`, `Deck.jsx` (pioche),
+  `FrigoPick.jsx`, `OffSearch.jsx` (Open Food Facts).
+- **`src/sheets/`** — modales/bottom-sheets : `AccountSheet.jsx`, `MealSuggestSheet.jsx`,
+  `QuickLogSheet.jsx`, `PantrySheet.jsx`, `RecipeAdaptSheet.jsx`, `RecipeForm.jsx`.
+- **`src/screens/`** — écrans : `DayScreen.jsx`, `JournalScreen.jsx`, `ProgressScreen.jsx`,
+  `GuideScreen.jsx`, `CuisineScreen.jsx`, `IdeasScreen.jsx` (mort), `PlanScreen.jsx`,
+  `Settings.jsx` (`SettingsSheet`), `AuthGate.jsx`.
+- **`src/sport/`** — onglet Sport (écran + composants + timers + logique d'affichage).
 
 ## Conventions
 - Composants fonctionnels, hooks. Tailwind **classes utilitaires de base uniquement**

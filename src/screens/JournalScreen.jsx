@@ -2,8 +2,8 @@ import React, { useMemo } from "react";
 import { ChevronRight, Dumbbell, Scale } from "lucide-react";
 import {
   C, TODAY, fmtShort, parseISO, dayTotals, hasData, cardStyle,
-} from "./core.js";
-import { SectionTitle } from "./ui.jsx";
+} from "../core.js";
+import { SectionTitle } from "../components/ui.jsx";
 
 const capit = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 

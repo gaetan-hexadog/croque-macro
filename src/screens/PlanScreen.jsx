@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck, RefreshCw } from "lucide-react";
-import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey, weekStats } from "./core.js";
-import { askAssistant, AssistantError } from "./assistant.js";
-import { PantrySheet } from "./PantrySheet.jsx";
-import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
+import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey, weekStats } from "../core.js";
+import { askAssistant, AssistantError } from "../lib/assistant.js";
+import { PantrySheet } from "../sheets/PantrySheet.jsx";
+import { VariantChips, applyVariants, variantLabels } from "../components/VariantChips.jsx";
 
 const MODES = [{ k: "day", l: "Une journée" }, { k: "week", l: "Une semaine" }];
 const SLOT_ORDER = [["pdj", "Petit-déjeuner"], ["dej", "Déjeuner"], ["diner", "Dîner"], ["snack", "En-cas"]];

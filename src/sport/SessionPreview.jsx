@@ -1,7 +1,7 @@
 import React from "react";
 import { Play, Info } from "lucide-react";
 import { C, cardStyle } from "../core.js";
-import { getExercisePrescription, getRowerResistance, getDiscPlan, formatTime } from "../sport.js";
+import { getExercisePrescription, getRowerResistance, getDiscPlan, formatTime } from "../lib/sport.js";
 import { PrescriptionBadge, WorkoutHeader } from "./components.jsx";
 
 // ── Consultation d'une séance avant de la démarrer ───────────────────────────

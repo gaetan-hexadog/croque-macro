@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Mail, Loader2 } from "lucide-react";
-import { C, cardStyle } from "./core.js";
-import { supabase } from "./supabaseClient.js";
+import { C, cardStyle } from "../core.js";
+import { supabase } from "../lib/supabaseClient.js";
 
 // Écran de connexion obligatoire (multi-utilisateur). Tant qu'il n'y a pas de
 // session, l'app n'affiche que ça → chaque personne accède à SES données.

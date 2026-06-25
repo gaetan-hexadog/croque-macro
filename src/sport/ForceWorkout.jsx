@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Clock, Plus, Minus, SkipForward, Info, History as HistoryIcon, ChevronRight } from "lucide-react";
 import { C, cardStyle } from "../core.js";
-import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../sport.js";
+import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
 import { NumberFlow, DurationFlow, SessionProgress, PrescriptionBadge, StepDots, WorkoutHeader, DIFFS, diffColor } from "./components.jsx";
 import { PhaseTimer, IntervalTimer, playBeep } from "./timers.jsx";
 import { SessionSummary } from "./SessionSummary.jsx";

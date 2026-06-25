@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Dumbbell } from "lucide-react";
 import { C } from "../core.js";
-import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart } from "../sport.js";
+import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart } from "../lib/sport.js";
 import { SportHome } from "./SportHome.jsx";
 import { SessionPreview } from "./SessionPreview.jsx";
 import { ForceWorkout } from "./ForceWorkout.jsx";

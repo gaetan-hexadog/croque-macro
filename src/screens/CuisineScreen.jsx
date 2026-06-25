@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, Check, ChevronDown, Search, X, Pencil, Refrigerator, ChevronRight, Globe, Loader2, Wand2, ChefHat } from "lucide-react";
-import { C, cardStyle } from "./core.js";
-import { SectionTitle } from "./ui.jsx";
-import { AddRecipeSheet } from "./RecipeForm.jsx";
-import { Sheet } from "./Sheet.jsx";
-import { importRecipeFromUrl } from "./assistant.js";
-import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
-import { RecipeAdaptSheet } from "./RecipeAdaptSheet.jsx";
+import { C, cardStyle } from "../core.js";
+import { SectionTitle } from "../components/ui.jsx";
+import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
+import { Sheet } from "../components/Sheet.jsx";
+import { importRecipeFromUrl } from "../lib/assistant.js";
+import { VariantChips, applyVariants, variantLabels } from "../components/VariantChips.jsx";
+import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 

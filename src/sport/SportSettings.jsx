@@ -1,8 +1,8 @@
 import React from "react";
 import { Settings, Volume2, VolumeX } from "lucide-react";
 import { C } from "../core.js";
-import { Sheet } from "../Sheet.jsx";
-import { SESSIONS, SESSION_ORDER } from "../sport.js";
+import { Sheet } from "../components/Sheet.jsx";
+import { SESSIONS, SESSION_ORDER } from "../lib/sport.js";
 
 const DAYS = [
   { i: 1, l: "Lun" }, { i: 2, l: "Mar" }, { i: 3, l: "Mer" }, { i: 4, l: "Jeu" },

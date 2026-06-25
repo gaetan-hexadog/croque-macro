@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Check, Timer, Dumbbell, Flame, Star, Trophy } from "lucide-react";
 import { C, cardStyle } from "../core.js";
-import { formatTime } from "../sport.js";
+import { formatTime } from "../lib/sport.js";
 import { StatTile, SlideButton } from "./components.jsx";
 
 const FONT = "'Space Grotesk', system-ui";

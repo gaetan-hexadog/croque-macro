@@ -1,5 +1,5 @@
 import React from "react";
-import { C } from "./core.js";
+import { C } from "../core.js";
 
 // Applique les variantes sélectionnées (deltas additifs) à un repas.
 // Lit la protéine sous .protein (flux assistant) OU .p (recettes cuisine).

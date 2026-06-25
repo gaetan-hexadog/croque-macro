@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, ChevronLeft } from "lucide-react";
-import { C } from "./core.js";
+import { C } from "../core.js";
 
 const reduceMotion = () => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 

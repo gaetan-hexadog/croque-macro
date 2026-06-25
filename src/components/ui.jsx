@@ -1,5 +1,5 @@
 import React from "react";
-import { C } from "./core.js";
+import { C } from "../core.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Primitives d'UI partagées — garantissent un rendu uniforme d'un écran à l'autre

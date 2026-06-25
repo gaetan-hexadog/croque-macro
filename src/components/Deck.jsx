@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie } from "lucide-react";
-import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "./core.js";
+import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "../core.js";
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
-import { AddRecipeSheet } from "./RecipeForm.jsx";
+import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { ProductVerdict } from "./ProductVerdict.jsx";
 import { FrigoPick } from "./FrigoPick.jsx";
 

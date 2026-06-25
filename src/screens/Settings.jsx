@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from "react";
 import { X, Check, Flame, Beef, Package, ChevronRight, ChevronLeft, Trash2, Calculator, Pencil, TrendingUp, CalendarCheck, Sun, Moon, Bookmark, Cloud, BookOpen } from "lucide-react";
 import {
   C, TODAY, computeTargets, smoothedWeight, cardStyle,
-} from "./core.js";
+} from "../core.js";
 
 export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onOpenAccount, onOpenGuide, onClose }) {
   const [kcal, setKcal] = useState(settings.kcal);

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Search, ScanLine, X, Check, Plus, Loader, Bookmark } from "lucide-react";
-import { searchProducts, fetchProductByBarcode } from "./openfoodfacts.js";
-import { scoreProduct } from "./core.js";
+import { searchProducts, fetchProductByBarcode } from "../lib/openfoodfacts.js";
+import { scoreProduct } from "../core.js";
 import { ProductVerdict } from "./ProductVerdict.jsx";
 
 // Recherche Open Food Facts : texte + scan code-barres, puis saisie au gramme.

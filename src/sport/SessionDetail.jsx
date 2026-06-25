@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Timer, Dumbbell, Flame, Plus, Minus, Trash2, Pencil, Check, X } from "lucide-react";
 import { C, cardStyle } from "../core.js";
-import { SESSIONS, sessionVolume, formatTime } from "../sport.js";
+import { SESSIONS, sessionVolume, formatTime } from "../lib/sport.js";
 import { StatTile, WorkoutHeader, DIFFS, diffColorByValue } from "./components.jsx";
 
 const FONT = "'Space Grotesk', system-ui";

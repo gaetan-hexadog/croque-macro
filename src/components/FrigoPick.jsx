@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft, Plus, Refrigerator } from "lucide-react";
-import { C } from "./core.js";
+import { C } from "../core.js";
 
 // Piocher une PORTION d'un aliment du frigo : on liste les aliments dispo qui ont
 // une densité (kcal/100), on saisit une quantité (g/ml/…) → macros calculées → onPick.

@@ -3,29 +3,29 @@ import { Settings2, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId,
 } from "./core.js";
-import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./sport.js";
-import { getLibrarySync, refreshLibrary } from "./library.js";
-import { supabase } from "./supabaseClient.js";
-import { pullAll, pushDays, pushWeights, pushAppState, pushWorkouts, deleteWorkout as deleteWorkoutRow, mergeAppState } from "./sync.js";
-import { DayScreen } from "./DayScreen.jsx";
-import { Deck } from "./Deck.jsx";
-import OffSearch from "./OffSearch.jsx";
-import { Sheet } from "./Sheet.jsx";
-import { Toast } from "./Toast.jsx";
-import { AuthGate } from "./AuthGate.jsx";
-import { MealSuggestSheet } from "./MealSuggestSheet.jsx";
-import { QuickLogSheet } from "./QuickLogSheet.jsx";
-import { PantrySheet } from "./PantrySheet.jsx";
-import { SectionTitle } from "./ui.jsx";
+import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./lib/sport.js";
+import { getLibrarySync, refreshLibrary } from "./lib/library.js";
+import { supabase } from "./lib/supabaseClient.js";
+import { pullAll, pushDays, pushWeights, pushAppState, pushWorkouts, deleteWorkout as deleteWorkoutRow, mergeAppState } from "./lib/sync.js";
+import { DayScreen } from "./screens/DayScreen.jsx";
+import { Deck } from "./components/Deck.jsx";
+import OffSearch from "./components/OffSearch.jsx";
+import { Sheet } from "./components/Sheet.jsx";
+import { Toast } from "./components/Toast.jsx";
+import { AuthGate } from "./screens/AuthGate.jsx";
+import { MealSuggestSheet } from "./sheets/MealSuggestSheet.jsx";
+import { QuickLogSheet } from "./sheets/QuickLogSheet.jsx";
+import { PantrySheet } from "./sheets/PantrySheet.jsx";
+import { SectionTitle } from "./components/ui.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
-const JournalScreen = lazy(() => import("./JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
-const ProgressScreen = lazy(() => import("./ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
-const GuideScreen = lazy(() => import("./GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
-const PlanScreen = lazy(() => import("./PlanScreen.jsx"));
-const CuisineScreen = lazy(() => import("./CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
+const JournalScreen = lazy(() => import("./screens/JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
+const ProgressScreen = lazy(() => import("./screens/ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
+const GuideScreen = lazy(() => import("./screens/GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
+const PlanScreen = lazy(() => import("./screens/PlanScreen.jsx"));
+const CuisineScreen = lazy(() => import("./screens/CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
 const SportScreen = lazy(() => import("./sport/SportScreen.jsx").then((m) => ({ default: m.SportScreen })));
-const SettingsSheet = lazy(() => import("./Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
-const AccountSheet = lazy(() => import("./AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
+const SettingsSheet = lazy(() => import("./screens/Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
+const AccountSheet = lazy(() => import("./sheets/AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
 
 export default function PiocheRepas() {
   const [settings, setSettings] = useState({ kcal: 1850, protein: 150 });

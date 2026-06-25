@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach,
-} from "./core.js";
-import { Sheet } from "./Sheet.jsx";
-import { SectionTitle } from "./ui.jsx";
+} from "../core.js";
+import { Sheet } from "../components/Sheet.jsx";
+import { SectionTitle } from "../components/ui.jsx";
 
 // Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
 function QuickChips({ items = [], onQuick, color }) {

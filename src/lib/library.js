@@ -12,7 +12,7 @@
 //   recipes (recipe)             → l'écran Idées
 // ════════════════════════════════════════════════════════════════
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase.config.js";
-import { SNAPSHOT_FOODS } from "./foods.snapshot.js";
+import { SNAPSHOT_FOODS } from "../data/foods.snapshot.js";
 
 const CACHE_KEY = "croque-macro:library:v3"; // bump → ignore l'ancien cache (data Clear Protein à jour)
 

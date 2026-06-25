@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Plus, BookmarkPlus, ChevronDown, Check } from "lucide-react";
-import { C, cardStyle } from "./core.js";
+import { C, cardStyle } from "../core.js";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 
 const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim();

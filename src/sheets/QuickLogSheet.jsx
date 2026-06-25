@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
 import { Camera, Type, Loader2, AlertCircle, Plus, Image as ImageIcon } from "lucide-react";
-import { C, cardStyle, buildAssistantPrompt } from "./core.js";
-import { askAssistant, AssistantError, analyzePhotoMeal } from "./assistant.js";
-import { Sheet } from "./Sheet.jsx";
+import { C, cardStyle, buildAssistantPrompt } from "../core.js";
+import { askAssistant, AssistantError, analyzePhotoMeal } from "../lib/assistant.js";
+import { Sheet } from "../components/Sheet.jsx";
 
 const SLOTS = [["pdj", "Petit-déj"], ["dej", "Déj"], ["diner", "Dîner"], ["snack", "En-cas"]];
 const ingLine = (i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim());

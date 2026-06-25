@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { X, ScanLine, Pencil, Check, Refrigerator } from "lucide-react";
-import { C } from "./core.js";
-import { Sheet } from "./Sheet.jsx";
-import OffSearch from "./OffSearch.jsx";
+import { C } from "../core.js";
+import { Sheet } from "../components/Sheet.jsx";
+import OffSearch from "../components/OffSearch.jsx";
 
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
 const stripQty = (s) => String(s || "").replace(/\s*\([^)]*\)\s*$/, "").trim(); // retire « (330 ml) »

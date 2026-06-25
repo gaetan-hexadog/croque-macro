@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, Lightbulb } from "lucide-react";
-import { C, buildAssistantPrompt } from "./core.js";
-import { askAssistant, AssistantError } from "./assistant.js";
-import { Sheet } from "./Sheet.jsx";
-import MealCard from "./MealCard.jsx";
+import { C, buildAssistantPrompt } from "../core.js";
+import { askAssistant, AssistantError } from "../lib/assistant.js";
+import { Sheet } from "../components/Sheet.jsx";
+import MealCard from "../components/MealCard.jsx";
 import { PantrySheet } from "./PantrySheet.jsx";
 
 const SLOT_LABELS = { pdj: "petit-déjeuner", dej: "déjeuner", diner: "dîner", snack: "en-cas" };

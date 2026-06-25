@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { X, Plus, Soup } from "lucide-react";
-import { C } from "./core.js";
-import { Sheet } from "./Sheet.jsx";
+import { C } from "../core.js";
+import { Sheet } from "../components/Sheet.jsx";
 
 const CATS = [
   { k: "pdj", l: "Petit-déj" },

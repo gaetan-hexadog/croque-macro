@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { X, Cloud, CloudOff, LogOut, Mail, Loader2 } from "lucide-react";
-import { C } from "./core.js";
-import { supabase } from "./supabaseClient.js";
-import { Sheet } from "./Sheet.jsx";
+import { C } from "../core.js";
+import { supabase } from "../lib/supabaseClient.js";
+import { Sheet } from "../components/Sheet.jsx";
 
 // Bloc « Compte & synchronisation ». La connexion est OPTIONNELLE : sans compte,
 // l'app marche en local comme avant. Avec compte, l'historique se synchronise.

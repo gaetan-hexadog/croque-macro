@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from "react";
 import {
   C, TODAY, parseISO, addDays, r0, dayTotals, hasData, cardStyle,
-} from "./core.js";
-import { WeekCard } from "./Week.jsx";
-import { SectionTitle } from "./ui.jsx";
+} from "../core.js";
+import { WeekCard } from "../components/Week.jsx";
+import { SectionTitle } from "../components/ui.jsx";
 
 export function ProgressScreen({ days, weights, settings }) {
   const [period, setPeriod] = useState(30);

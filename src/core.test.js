@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount } from "./core.js";
-import { mergeAppState } from "./sync.js";
+import { mergeAppState } from "./lib/sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
 // Construit un historique : poids sur nWeights jours + apports loggés sur nDays.

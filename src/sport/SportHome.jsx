@@ -4,11 +4,11 @@ import {
   Minus as Flat, AlertTriangle, Info, CalendarCheck, History as HistoryIcon, BookOpen, Settings, PenLine,
 } from "lucide-react";
 import { C, cardStyle } from "../core.js";
-import { SectionTitle } from "../ui.jsx";
+import { SectionTitle } from "../components/ui.jsx";
 import {
   SESSIONS, SESSION_ORDER, ADAPT_TIPS, getAdaptiveSuggestion, getGapWarning, daysBetween,
   strengthTrend, strengthSeries, assiduitySeries,
-} from "../sport.js";
+} from "../lib/sport.js";
 import { StatTile, RadialStat, Sparkline } from "./components.jsx";
 
 const FONT = "'Space Grotesk', system-ui";

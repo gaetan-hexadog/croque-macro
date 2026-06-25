@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { ChevronDown, Plus, Bookmark, Check, ChefHat, Search, X, Star, Copy, Gauge, Trash2 } from "lucide-react";
-import { C, r0, cardStyle } from "./core.js";
-import { SectionTitle } from "./ui.jsx";
-import { AddRecipeSheet } from "./RecipeForm.jsx";
+import { C, r0, cardStyle } from "../core.js";
+import { SectionTitle } from "../components/ui.jsx";
+import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 

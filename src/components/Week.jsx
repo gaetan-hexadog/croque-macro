@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronRight, TrendingDown, TrendingUp, Sparkles, Beef } from "lucide-react";
-import { weekStats, weekCoach, C, r0, parseISO, cardStyle } from "./core.js";
+import { weekStats, weekCoach, C, r0, parseISO, cardStyle } from "../core.js";
 
 // Système hebdomadaire : solde glissant 7 j, marge plaisir, pilotage doux.
 // Cadrage sain : pas de dette, pas de calories gagnées au sport, ancrage poids.

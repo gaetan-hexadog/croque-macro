@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { C } from "./core.js";
+import { C } from "../core.js";
 
 // Toast léger avec action « Annuler ». Auto-dismiss après 4 s.
 // Fond OPAQUE (cardSolid) — un fond translucide le rendait invisible sur le thème sombre.

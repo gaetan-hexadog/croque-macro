@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Salad, UtensilsCrossed, Plus, Check, Search, Flame, Beef, Package, Dumbbell, Cookie, Scale, ExternalLink, ScanLine, Beer, Wine, IceCream2, ChevronDown } from "lucide-react";
 import {
   store, C, cardStyle,
-} from "./core.js";
+} from "../core.js";
 
 export function GuideScreen({ onAddExtra, dateLabel, settings }) {
   const ex = [
