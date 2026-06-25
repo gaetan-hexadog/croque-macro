@@ -1,6 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie, Camera, Wand2 } from "lucide-react";
+import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie, Camera, Wand2, RotateCcw } from "lucide-react";
 import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "../core.js";
+
+// Petites prefs UI locales du shake (dernière prépa, dernier shake) — sync, non synchronisé.
+const lsGet = (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 import OffSearch from "./OffSearch.jsx";
 import { Sheet } from "./Sheet.jsx";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
@@ -371,28 +375,25 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
   );
 }
 
-function Stat({ label, value, color }) {
-  return <div><p className="text-lg font-extrabold leading-none" style={{ color }}>{value}</p><p className="mt-0.5 text-xs uppercase tracking-wide" style={{ color: C.muted }}>{label}</p></div>;
-}
-
 function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {
   const [adding, setAdding] = useState(false);
   const [n, setN] = useState(""); const [k, setK] = useState(""); const [p, setP] = useState("");
   const save = () => { const kc = parseInt(k, 10); if (!n.trim() || isNaN(kc)) return; onAdd({ name: n.trim(), kcal: kc, p: parseInt(p, 10) || 0 }); setN(""); setK(""); setP(""); setAdding(false); };
   return (
     <div>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>{label}</p>
-      <div className="flex flex-wrap gap-1.5">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>{label}</p>
+      {/* Une seule ligne, scroll horizontal → hauteur fixe quels que soient les noms. */}
+      <div className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5" style={{ scrollbarWidth: "none" }}>
         {options.map((o, i) => {
           const on = i === sel;
           return (
-            <span key={o.id || o.name} className="inline-flex items-center rounded-full" style={{ backgroundColor: on ? C.protein : C.paper, border: `1px solid ${on ? C.protein : C.line}` }}>
+            <span key={o.id || o.name} className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full" style={{ backgroundColor: on ? C.protein : C.paper, border: `1px solid ${on ? C.protein : C.line}` }}>
               <button onClick={() => onSel(i)} className={`py-1.5 text-xs font-semibold active:scale-95 ${o.id ? "pl-3 pr-1" : "px-3"}`} style={{ color: on ? "#fff" : C.sub }}>{o.name}</button>
               {o.id && onDel && <button onClick={() => onDel(o.id)} className="py-1.5 pl-0.5 pr-2 active:scale-90" style={{ color: on ? "#fff" : C.muted }}><X size={11} /></button>}
             </span>
           );
         })}
-        {onAdd && <button onClick={() => setAdding((a) => !a)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}`, color: C.muted }}>+ Autre</button>}
+        {onAdd && <button onClick={() => setAdding((a) => !a)} className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}`, color: C.muted }}>+ Autre</button>}
       </div>
       {adding && (
         <div className="mt-1.5 flex items-center gap-1.5">
@@ -406,87 +407,113 @@ function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {
   );
 }
 
+// Stepper numérique compact (doses / volume / verres).
+function MiniStepper({ value, onChange, step = 1, min = 0, suffix }) {
+  const r = (n) => Math.round(n * 100) / 100;
+  return (
+    <div className="inline-flex items-center rounded-lg p-0.5" style={{ border: `1px solid ${C.line}`, backgroundColor: C.paper }}>
+      <button onClick={() => onChange(Math.max(min, r(value - step)))} className="flex h-7 w-7 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: C.ink }}>−</button>
+      <span className="text-center text-xs font-bold tabular-nums" style={{ color: C.ink, minWidth: "2.6rem" }}>{value}{suffix && <span className="text-[9px] font-medium" style={{ color: C.muted }}> {suffix}</span>}</span>
+      <button onClick={() => onChange(r(value + step))} className="flex h-7 w-7 items-center justify-center rounded text-base font-bold active:scale-90" style={{ color: C.protein }}>+</button>
+    </div>
+  );
+}
+
+const qLabel = (o) => (o === 0.5 ? "½" : o === 1.5 ? "1½" : String(o));
+const GLASS_ML = 250; // verre standard (le détail technique sort de l'UI)
+
 function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid, embedded = false }) {
+  const prep0 = lsGet("cm:shakePrep") || {};
   const [open, setOpen] = useState(embedded);
   const [bi, setBi] = useState(0); const [li, setLi] = useState(1);
   const [qty, setQty] = useState(1);
   const [mode, setMode] = useState("dose"); // dose | verre
-  const [dosesPrep, setDosesPrep] = useState("1");   // doses dans la préparation
-  const [totalVol, setTotalVol] = useState("375");   // volume total préparé (ml)
-  const [glassVol, setGlassVol] = useState("150");   // volume d'un verre (ml)
-  const [nGlasses, setNGlasses] = useState("1");     // nombre de verres bus
+  const [doses, setDoses] = useState(prep0.doses || 2);  // doses dans la préparation
+  const [vol, setVol] = useState(prep0.vol || 750);      // volume total préparé (ml)
+  const [glasses, setGlasses] = useState(1);             // verres bus
+  const [last, setLast] = useState(() => lsGet("cm:lastShake"));
   const bases = [...catBases, ...customBases];
   const liquids = [...catLiquids, ...customLiquids];
   const sb = Math.min(bi, bases.length - 1), sl = Math.min(li, liquids.length - 1);
   const EMPTY = { name: "—", kcal: 0, p: 0 };
   const base = bases[sb] || bases[0] || EMPTY, liq = liquids[sl] || liquids[0] || EMPTY; // jamais undefined → pas de crash
-  const QOPTS = [0.5, 1, 1.5, 2];
-  const qLabel = (o) => (o === 0.5 ? "½" : o === 1.5 ? "1½" : String(o));
-  // Mode doses : (base + liquide) × nombre de doses
-  const kcal = Math.round((base.kcal + liq.kcal) * qty), p = Math.round((base.p + liq.p) * qty);
-  // Mode verre dilué : poudre × doses préparées × (verre / volume total) × nb de verres
-  const num = (v) => Math.max(0, parseFloat(String(v).replace(",", ".")) || 0);
-  const frac = num(totalVol) > 0 ? num(glassVol) / num(totalVol) : 0;
-  const gFactor = num(dosesPrep) * frac * num(nGlasses);
-  const gKcal = Math.round(base.kcal * gFactor), gP = Math.round(base.p * gFactor);
-  const numField = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
-  const NumIn = ({ label, value, onChange, suffix }) => (
-    <div className="min-w-0 flex-1">
-      <p className="mb-1 text-[11px] font-semibold" style={{ color: C.sub }}>{label}</p>
-      <div className="flex items-center gap-1 rounded-lg px-2 py-1.5" style={numField}>
-        <input value={value} onChange={(e) => onChange(e.target.value)} inputMode="decimal" className="w-full min-w-0 bg-transparent text-sm outline-none" style={{ color: C.ink }} />
-        {suffix && <span className="shrink-0 text-xs" style={{ color: C.muted }}>{suffix}</span>}
-      </div>
-    </div>
-  );
+  const isDose = mode === "dose";
+  // Doses : (base + liquide) × n. Verre : poudre × doses × (verre / volume total) × nb de verres.
+  const dz = Math.round((base.kcal + liq.kcal) * qty), dp = Math.round((base.p + liq.p) * qty);
+  // Verre dilué : poudre bue = doses × (verre / volume total) × nb de verres. Le liquide
+  // compte AUSSI — chaque verre de 250 ml ≈ une dose de liquide (sinon eau = 0).
+  const pf = vol > 0 ? doses * (GLASS_ML / vol) * glasses : 0;
+  const gz = Math.round(base.kcal * pf + liq.kcal * glasses), gp = Math.round(base.p * pf + liq.p * glasses);
+  const kcal = isDose ? dz : gz, p = isDose ? dp : gp;
+  const name = isDose
+    ? `${base.name} + ${liq.name}${qty !== 1 ? ` (×${qLabel(qty)})` : ""}`
+    : `${base.name} · verre ${GLASS_ML} ml${glasses !== 1 ? ` ×${glasses}` : ""}`;
+  const disabled = !isDose && pf <= 0;
+  const add = () => {
+    const item = { name, kcal, p };
+    lsSet("cm:lastShake", item);
+    if (!isDose) lsSet("cm:shakePrep", { doses, vol });
+    setLast(item);
+    onAdd(item);
+  };
+
   const body = (
-    <div className="space-y-2.5 p-3">
+    <div className="space-y-3">
       {bases.length === 0 && (
-        <p className="rounded-xl p-2.5 text-xs" style={{ backgroundColor: C.paper, color: C.sub }}>Aucune base de shake dans le catalogue pour l'instant (exécute la migration Supabase, ou ajoute-en une plus bas). Tu peux quand même composer une fois une base ajoutée.</p>
+        <p className="rounded-xl p-2.5 text-xs" style={{ backgroundColor: C.paper, color: C.sub }}>Aucune base de shake pour l'instant — ajoute-en une plus bas (« + Autre »).</p>
       )}
-      <div className="flex gap-1.5">
-        <button onClick={() => setMode("dose")} className="flex-1 rounded-full py-1.5 text-xs font-bold active:scale-95" style={mode === "dose" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>En doses</button>
-        <button onClick={() => setMode("verre")} className="flex-1 rounded-full py-1.5 text-xs font-bold active:scale-95" style={mode === "verre" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>Verre dilué</button>
+
+      {/* Mémorisation : re-logger le dernier shake en 1 tap */}
+      {last && (
+        <button onClick={() => onAdd(last)} className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+          <span className="flex min-w-0 items-center gap-1.5 text-xs" style={{ color: C.sub }}><RotateCcw size={12} className="shrink-0" /> <span className="truncate">Ma dernière : <b style={{ color: C.ink }}>{last.name}</b></span></span>
+          <span className="shrink-0 text-xs font-bold" style={{ color: C.protein }}>{last.p} g</span>
+        </button>
+      )}
+
+      {/* Carte composition : base / liquide / quantité séparés par des filets */}
+      <div className="overflow-hidden rounded-2xl" style={{ border: `1px solid ${C.line}`, backgroundColor: C.card }}>
+        <div className="p-3"><ShakeRow label="Base · protéine" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} /></div>
+        <div className="p-3" style={{ borderTop: `1px solid ${C.line}` }}><ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} /></div>
+        <div className="p-3" style={{ borderTop: `1px solid ${C.line}` }}>
+          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Quantité</p>
+          {isDose ? (
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold" style={{ color: C.ink }}>Nombre de doses</span>
+              <MiniStepper value={qty} onChange={(v) => setQty(Math.max(0.5, v))} step={0.5} min={0.5} suffix="dose" />
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <div className="flex gap-2.5">
+                <label className="flex flex-1 flex-col gap-1.5"><span className="text-[11px] font-semibold" style={{ color: C.sub }}>Doses préparées</span><MiniStepper value={doses} onChange={(v) => setDoses(Math.max(1, Math.round(v)))} min={1} /></label>
+                <label className="flex flex-1 flex-col gap-1.5"><span className="text-[11px] font-semibold" style={{ color: C.sub }}>Volume total</span><MiniStepper value={vol} onChange={(v) => setVol(Math.max(50, v))} step={50} min={50} suffix="ml" /></label>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold" style={{ color: C.ink }}>Verres bus <span style={{ fontWeight: 400, color: C.muted }}>(250 ml)</span></span>
+                <MiniStepper value={glasses} onChange={(v) => setGlasses(Math.max(1, Math.round(v)))} suffix="verre" min={1} />
+              </div>
+            </div>
+          )}
+          {/* Divulgation progressive : le cas rare (dilution) ne s'impose pas au cas courant */}
+          <button onClick={() => setMode(isDose ? "verre" : "dose")} className="mt-3 flex w-full items-center justify-between gap-2.5 pt-2.5" style={{ borderTop: `1px solid ${C.line}` }}>
+            <span className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold" style={{ color: isDose ? C.sub : C.ink }}>🥛 Bu dilué, au verre</span>
+            <span className="relative h-[22px] w-[38px] shrink-0 rounded-full" style={{ backgroundColor: isDose ? C.line : C.protein, transition: "background .2s" }}>
+              <span className="absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white" style={{ left: isDose ? 2 : 18, transition: "left .2s" }} />
+            </span>
+          </button>
+        </div>
       </div>
 
-      {mode === "dose" ? (
-        <>
-          <ShakeRow label="Base" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
-          <ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} />
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Quantité</p>
-            <div className="flex gap-1.5">
-              {QOPTS.map((o) => (
-                <button key={o} onClick={() => setQty(o)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={o === qty ? { backgroundColor: C.protein, color: "#fff" } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{qLabel(o)} dose</button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-between pt-0.5">
-            <Stat label={`${p} g prot.`} value={`${kcal} kcal`} color={C.ink} />
-            <button onClick={() => onAdd({ name: `${base.name} + ${liq.name}${qty !== 1 ? ` (×${qLabel(qty)})` : ""}`, kcal, p })} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>Ajouter</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <ShakeRow label="Poudre" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
-          <p className="text-xs" style={{ color: C.muted }}>Tu prépares la poudre dans un grand volume, et tu bois des verres. L'app calcule la part bue.</p>
-          <div className="flex gap-2">
-            <NumIn label="Doses préparées" value={dosesPrep} onChange={setDosesPrep} />
-            <NumIn label="Volume total" value={totalVol} onChange={setTotalVol} suffix="ml" />
-          </div>
-          <div className="flex gap-2">
-            <NumIn label="Verre" value={glassVol} onChange={setGlassVol} suffix="ml" />
-            <NumIn label="Nb de verres" value={nGlasses} onChange={setNGlasses} />
-          </div>
-          <div className="flex items-center justify-between pt-0.5">
-            <Stat label={`${gP} g prot.`} value={`${gKcal} kcal`} color={C.ink} />
-            <button onClick={() => onAdd({ name: `${base.name} · verre ${num(glassVol)} ml${num(nGlasses) !== 1 ? ` ×${num(nGlasses)}` : ""}`, kcal: gKcal, p: gP })} disabled={gFactor <= 0} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: gFactor > 0 ? C.protein : C.line }}>Ajouter</button>
-          </div>
-        </>
-      )}
+      {/* Barre résultat : protéine accentuée + Ajouter (liseré protéine pour la distinguer) */}
+      <div className="flex items-center justify-between rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.protein}55` }}>
+        <p className="leading-tight"><span className="text-2xl font-extrabold" style={{ color: C.protein }}>{p} g</span><span className="text-xs font-semibold" style={{ color: C.sub }}> prot.</span><br /><span className="text-[11px]" style={{ color: C.muted }}>{kcal} kcal</span></p>
+        <button onClick={add} disabled={disabled} className="rounded-xl px-5 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: disabled ? C.line : C.protein, color: disabled ? C.muted : "#1a1208" }}>+ Ajouter</button>
+      </div>
     </div>
   );
-  if (embedded) return <div className="overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>{body}</div>;
+  // Embarqué dans la pioche : pas de wrapper de fond (la carte composition porte déjà
+  // l'élévation, sur le fond de la sheet → contraste correct).
+  if (embedded) return body;
   return (
     <div className="mb-3 overflow-hidden rounded-2xl" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left active:opacity-70">
