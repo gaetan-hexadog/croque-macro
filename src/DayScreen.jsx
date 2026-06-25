@@ -155,34 +155,41 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       )}
 
-      {/* Jauge du jour — double anneau (kcal + protéines). Training = chip discret en coin. */}
-      <section className="relative mb-4 rounded-3xl p-5" style={cardStyle()}>
+      {/* Dashboard compact : petit anneau + jauges linéaires + log rapide intégré */}
+      <section className="relative mb-4 rounded-3xl p-4" style={cardStyle()}>
         <button onClick={onToggleTraining} aria-pressed={training} title="Jour d'entraînement" className="absolute right-3.5 top-3.5 z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={training ? { backgroundColor: `${C.weight}26`, color: C.weight } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}><Dumbbell size={12} /> Training</button>
-        <HeroRing kcal={totals.kcal} kcalTarget={settings.kcal} prot={totals.p} protTarget={settings.protein} kcalPlanned={planned.kcal} protPlanned={planned.p}>
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>{over ? "Dépassé de" : "Restant"}</p>
-          <p className="leading-none" style={{ fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>
-            <span className="text-6xl font-bold tracking-tight" style={{ color: over ? C.over : C.ink }}>{r0(Math.abs(remKcal))}</span>
-          </p>
-          <p className="mt-1 text-xs" style={{ color: C.sub }}>kcal {over ? "au-dessus" : "restantes"}</p>
-        </HeroRing>
-        {/* Lecture principale « consommé / cible » — la ligne forte sous l'anneau. */}
-        <div className="mt-3 flex justify-center gap-2">
-          <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}><Flame size={12} /> {r0(totals.kcal)} / {settings.kcal}</span>
-          <span className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold tabular-nums" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Beef size={12} /> {r0(totals.p)} / {settings.protein} g</span>
+        <div className="flex items-center gap-4">
+          <MiniRing over={over}
+            kcalPct={totals.kcal / settings.kcal} protPct={totals.p / settings.protein}
+            kcalPlanPct={(totals.kcal + planned.kcal) / settings.kcal} protPlanPct={(totals.p + planned.p) / settings.protein}>
+            <span className="leading-none text-3xl font-bold" style={{ color: over ? C.over : C.ink, fontFamily: "'Space Grotesk', system-ui", fontVariantNumeric: "tabular-nums" }}>{r0(Math.abs(remKcal))}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>{over ? "au-dessus" : "restant"}</span>
+          </MiniRing>
+          <div className="min-w-0 flex-1 space-y-2.5">
+            <div>
+              <div className="mb-1 flex items-center justify-between text-xs font-bold tabular-nums">
+                <span className="flex items-center gap-1" style={{ color: C.protein }}><Flame size={12} /> kcal</span>
+                <span style={{ color: C.sub }}>{r0(totals.kcal)} / {settings.kcal}</span>
+              </div>
+              <Meter value={totals.kcal} planned={planned.kcal} target={settings.kcal} color={over ? C.over : C.protein} />
+            </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between text-xs font-bold tabular-nums">
+                <span className="flex items-center gap-1" style={{ color: C.green }}><Beef size={12} /> prot.</span>
+                <span style={{ color: C.sub }}>{r0(totals.p)} / {settings.protein} g</span>
+              </div>
+              <Meter value={totals.p} planned={planned.p} target={settings.protein} color={C.green} />
+            </div>
+            <p className="text-[11px]" style={{ color: C.muted }}>
+              reste <b style={{ color: C.ink }}>{r0(Math.max(0, remKcal))} kcal · {r0(Math.max(0, remP))} g</b>
+              {planned.kcal > 0 && <> · projeté {r0(totals.kcal + planned.kcal)}</>}
+              {training && remP > 0 && <> · priorité protéines</>}
+            </p>
+          </div>
         </div>
-        {/* Une seule ligne de contexte (protéines + training + prévu) au lieu de trois. */}
-        <p className="mt-2 text-center text-xs" style={{ color: C.muted }}>
-          {remP > 0 ? <>Encore <span className="font-semibold" style={{ color: C.green }}>{r0(remP)} g</span> de protéines{training ? " · priorité training" : ""}</> : "Protéines au but ✓"}
-          {(planned.kcal > 0) && <> · +<span className="font-semibold" style={{ color: C.sub }}>{r0(planned.kcal)}</span> prévu → projeté {r0(totals.kcal + planned.kcal)}</>}
-        </p>
 
-        <div className="mt-4">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>L'assiette</p>
-          <PlateBar segments={ribbon} total={settings.kcal} />
-        </div>
-
-        {/* Bilan de la semaine, fusionné dans la jauge — tap → Progrès */}
-        <button onClick={onOpenWeek} className="mt-4 flex w-full items-center justify-between rounded-2xl px-3.5 py-2.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+        {/* Bilan de la semaine, fusionné dans la jauge — tap → Suivi */}
+        <button onClick={onOpenWeek} className="mt-3 flex w-full items-center justify-between rounded-2xl px-3.5 py-2.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
           <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>
             Cette semaine
             {WTrend && <span className="flex items-center gap-0.5 normal-case" style={{ color: C.weight }}><WTrend size={13} /> poids</span>}
@@ -277,57 +284,54 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
 function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, quick, onQuick, onViewRecipe }) {
   const ui = SLOT_UI[slotKey];
-  const Icon = SLOTS[slotKey].icon;
   const [naming, setNaming] = useState(false);
   const [comboName, setComboName] = useState("");
   const sub = meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 });
   const has = meals.length > 0;
+  const planned = meals.some((m) => m.planned);
   return (
-    <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
-      <div className="mb-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: ui.color }} />
-          <Icon size={17} style={{ color: ui.color }} />
-          <div className="leading-tight">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: ui.color }}>{ui.time}</p>
-            <p className="text-sm font-semibold" style={{ color: C.ink }}>{SLOTS[slotKey].label}{has && <span style={{ color: C.muted, fontWeight: 500 }}> · {sub.kcal} kcal · {sub.p} g</span>}</p>
-          </div>
+    <div className="rounded-2xl px-3.5 py-3" style={cardStyle(planned ? { borderStyle: "dashed" } : undefined)}>
+      {/* En-tête compact : label · nb items · total · sauter · assistant · + */}
+      <div className="flex items-center gap-2.5">
+        <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: has || skipped ? ui.color : C.line }} />
+        <div className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: ui.color }}>{SLOTS[slotKey].label}</span>
+            {planned && <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${C.accent}26`, color: C.accent }}>PRÉVU</span>}
+            {has && <span className="text-[11px]" style={{ color: C.muted }}>· {meals.length} item{meals.length > 1 ? "s" : ""}</span>}
+          </span>
         </div>
-        {onSkip && (
-          <button onClick={onSkip} className="rounded-full px-2.5 py-1 text-xs font-medium active:scale-95" style={skipped ? { backgroundColor: C.ink, color: C.paper } : { color: C.muted, border: `1px solid ${C.line}` }}>{skipped ? "Sauté" : "Sauter"}</button>
-        )}
+        {has && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: planned ? C.muted : C.sub }}>{sub.kcal} · {sub.p} g</span>}
+        {onSkip && <button onClick={onSkip} className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={skipped ? { backgroundColor: C.ink, color: C.bg } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}>{skipped ? "Sauté" : "Sauter"}</button>}
+        {!skipped && onIdea && <button onClick={onIdea} aria-label="Assistant pour ce repas" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={14} /></button>}
+        {!skipped && <button onClick={onAdd} aria-label="Ajouter / piocher" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: ui.color }}><Plus size={15} /></button>}
       </div>
 
       {skipped ? (
-        <p className="pl-1 text-sm" style={{ color: C.muted }}>Protéines reportées sur le déjeuner et le dîner.</p>
+        <p className="mt-2 pl-4 text-sm" style={{ color: C.muted }}>Sauté · protéines reportées sur les autres repas.</p>
       ) : !has ? (
         <>
-          <QuickChips items={quick} onQuick={onQuick} color={ui.color} />
-          <div className="flex items-center gap-2">
-            <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}><Search size={15} /> Piocher · ~{r0(target.kcal)} kcal</button>
-            {onIdea && <button onClick={onIdea} title="Assistant pour ce repas" className="flex h-11 items-center justify-center gap-1.5 rounded-2xl px-4 active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={17} /> Assistant</button>}
-          </div>
+          {quick?.length ? <div className="mt-2"><QuickChips items={quick} onQuick={onQuick} color={ui.color} /></div> : null}
+          <button onClick={onAdd} className="mt-2 ml-4 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Search size={13} /> Piocher · ~{r0(target.kcal)} kcal</button>
         </>
       ) : (
-        <div className="space-y-2">
-          <QuickChips items={quick} onQuick={onQuick} color={ui.color} />
-          {meals.map((m, i) => (
-            <MealItemRow key={i} m={m} accent={ui.color} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe} />
-          ))}
-          <div className="flex items-center gap-2 pt-0.5">
-            <button onClick={onAdd} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${ui.color}1a`, color: ui.color }}><Plus size={15} /> Ajouter</button>
-            {onIdea && <button onClick={onIdea} title="Assistant pour ce repas" className="flex h-10 items-center justify-center gap-1.5 rounded-2xl px-3.5 active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={16} /> Assistant</button>}
-          </div>
+        <>
+          {quick?.length ? <div className="mt-2"><QuickChips items={quick} onQuick={onQuick} color={ui.color} /></div> : null}
+          <ul className="mt-1.5">
+            {meals.map((m, i) => (
+              <MealItemRow key={i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe} />
+            ))}
+          </ul>
           {onSaveCombo && (naming ? (
-            <div className="flex items-center gap-2 pt-1">
+            <div className="mt-2 flex items-center gap-2">
               <input value={comboName} onChange={(e) => setComboName(e.target.value)} placeholder="Nom du repas" autoFocus className="min-w-0 flex-1 rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} onKeyDown={(e) => { if (e.key === "Enter" && comboName.trim()) { onSaveCombo(slotKey, meals, comboName.trim()); setComboName(""); setNaming(false); } }} />
               <button onClick={() => { if (comboName.trim()) { onSaveCombo(slotKey, meals, comboName.trim()); setComboName(""); setNaming(false); } }} className="shrink-0 rounded-xl px-3 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}>OK</button>
               <button onClick={() => { setNaming(false); setComboName(""); }} className="shrink-0 rounded-xl px-2 py-2 text-sm active:scale-95" style={{ color: C.muted }}>Annuler</button>
             </div>
           ) : (
-            <button onClick={() => setNaming(true)} className="pt-1.5 text-xs font-semibold active:scale-95" style={{ color: C.muted }}>+ Enregistrer comme repas réutilisable</button>
+            <button onClick={() => setNaming(true)} className="mt-1.5 ml-4 text-xs font-semibold active:scale-95" style={{ color: C.muted }}>+ Enregistrer comme repas réutilisable</button>
           ))}
-        </div>
+        </>
       )}
     </div>
   );
@@ -342,45 +346,46 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
     ...snacks.map((m, i) => ({ m, slot: "snack", i, plaisir: false })),
     ...extras.map((m, i) => ({ m, slot: "extras", i, plaisir: true })),
   ];
+  const has = items.length > 0;
+  const sub = items.reduce((a, { m }) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 });
   return (
-    <div className="rounded-3xl px-5 py-4" style={cardStyle()}>
-      <div className="mb-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-          <Apple size={17} style={{ color }} />
-          <div className="leading-tight">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>À-côtés</p>
-            <p className="text-sm font-semibold" style={{ color: C.ink }}>En-cas & plaisirs</p>
-          </div>
+    <div className="rounded-2xl px-3.5 py-3" style={cardStyle()}>
+      <div className="flex items-center gap-2.5">
+        <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: has ? color : C.line }} />
+        <div className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color }}>À-côtés</span>
+            {has && <span className="text-[11px]" style={{ color: C.muted }}>· {items.length} item{items.length > 1 ? "s" : ""}</span>}
+          </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          {onIdea && <button onClick={onIdea} aria-label="Assistant pour ce repas" className="flex h-8 w-8 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={15} /></button>}
-          <button onClick={onAdd} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.ink, color: C.paper }}><Plus size={13} /> Ajouter</button>
-        </div>
+        {has && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: C.sub }}>{sub.kcal} · {sub.p} g</span>}
+        {onIdea && <button onClick={onIdea} aria-label="Assistant" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={14} /></button>}
+        <button onClick={onAdd} aria-label="Ajouter" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color }}><Plus size={15} /></button>
       </div>
-      <QuickChips items={quick} onQuick={onQuick} color={color} />
-      {items.length === 0 ? (
-        <p className="pl-1 text-sm" style={{ color: C.muted }}>Un en-cas protéiné si un repas est juste, ou un petit plaisir — le budget s'ajuste tout seul.</p>
+      {quick?.length ? <div className="mt-2"><QuickChips items={quick} onQuick={onQuick} color={color} /></div> : null}
+      {!has ? (
+        <p className="mt-2 pl-4 text-sm" style={{ color: C.muted }}>Un en-cas protéiné si un repas est juste, ou un petit plaisir — le budget s'ajuste.</p>
       ) : (
-        <div className="space-y-2">
-          {items.map(({ m, slot, i, plaisir }) => (
-            <MealItemRow key={`${slot}-${i}`} m={m} accent={plaisir ? C.extra : color} plaisir={plaisir}
+        <ul className="mt-1.5">
+          {items.map(({ m, slot, i, plaisir }, idx) => (
+            <MealItemRow key={`${slot}-${i}`} m={m} accent={plaisir ? C.extra : color} plaisir={plaisir} first={idx === 0}
               onQty={onQty ? (nv) => onQty(slot, i, nv) : undefined}
               onRemove={() => onClear(slot, i)}
               onEdit={onEdit ? (patch) => onEdit(slot, i, patch) : undefined}
               onConfirm={onConfirm ? () => onConfirm(slot, i) : undefined}
-              onViewRecipe={onViewRecipe}
-              bg={plaisir ? `${C.extra}14` : undefined} />
+              onViewRecipe={onViewRecipe} />
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
 }
 
-function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, onViewRecipe, plaisir, bg }) {
+function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, onViewRecipe, plaisir, first }) {
   const q = m.qty || 1;
   const hasRecipe = !!(m.ingredients?.length || m.steps?.length);
+  const planned = !!m.planned;
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(m.name);
   const [kcal, setKcal] = useState(String(m.kcal));
@@ -393,10 +398,11 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm,
   };
   const cancel = () => { setName(m.name); setKcal(String(m.kcal)); setP(String(m.p)); setEditing(false); };
   const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
+  const topBorder = first ? "none" : `1px solid ${C.line}`;
 
   if (editing) {
     return (
-      <div className="rounded-2xl p-3" style={{ backgroundColor: bg || C.paper, border: `1px solid ${accent}66` }}>
+      <li className="py-2.5" style={{ borderTop: topBorder }}>
         <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Nom" className="mb-2 w-full rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
         <div className="mb-2 flex gap-2">
           <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="decimal" placeholder="kcal" className="w-full min-w-0 rounded-xl px-3 py-2 text-sm outline-none" style={fld} />
@@ -406,42 +412,40 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm,
           <button onClick={save} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: accent }}><Check size={15} /> Enregistrer</button>
           <button onClick={cancel} className="rounded-xl px-3 py-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }} aria-label="Annuler"><X size={16} /></button>
         </div>
-        {q !== 1 && <p className="mt-1.5 px-1 text-xs" style={{ color: C.muted }}>Valeurs par portion · quantité ×{fmtQty(q)} appliquée à part.</p>}
-      </div>
+      </li>
     );
   }
 
-  const planned = !!m.planned;
   return (
-    <div className="rounded-2xl p-3" style={{ backgroundColor: bg || C.paper, border: planned ? `1px dashed ${accent}99` : "1px solid transparent", opacity: planned ? 0.92 : 1 }}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold" style={{ color: C.ink }}>
-            {planned && <span className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold align-middle" style={{ backgroundColor: `${accent}26`, color: accent }}>PRÉVU</span>}
-            {plaisir && <span className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold align-middle" style={{ backgroundColor: `${C.extra}26`, color: C.extra }}>PLAISIR</span>}
-            {m.name}{q !== 1 && <span style={{ color: accent }}> ×{fmtQty(q)}</span>}
-          </p>
-          <p className="mt-0.5 text-xs font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
-            <span style={{ color: C.ink }}>{r0(m.kcal * q)} kcal</span><span style={{ color: C.protein }}> · {r0(m.p * q)} g prot.</span>
-            {q !== 1 && <span style={{ color: C.muted }}> · {m.kcal}×{fmtQty(q)}</span>}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+    <li style={{ borderTop: topBorder }}>
+      <div className="flex items-center gap-2.5 py-2.5">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: plaisir ? C.extra : accent, opacity: planned ? 0.5 : 1 }} />
+        <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left active:opacity-70">
+          {plaisir && <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${C.extra}26`, color: C.extra }}>PLAISIR</span>}
+          <span className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}{q !== 1 && <span style={{ color: accent }}> ×{fmtQty(q)}</span>}</span>
+          {hasRecipe && <span role="button" onClick={(e) => { e.stopPropagation(); onViewRecipe && onViewRecipe(m); }} className="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[9px] font-bold active:scale-95" style={{ backgroundColor: `${C.weight}22`, color: C.weight }}><BookOpen size={9} /> RECETTE</span>}
+        </button>
+        <span className="shrink-0 text-[11px] tabular-nums" style={{ color: C.muted }}>{r0(m.kcal * q)} · {r0(m.p * q)} g</span>
+        <button onClick={() => setOpen((o) => !o)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded active:scale-90" style={{ color: C.muted }} aria-label="Actions"><ChevronRight size={15} style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} /></button>
+      </div>
+
+      {open && (
+        <div className="flex items-center justify-between gap-2 pb-2.5 pl-4">
           <QtyStepper value={q} onChange={onQty} accent={accent} />
           <div className="flex gap-1.5">
-            {hasRecipe && onViewRecipe && <button onClick={() => onViewRecipe(m)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }} aria-label="Voir la recette"><BookOpen size={14} /></button>}
             {onEdit && <button onClick={() => setEditing(true)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={14} /></button>}
-            {onReplace && <button onClick={onReplace} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Shuffle size={14} /></button>}
-            <button onClick={onRemove} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
+            {onReplace && <button onClick={onReplace} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Remplacer"><Shuffle size={14} /></button>}
+            <button onClick={onRemove} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }} aria-label="Supprimer"><Trash2 size={14} /></button>
           </div>
         </div>
-      </div>
+      )}
+
       {planned && onConfirm && (
-        <button onClick={onConfirm} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }}>
-          <Check size={14} /> J'ai bien mangé ça
+        <button onClick={onConfirm} className="mb-2 ml-4 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }}>
+          <Check size={13} /> J'ai bien mangé ça
         </button>
       )}
-    </div>
+    </li>
   );
 }
 
@@ -474,6 +478,40 @@ function QtyStepper({ value, onChange, accent = C.ink }) {
   );
 }
 
+
+// Petit anneau double (kcal + protéines) + arc « prévu » pâle — pour le dashboard compact.
+function MiniRing({ kcalPct, protPct, kcalPlanPct = 0, protPlanPct = 0, over, size = 108, children }) {
+  const sw = 11, gap = 4, r1 = size / 2 - sw / 2, r2 = r1 - sw - gap;
+  const c1 = 2 * Math.PI * r1, c2 = 2 * Math.PI * r2, cl = (v) => Math.max(0, Math.min(1, v));
+  const kc = over ? C.over : C.green, pc = C.protein;
+  const arc = (r, c, pct, color, op = 1) => <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw} strokeDasharray={`${c * cl(pct)} ${c}`} strokeLinecap="round" opacity={op} transform={`rotate(-90 ${size / 2} ${size / 2})`} style={{ transition: "stroke-dasharray .6s ease" }} />;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ display: "block" }}>
+        <circle cx={size / 2} cy={size / 2} r={r1} fill="none" stroke={C.track} strokeWidth={sw} />
+        <circle cx={size / 2} cy={size / 2} r={r2} fill="none" stroke={C.track} strokeWidth={sw} />
+        {kcalPlanPct > 0 && arc(r1, c1, kcalPlanPct, kc, 0.28)}
+        {protPlanPct > 0 && arc(r2, c2, protPlanPct, pc, 0.28)}
+        {arc(r1, c1, kcalPct, kc)}
+        {arc(r2, c2, protPct, pc)}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">{children}</div>
+    </div>
+  );
+}
+// Jauge linéaire avec segment « prévu » plus pâle.
+function Meter({ value, planned = 0, target, color, height = 7 }) {
+  const cl = (v) => Math.max(0, Math.min(1, v));
+  const v = cl(target ? value / target : 0), pl = cl(target ? (value + planned) / target : 0);
+  return (
+    <div className="w-full overflow-hidden rounded-full" style={{ height, backgroundColor: C.track }}>
+      <div className="relative h-full">
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pl * 100}%`, backgroundColor: color, opacity: 0.3 }} />
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${v * 100}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
 
 function HeroRing({ kcal, kcalTarget, prot, protTarget, kcalPlanned = 0, protPlanned = 0, children }) {
   const size = 220, cx = size / 2, cy = size / 2, sweep = 270, rot = 135;
