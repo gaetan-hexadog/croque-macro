@@ -47,16 +47,6 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
     return parts.join(" · ");
   };
 
-  // Scan/recherche OFF : reste un bottom-sheet par-dessus la page.
-  if (scanning) {
-    return (
-      <Sheet open onClose={onClose} title="Ajouter au frigo" subtitle="Chercher ou scanner" icon={<ScanLine size={18} />} iconColor={C.weight} onBack={() => setScanning(false)} z={50}>
-        <p className="mb-3 text-xs" style={{ color: C.sub }}>Cherche un produit ou scanne son code-barres, puis « Ajouter » — il rejoint directement ton frigo (nom, quantité du paquet et macros /100 repris automatiquement, éditables ensuite).</p>
-        <OffSearch C={C} accent={C.weight} onChoose={(it) => { onAdd(stripQty(it.name), { unit: it.unit || "g", qty: parsePkg(it.pkgQty, it.unit), kcal100: it.per100?.kcal, p100: it.per100?.p }); setScanning(false); }} />
-      </Sheet>
-    );
-  }
-
   const dispo = pantry.filter((x) => !x.out), rupture = pantry.filter((x) => x.out);
   const Row = (it) => (
     <div key={it.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
@@ -87,6 +77,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   );
 
   return (
+    <>
     <div style={{ position: "fixed", inset: 0, zIndex: 40, background: C.bg, backgroundImage: C.bgImage, display: "flex", flexDirection: "column" }}>
       <div className="flex items-center gap-3 px-4 pb-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)", borderBottom: `1px solid ${C.line}` }}>
         <button onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Retour"><ChevronLeft size={20} /></button>
@@ -135,5 +126,14 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
         <p className="px-1 text-xs leading-relaxed" style={{ color: C.muted }}>Passe en <b style={{ color: C.over }}>rupture</b> ce qui te manque. L'assistant peut n'utiliser qu'une <b style={{ color: C.ink }}>partie</b> d'un aliment (chocolat, compote, yaourt…) grâce à la densité /100.</p>
       </div>
     </div>
+
+    {/* Scan/recherche OFF — bottom-sheet PAR-DESSUS le frigo (le frigo reste monté). */}
+    {scanning && (
+      <Sheet open onClose={() => setScanning(false)} title="Ajouter au frigo" subtitle="Chercher ou scanner" icon={<ScanLine size={18} />} iconColor={C.weight} onBack={() => setScanning(false)} z={50}>
+        <p className="mb-3 text-xs" style={{ color: C.sub }}>Cherche un produit ou scanne son code-barres, puis « Ajouter » — il rejoint directement ton frigo (nom, quantité du paquet et macros /100 repris automatiquement, éditables ensuite).</p>
+        <OffSearch C={C} accent={C.weight} onChoose={(it) => { onAdd(stripQty(it.name), { unit: it.unit || "g", qty: parsePkg(it.pkgQty, it.unit), kcal100: it.per100?.kcal, p100: it.per100?.p }); setScanning(false); }} />
+      </Sheet>
+    )}
+    </>
   );
 }
