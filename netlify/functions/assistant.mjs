@@ -127,7 +127,7 @@ async function adaptWorkoutAI(body, apiKey) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 2000, system: sys, messages: [{ role: "user", content: prompt }], tools: [ADAPT_TOOL], tool_choice: { type: "tool", name: "adapt_workout" } }),
+      body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 2000, system: sys, messages: [{ role: "user", content: prompt }], tools: [ADAPT_TOOL], tool_choice: { type: "tool", name: "adapt_workout" } }),
     });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
     data = await res.json();
@@ -237,7 +237,7 @@ async function importRecipe(url, apiKey) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }),
+      body: JSON.stringify({ model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }),
     });
     if (!res.ok) return json(502, { error: "Extraction impossible pour le moment." });
     data = await res.json();
@@ -259,7 +259,7 @@ async function analyzePhoto(data, mediaType, apiKey) {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 1200, system: sys,
+        model: MODEL, temperature: 0.1, max_tokens: 1200, system: sys,
         messages: [{ role: "user", content: [
           { type: "image", source: { type: "base64", media_type: ok ? mediaType : "image/jpeg", data } },
           { type: "text", text: "Analyse ce repas et estime ses macros (kcal + protéines totales)." },
@@ -320,6 +320,7 @@ export default async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
+        temperature: 0.2, // macros stables pour une même recette (avant : défaut ~1.0 → gros écarts run-to-run)
         max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal,
         system: system || undefined,
         messages: [{ role: "user", content: prompt }],
