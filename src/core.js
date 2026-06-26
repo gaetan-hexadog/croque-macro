@@ -484,6 +484,7 @@ function buildAssistantPrompt({
     "- La protéine vient des aliments protéinés et de la poudre de protéine, pas du lait.",
     "- Objectif : perte de gras. Cibles ~1850 kcal / ~150 g de protéines par jour. Repas protéinés.",
     "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker, portable).",
+    "- Bob suit son poids et n'aime pas que la balance soit brouillée par la rétention d'eau. Pour limiter ça : VARIE les sources de protéines et évite d'EMPILER au même repas / sur la même journée un fort SODIUM (aliments transformés type jambon ou lardons végétaux, charcuterie veggie, condiments salés, sauce soja, cornichons, miso, feta) ET de TRÈS grosses charges de fibres/légumineuses (lentilles + pois chiches + edamame + maïs au même repas). Ce n'est PAS une interdiction — ces aliments sont bons ; juste ne pas tout cumuler, et équilibrer avec des options plus légères en sel/fibres dans la journée.",
     "VARIÉTÉ (important) : sois créatif et propose des repas VARIÉS et appétissants — explore différentes cuisines (méditerranéenne, indienne, mexicaine, asiatique, levantine…), légumineuses, céréales, façons de cuisiner. NE te limite PAS aux mêmes plats classiques ni à ce que Bob mange déjà d'habitude. Si on régénère, propose autre chose.",
     "Consignes de calcul :",
     "- CALCULE les kcal/protéines TOTAUX en ADDITIONNANT la contribution de CHAQUE ingrédient (quantité × valeur), jamais une estimation globale « à la louche ». Le total DOIT être cohérent avec les quantités listées.",
