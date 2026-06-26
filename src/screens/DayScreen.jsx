@@ -499,7 +499,7 @@ function QtyStepper({ value, onChange, accent = C.ink }) {
 function MiniRing({ kcalPct, protPct, kcalPlanPct = 0, protPlanPct = 0, over, size = 112, children }) {
   const sw = 9, gap = 5, r1 = size / 2 - sw / 2, r2 = r1 - sw - gap;
   const c1 = 2 * Math.PI * r1, c2 = 2 * Math.PI * r2, cl = (v) => Math.max(0, Math.min(1, v));
-  const kc = over ? C.over : C.green, pc = C.protein;
+  const kc = over ? C.over : C.protein, pc = C.green; // kcal = orange (accent), protéine = vert — cohérent avec les barres
   const arc = (r, c, pct, color, op = 1) => <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw} strokeDasharray={`${c * cl(pct)} ${c}`} strokeLinecap="round" opacity={op} transform={`rotate(-90 ${size / 2} ${size / 2})`} style={{ transition: "stroke-dasharray .6s ease" }} />;
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
