@@ -598,7 +598,7 @@ function WeightCard({ date, weight, onWeight, pushNav, navBack }) {
         </button>
       </div>
       {editing && (
-        <Sheet open onClose={close} title="Poids du jour" subtitle={fmtFull(parseISO(date))} icon={<Scale size={18} />} iconColor={C.weight}>
+        <Sheet open onClose={close} title="Poids du jour" subtitle={fmtFull(date)} icon={<Scale size={18} />} iconColor={C.weight}>
           <p className="mb-2 text-xs" style={{ color: C.sub }}>Ton poids du matin, à jeun, donne la tendance la plus fiable.</p>
           <div className="flex items-center gap-2">
             <input autoFocus value={val} onChange={(e) => setVal(e.target.value)} inputMode="decimal" placeholder="kg" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-base font-semibold outline-none" style={fld} onKeyDown={(e) => e.key === "Enter" && save()} />
