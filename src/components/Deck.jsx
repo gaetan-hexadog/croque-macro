@@ -260,7 +260,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
           {panel === "shake" && (
             <div>
-              <ShakeBuilder embedded onAdd={onChoose} bases={bases} liquids={liquids} customBases={shakeBases} customLiquids={shakeLiquids} onAddBase={onAddShakeBase} onDelBase={onDelShakeBase} onAddLiquid={onAddShakeLiquid} onDelLiquid={onDelShakeLiquid} />
+              <ShakeBuilder embedded onAdd={onChoose} bases={bases} liquids={liquids} customBases={shakeBases} customLiquids={shakeLiquids} onAddBase={onAddShakeBase} onDelBase={onDelShakeBase} onAddLiquid={onAddShakeLiquid} onDelLiquid={onDelShakeLiquid} pantry={pantry} />
             </div>
           )}
 
@@ -433,8 +433,50 @@ function MiniStepper({ value, onChange, step = 1, min = 0, suffix }) {
 const qLabel = (o) => (o === 0.5 ? "½" : o === 1.5 ? "1½" : String(o));
 const GLASS_ML = 250; // verre standard (le détail technique sort de l'UI)
 
-function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid, embedded = false }) {
+// Importer une protéine du frigo comme base de shake : on part de ses VRAIES valeurs /100 g
+// et on précise le poids d'une dose/scoop → macros exactes par dose. Varier marque/goût = juste
+// ajouter le produit au frigo. Crée une base custom (onAddBase) réutilisable ensuite.
+function PantryBaseImport({ items, onAddBase, accent }) {
+  const [open, setOpen] = useState(false);
+  const [sel, setSel] = useState(null);
+  const [g, setG] = useState(30);
+  if (!open) {
+    return <button onClick={() => setOpen(true)} className="mt-2 flex items-center gap-1 text-[11px] font-semibold active:scale-95" style={{ color: C.weight }}><Refrigerator size={12} /> Base depuis le frigo</button>;
+  }
+  if (sel) {
+    const kcal = Math.round((sel.kcal100 || 0) * g / 100), p = Math.round((sel.p100 || 0) * g / 100);
+    return (
+      <div className="mt-2 space-y-2 rounded-xl p-2.5" style={{ border: `1px solid ${C.line}`, backgroundColor: C.paper }}>
+        <p className="truncate text-xs font-bold" style={{ color: C.ink }}>{sel.name}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: C.sub }}>Poids d'une dose</span>
+          <MiniStepper value={g} onChange={(v) => setG(Math.max(1, Math.round(v)))} step={5} min={1} suffix="g" />
+        </div>
+        <p className="text-[11px]" style={{ color: C.muted }}>→ <b style={{ color: C.protein }}>{p} g prot.</b> · {kcal} kcal par dose</p>
+        <div className="flex gap-1.5">
+          <button onClick={() => setSel(null)} className="rounded-lg px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>Retour</button>
+          <button onClick={() => { onAddBase({ name: sel.name, kcal, p }); setOpen(false); setSel(null); }} className="flex-1 rounded-lg py-1.5 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: accent || C.protein }}>Ajouter comme base</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-1 rounded-xl p-2" style={{ border: `1px solid ${C.line}`, backgroundColor: C.paper }}>
+      <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Protéines de mon frigo</p>
+      {items.map((it) => (
+        <button key={it.id} onClick={() => { setSel(it); setG(30); }} className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left active:scale-95" style={{ backgroundColor: C.card }}>
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold" style={{ color: C.ink }}>{it.name}</span>
+          <span className="shrink-0 text-[10px]" style={{ color: C.muted }}>{it.kcal100 ?? "?"}k · {it.p100 ?? "?"}p /100{it.unit || "g"}</span>
+        </button>
+      ))}
+      <button onClick={() => setOpen(false)} className="px-1 pt-1 text-[11px] font-semibold" style={{ color: C.muted }}>Fermer</button>
+    </div>
+  );
+}
+
+function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid, embedded = false, pantry = [] }) {
   const prep0 = lsGet("cm:shakePrep") || {};
+  const pantryProteins = pantry.filter((x) => !x.out && (x.p100 || 0) > 0);
   const [open, setOpen] = useState(embedded);
   const [bi, setBi] = useState(0); const [li, setLi] = useState(1);
   const [qty, setQty] = useState(1);
@@ -484,7 +526,10 @@ function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], c
 
       {/* Carte composition : base / liquide / quantité séparés par des filets */}
       <div className="overflow-hidden rounded-2xl" style={{ border: `1px solid ${C.line}`, backgroundColor: C.card }}>
-        <div className="p-3"><ShakeRow label="Base · protéine" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} /></div>
+        <div className="p-3">
+          <ShakeRow label="Base · protéine" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
+          {onAddBase && pantryProteins.length > 0 && <PantryBaseImport items={pantryProteins} onAddBase={onAddBase} accent={C.protein} />}
+        </div>
         <div className="p-3" style={{ borderTop: `1px solid ${C.line}` }}><ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} /></div>
         <div className="p-3" style={{ borderTop: `1px solid ${C.line}` }}>
           <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Quantité</p>
