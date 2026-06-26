@@ -440,7 +440,12 @@ export default function PiocheRepas() {
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
   const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: newId("rec"), custom: true }, ...cur].slice(0, 200));
   const deleteRecipe = (id) => { const it = customRecipes.find((x) => x.id === id); setCustomRecipes((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimée`, () => setCustomRecipes((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
-  const updateRecipe = (id, patch) => setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
+  const updateRecipe = (id, patch) => {
+    if (customRecipes.some((x) => x.id === id)) { setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x)); return; }
+    // Recette du catalogue : on crée une copie perso (même id) qui la masque dans `meals`.
+    const lib = library.recipes.find((x) => x.id === id);
+    if (lib) setCustomRecipes((cur) => [{ ...lib, ...patch, id, custom: true }, ...cur].slice(0, 200));
+  };
   // Frigo/placard : staples avec interrupteur dispo (out=true → pas dispo aujourd'hui)
   // + macros optionnelles (kcal/p) renseignables au scan, éditables.
   // data : { unit, qty (stock total), kcal100, p100 (densité /100 unité) }
@@ -469,11 +474,17 @@ export default function PiocheRepas() {
   }));
   const removePantry = (id) => { const it = pantry.find((x) => x.id === id); setPantry((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} retiré du frigo`, () => setPantry((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
-  const meals = useMemo(() => [
-    ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
-    ...combos.map((c) => { const t = (c.items || []).reduce((a, i) => ({ k: a.k + i.kcal * (i.qty || 1), p: a.p + i.p * (i.qty || 1) }), { k: 0, p: 0 }); return { ...c, kind: "combo", kcal: Math.round(t.k), p: Math.round(t.p) }; }),
-    ...customMeals.map((m) => ({ ...m, kind: "aliment" })),
-  ], [customRecipes, combos, customMeals]);
+  const meals = useMemo(() => {
+    // Recettes du catalogue (foods kind=recipe) éditées → une copie perso (même id) les
+    // MASQUE. On affiche : recettes perso + recettes catalogue non masquées + combos + aliments.
+    const customIds = new Set(customRecipes.map((r) => r.id));
+    return [
+      ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
+      ...library.recipes.filter((r) => !customIds.has(r.id)).map((r) => ({ ...r, kind: "recette", lib: true })),
+      ...combos.map((c) => { const t = (c.items || []).reduce((a, i) => ({ k: a.k + i.kcal * (i.qty || 1), p: a.p + i.p * (i.qty || 1) }), { k: 0, p: 0 }); return { ...c, kind: "combo", kcal: Math.round(t.k), p: Math.round(t.p) }; }),
+      ...customMeals.map((m) => ({ ...m, kind: "aliment" })),
+    ];
+  }, [customRecipes, library.recipes, combos, customMeals]);
   const deleteMeal = (m) => { if (m.kind === "recette") deleteRecipe(m.id); else if (m.kind === "combo") deleteCombo(m.id); else deleteCustomMeal(m.id); };
   const useMealEntry = (m, slotOverride) => {
     if (m.kind === "combo") { const slot = slotOverride || m.slot || "dej", key = picksKey(slot); const ck = (m.items || []).reduce((a, it) => a + (it.kcal || 0) * (it.qty || 1), 0), cp = (m.items || []).reduce((a, it) => a + (it.p || 0) * (it.qty || 1), 0); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1, id: newId("pk") }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); toastAdd(m.name, ck, cp); return; }

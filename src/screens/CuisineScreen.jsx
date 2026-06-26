@@ -166,13 +166,13 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
       {/* ── Sheets ── */}
       {detail && <DetailSheet m={detail} onClose={() => setDetail(null)} onUse={onUse}
         onAdapt={detail.kind === "recette" ? () => { const m = detail; setDetail(null); setAdapting(m); } : undefined}
-        onEdit={(detail.kind === "recette" && detail.custom && onEditRecipe) ? () => { const m = detail; setDetail(null); setEditing(m); } : undefined}
-        onDelete={() => { onDelete(detail); setDetail(null); }} />}
+        onEdit={(detail.kind === "recette" && onEditRecipe) ? () => { const m = detail; setDetail(null); setEditing(m); } : undefined}
+        onDelete={detail.lib ? undefined : () => { onDelete(detail); setDetail(null); }} />}
       {slotPick && <SlotPickSheet m={slotPick} onClose={() => setSlotPick(null)} onUse={onUse} />}
       {adding && <AddRecipeSheet onClose={() => setAdding(false)} onAdd={(r) => { onAddRecipe(r); setAdding(false); }} />}
       {editing && <AddRecipeSheet initial={editing} onClose={() => setEditing(null)} onAdd={(r) => { onEditRecipe(editing.id, r); setEditing(null); }} />}
       {imported && <AddRecipeSheet prefill={imported} onClose={() => setImported(null)} onAdd={(r) => { onAddRecipe(r); setImported(null); }} />}
-      {adapting && <RecipeAdaptSheet recipe={adapting} favorites={favorites} knownFoods={knownFoods} pantry={pantry} onReplace={(adapting.custom && onEditRecipe) ? (r) => onEditRecipe(adapting.id, r) : undefined} onSaveNew={(r) => onAddRecipe(r)} onClose={() => setAdapting(null)} />}
+      {adapting && <RecipeAdaptSheet recipe={adapting} favorites={favorites} knownFoods={knownFoods} pantry={pantry} onReplace={onEditRecipe ? (r) => onEditRecipe(adapting.id, r) : undefined} onSaveNew={(r) => onAddRecipe(r)} onClose={() => setAdapting(null)} />}
 
       {importOpen && (
         <Sheet open onClose={() => setImportOpen(false)} title="Importer une recette" subtitle="Depuis une URL" icon={<Globe size={18} />} iconColor={C.protein}>
@@ -245,10 +245,10 @@ function DetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete }) {
           <div className="flex gap-2">
             {onAdapt && <button onClick={onAdapt} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><Wand2 size={15} /> Adapter</button>}
             {onEdit && <button onClick={onEdit} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><Pencil size={15} /> Modifier</button>}
-            <button onClick={onDelete} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={16} /></button>
+            {onDelete && <button onClick={onDelete} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={16} /></button>}
           </div>
         )}
-        {!onAdapt && !onEdit && (
+        {!onAdapt && !onEdit && onDelete && (
           <button onClick={onDelete} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }}><Trash2 size={15} /> Supprimer</button>
         )}
       </div>
