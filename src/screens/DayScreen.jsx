@@ -6,6 +6,7 @@ import {
 import { Sheet } from "../components/Sheet.jsx";
 import { SectionTitle } from "../components/ui.jsx";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
+import { RecipeDetailSheet } from "../components/RecipeDetailSheet.jsx";
 
 // Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
 function QuickChips({ items = [], onQuick, color }) {
@@ -273,7 +274,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
 
-      {viewRecipe && <RecipeViewSheet m={viewRecipe.m} onClose={closeNav} onAdapt={onAddRecipe ? () => setAdapting(viewRecipe) : undefined} />}
+      {viewRecipe && <RecipeDetailSheet m={viewRecipe.m} onClose={closeNav} onAdapt={onAddRecipe ? () => setAdapting(viewRecipe) : undefined} />}
       {adapting && (
         <RecipeAdaptSheet recipe={adapting.m} favorites={favorites} knownFoods={knownFoods} pantry={pantry} z={50}
           onReplace={(r) => { onEditItem(adapting.slot, adapting.index, { name: r.name, kcal: r.kcal, p: r.p, ingredients: r.ingredients, steps: r.steps, emoji: r.emoji }); setAdapting(null); closeNav(); }}
@@ -598,34 +599,6 @@ function WeightCard({ date, weight, onWeight }) {
   );
 }
 
-// Fiche recette consultable depuis un repas loggé (si l'item porte ingrédients/étapes).
-function RecipeViewSheet({ m, onClose, onAdapt }) {
-  const ings = m.ingredients || [], steps = m.steps || [];
-  return (
-    <Sheet open onClose={onClose} title={m.name} subtitle={`${r0(m.kcal)} kcal · ${r0(m.p)} g prot.`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <BookOpen size={18} />} iconColor={C.weight}>
-      {onAdapt && (
-        <button onClick={onAdapt} className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight, border: `1px solid ${C.weight}55` }}>
-          <Wand2 size={16} /> Personnaliser avec l'assistant
-        </button>
-      )}
-      <div className="space-y-5">
-        {ings.length > 0 && (
-          <section>
-            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
-            <ul className="space-y-2.5">{ings.map((it, i) => <li key={i} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: C.ink }}><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: C.green }} /><span>{it}</span></li>)}</ul>
-          </section>
-        )}
-        {steps.length > 0 && (
-          <section>
-            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Préparation</p>
-            <ol className="space-y-3.5">{steps.map((st, i) => <li key={i} className="flex gap-3 text-sm leading-relaxed" style={{ color: C.ink }}><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${C.protein}1f`, color: C.protein }}>{i + 1}</span><span className="pt-0.5">{st}</span></li>)}</ol>
-          </section>
-        )}
-        {ings.length === 0 && steps.length === 0 && <p className="text-sm" style={{ color: C.muted }}>Pas de détail de recette pour cet item.</p>}
-      </div>
-    </Sheet>
-  );
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ÉCRAN JOURNAL

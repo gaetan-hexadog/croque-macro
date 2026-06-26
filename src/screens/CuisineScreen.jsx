@@ -4,17 +4,10 @@ import { C, cardStyle } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
 import { importRecipeFromUrl } from "../lib/assistant.js";
-import { VariantChips, applyVariants, variantLabels } from "../components/VariantChips.jsx";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
+import { RecipeDetailSheet, kindMeta, kindColor, SLOT_CHOICES } from "../components/RecipeDetailSheet.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-const kindMeta = {
-  recette: { label: "Recette", color: C.weight },
-  combo: { label: "Repas", color: C.protein },
-  aliment: { label: "Aliment", color: C.green },
-};
-const kindColor = (k) => (kindMeta[k] || kindMeta.aliment).color;
-const SLOT_CHOICES = [["pdj", "Petit-déj"], ["dej", "Déj"], ["diner", "Dîner"], ["snack", "En-cas"]];
 const FILTERS = [["all", "Tout"], ["fav", "⭐ Favoris"], ["recette", "Recettes"], ["combo", "Repas"], ["aliment", "Aliments"]];
 
 // « Ma cuisine » — hub d'actions + accès rapide récents/favoris + bibliothèque
@@ -164,7 +157,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
       )}
 
       {/* ── Sheets ── */}
-      {detail && <DetailSheet m={detail} onClose={() => setDetail(null)} onUse={onUse}
+      {detail && <RecipeDetailSheet m={detail} onClose={() => setDetail(null)} onUse={onUse}
         onAdapt={detail.kind === "recette" ? () => { const m = detail; setDetail(null); setAdapting(m); } : undefined}
         onEdit={(detail.kind === "recette" && onEditRecipe) ? () => { const m = detail; setDetail(null); setEditing(m); } : undefined}
         onDelete={detail.lib ? undefined : () => { onDelete(detail); setDetail(null); }} />}
@@ -188,73 +181,6 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   );
 }
 
-// Fiche d'un item : détail + variantes + ajout à un créneau + Adapter/Modifier/Supprimer.
-// Créneau du moment (heure locale) → mis en avant dans la fiche.
-const nowSlot = () => { const h = new Date().getHours(); return h < 11 ? "pdj" : h < 15 ? "dej" : h < 18 ? "snack" : "diner"; };
-
-function DetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete }) {
-  const [varSel, setVarSel] = useState(() => new Set());
-  const now = nowSlot();
-  const meta = kindMeta[m.kind] || kindMeta.aliment;
-  const hasVariants = Array.isArray(m.variants) && m.variants.length > 0;
-  const eff = applyVariants(m, varSel);
-  const toggleVar = (i) => setVarSel((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
-  const add = (slot) => { const labels = variantLabels(m, varSel); onUse({ ...m, kcal: eff.kcal, p: eff.p, name: labels.length ? `${m.name} · ${labels.join(", ")}` : m.name }, slot); onClose(); };
-  return (
-    <Sheet open onClose={onClose} title={m.name} subtitle={`${eff.kcal} kcal · ${eff.p} g prot.${varSel.size ? " · ajusté" : ""}`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <ChefHat size={18} />} iconColor={meta.color}>
-      <div className="space-y-5">
-        {m.desc && <p className="text-sm leading-relaxed" style={{ color: C.sub }}>{m.desc}</p>}
-        {m.items?.length > 0 && (
-          <section>
-            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Composé de</p>
-            <ul className="space-y-2.5">{m.items.map((it, i) => <li key={i} className="flex items-baseline justify-between gap-3 text-sm" style={{ color: C.ink }}><span>{it.name}{it.qty > 1 ? ` ×${it.qty}` : ""}</span><span className="shrink-0 tabular-nums" style={{ color: C.muted }}>{it.kcal} kcal</span></li>)}</ul>
-          </section>
-        )}
-        {m.ingredients?.length > 0 && (
-          <section>
-            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Ingrédients</p>
-            <ul className="space-y-2.5">{m.ingredients.map((it, i) => <li key={i} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: C.ink }}><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} /><span>{it}</span></li>)}</ul>
-          </section>
-        )}
-        {m.steps?.length > 0 && (
-          <section>
-            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Préparation</p>
-            <ol className="space-y-3.5">{m.steps.map((st, i) => <li key={i} className="flex gap-3 text-sm leading-relaxed" style={{ color: C.ink }}><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}>{i + 1}</span><span className="pt-0.5">{st}</span></li>)}</ol>
-          </section>
-        )}
-        {hasVariants && (
-          <section>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Variantes</p>
-            <VariantChips variants={m.variants} sel={varSel} onToggle={toggleVar} />
-          </section>
-        )}
-      </div>
-
-      <div className="mt-5 space-y-3">
-        {/* Ajout direct à un créneau (1 tap) — « maintenant » mis en avant. */}
-        <div>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Ajouter à</p>
-          <div className="grid grid-cols-4 gap-2">
-            {SLOT_CHOICES.map(([k, l]) => {
-              const hot = k === now;
-              return <button key={k} onClick={() => add(k)} className="flex flex-col items-center gap-0.5 rounded-xl py-2.5 text-xs font-bold active:scale-95" style={hot ? { backgroundColor: C.green, color: "#fff" } : { backgroundColor: `${meta.color}14`, color: meta.color }}>{l}{hot && <span className="text-[8px] font-semibold opacity-90">maintenant</span>}</button>;
-            })}
-          </div>
-        </div>
-        {(onAdapt || onEdit) && (
-          <div className="flex gap-2">
-            {onAdapt && <button onClick={onAdapt} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><Wand2 size={15} /> Adapter</button>}
-            {onEdit && <button onClick={onEdit} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><Pencil size={15} /> Modifier</button>}
-            {onDelete && <button onClick={onDelete} className="flex items-center justify-center rounded-2xl px-3.5 active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }} aria-label="Supprimer"><Trash2 size={16} /></button>}
-          </div>
-        )}
-        {!onAdapt && !onEdit && onDelete && (
-          <button onClick={onDelete} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.over }}><Trash2 size={15} /> Supprimer</button>
-        )}
-      </div>
-    </Sheet>
-  );
-}
 
 // Ajout rapide depuis le « + » d'une ligne : choix direct du créneau.
 function SlotPickSheet({ m, onClose, onUse }) {
