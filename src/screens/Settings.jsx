@@ -3,6 +3,7 @@ import { X, Check, Flame, Beef, Package, ChevronRight, ChevronLeft, Trash2, Calc
 import {
   C, TODAY, computeTargets, smoothedWeight, cardStyle,
 } from "../core.js";
+import { Sheet } from "../components/Sheet.jsx";
 
 export function SettingsSheet({ settings, setSettings, theme, onTheme, allData, customMeals = [], onDeleteCustom, onUpdateCustom, onImport, onOpenAccount, onOpenGuide, onClose }) {
   const [kcal, setKcal] = useState(settings.kcal);
@@ -168,29 +169,32 @@ function CustomBaseManager({ items, onUpdate, onDelete }) {
   if (!items.length) {
     return <p className="px-1 py-2 text-sm" style={{ color: C.muted }}>Aucun produit enregistré. Depuis la pioche → <span style={{ color: C.sub }}>Open Food Facts</span> → « Enregistrer dans ma base ».</p>;
   }
+  const fld = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
   return (
-    <div className="space-y-2">
-      {items.map((m) => editId === m.id ? (
-        <div key={m.id} className="space-y-2 rounded-xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
-          <input value={f.name} onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <div className="flex gap-2">
-            <input value={f.kcal} onChange={(e) => setF((s) => ({ ...s, kcal: e.target.value }))} inputMode="numeric" placeholder="kcal" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-            <input value={f.p} onChange={(e) => setF((s) => ({ ...s, p: e.target.value }))} inputMode="numeric" placeholder="prot. (g)" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-            <button onClick={commit} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={15} /></button>
-            <button onClick={() => setEditId(null)} className="shrink-0 rounded-xl px-3 py-2 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}><X size={15} /></button>
+    <>
+      <div className="space-y-2">
+        {items.map((m) => (
+          <div key={m.id} className="flex items-center justify-between gap-2 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}</p>
+              <p className="text-xs font-medium" style={{ fontVariantNumeric: "tabular-nums" }}><span style={{ color: C.sub }}>{m.kcal} kcal</span> · <span style={{ color: C.protein }}>{m.p} g prot.</span></p>
+            </div>
+            <button onClick={() => startEdit(m)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Pencil size={14} /></button>
+            <button onClick={() => onDelete(m.id)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
           </div>
-        </div>
-      ) : (
-        <div key={m.id} className="flex items-center justify-between gap-2 rounded-xl p-3" style={{ backgroundColor: C.paper }}>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}</p>
-            <p className="text-xs font-medium" style={{ fontVariantNumeric: "tabular-nums" }}><span style={{ color: C.sub }}>{m.kcal} kcal</span> · <span style={{ color: C.protein }}>{m.p} g prot.</span></p>
+        ))}
+      </div>
+      {editId && (
+        <Sheet open onClose={() => setEditId(null)} title="Modifier le produit" icon={<Pencil size={18} />} iconColor={C.green} z={50}>
+          <input value={f.name} onChange={(e) => setF((s) => ({ ...s, name: e.target.value }))} autoFocus placeholder="Nom" className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+          <div className="mb-3 flex gap-2">
+            <input value={f.kcal} onChange={(e) => setF((s) => ({ ...s, kcal: e.target.value }))} inputMode="numeric" placeholder="kcal" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} onKeyDown={(e) => e.key === "Enter" && commit()} />
+            <input value={f.p} onChange={(e) => setF((s) => ({ ...s, p: e.target.value }))} inputMode="numeric" placeholder="prot. (g)" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} onKeyDown={(e) => e.key === "Enter" && commit()} />
           </div>
-          <button onClick={() => startEdit(m)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Pencil size={14} /></button>
-          <button onClick={() => onDelete(m.id)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={14} /></button>
-        </div>
-      ))}
-    </div>
+          <button onClick={commit} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={16} /> Enregistrer</button>
+        </Sheet>
+      )}
+    </>
   );
 }
 

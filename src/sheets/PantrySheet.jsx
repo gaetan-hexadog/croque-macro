@@ -25,12 +25,13 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   const blank = { name: "", unit: "g", qty: "", kcal100: "", p100: "" };
   const [f, setF] = useState(blank);
   const [scanning, setScanning] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);
   const [e, setE] = useState(blank);
   const set = (k) => (ev) => setF((s) => ({ ...s, [k]: ev.target.value }));
   const setEd = (k) => (ev) => setE((s) => ({ ...s, [k]: ev.target.value }));
 
-  const add = () => { if (!f.name.trim()) return; onAdd(f.name.trim(), { unit: f.unit, qty: num(f.qty), kcal100: num(f.kcal100), p100: num(f.p100) }); setF(blank); };
+  const add = () => { if (!f.name.trim()) return; onAdd(f.name.trim(), { unit: f.unit, qty: num(f.qty), kcal100: num(f.kcal100), p100: num(f.p100) }); setF(blank); setAdding(false); };
   const startEdit = (it) => { setEditId(it.id); setE({ name: it.name, unit: it.unit || "g", qty: it.qty ?? "", kcal100: it.kcal100 ?? "", p100: it.p100 ?? "" }); };
   const saveEdit = () => { onUpdate && onUpdate(editId, { name: e.name.trim() || undefined, unit: e.unit, qty: Math.round(num(e.qty) * 10) / 10 || undefined, kcal100: Math.round(num(e.kcal100)) || undefined, p100: Math.round(num(e.p100) * 10) / 10 || undefined }); setEditId(null); };
 
@@ -77,21 +78,9 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
 
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto px-4 pb-8 pt-4" style={{ scrollbarWidth: "none" }}>
         {/* Ajout : scan/recherche OFF + à la main */}
-        <button onClick={() => setScanning(true)} className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><ScanLine size={17} /> Chercher ou scanner un produit</button>
-        <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>ou ajoute à la main</p>
-          <div className="space-y-2">
-            <input value={f.name} onChange={set("name")} onKeyDown={(ev) => { if (ev.key === "Enter") add(); }} placeholder="Nom (ex. compote pomme)…" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-            <div className="flex gap-2">
-              <input value={f.qty} onChange={set("qty")} inputMode="decimal" placeholder="Quantité que j'ai" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-              <UnitSelect value={f.unit} onChange={set("unit")} />
-            </div>
-            <div className="flex gap-2">
-              <input value={f.kcal100} onChange={set("kcal100")} inputMode="numeric" placeholder={`kcal /100${f.unit}`} className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-              <input value={f.p100} onChange={set("p100")} inputMode="numeric" placeholder={`prot. /100${f.unit}`} className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-              <button onClick={add} className="flex shrink-0 items-center gap-1 rounded-xl px-4 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Plus size={16} /></button>
-            </div>
-          </div>
+        <div className="flex gap-2">
+          <button onClick={() => setScanning(true)} className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><ScanLine size={17} /> Chercher / scanner</button>
+          <button onClick={() => { setF(blank); setAdding(true); }} className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Plus size={17} /> À la main</button>
         </div>
 
         {pantry.length === 0 ? (
@@ -127,6 +116,22 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
           <input value={e.p100} onChange={setEd("p100")} inputMode="numeric" placeholder={`prot. /100${e.unit}`} className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
         </div>
         <button onClick={saveEdit} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={16} /> Enregistrer</button>
+      </Sheet>
+    )}
+
+    {/* Ajout à la main — bottom-sheet (au lieu d'un form inline). */}
+    {adding && (
+      <Sheet open onClose={() => setAdding(false)} title="Ajouter au frigo" subtitle="à la main" icon={<Plus size={18} />} iconColor={C.green} z={50}>
+        <input value={f.name} onChange={set("name")} onKeyDown={(ev) => { if (ev.key === "Enter") add(); }} autoFocus placeholder="Nom (ex. compote pomme)…" className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+        <div className="mb-2 flex gap-2">
+          <input value={f.qty} onChange={set("qty")} inputMode="decimal" placeholder="Quantité que j'ai" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+          <UnitSelect value={f.unit} onChange={set("unit")} />
+        </div>
+        <div className="mb-3 flex gap-2">
+          <input value={f.kcal100} onChange={set("kcal100")} inputMode="numeric" placeholder={`kcal /100${f.unit}`} className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+          <input value={f.p100} onChange={set("p100")} inputMode="numeric" placeholder={`prot. /100${f.unit}`} className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+        </div>
+        <button onClick={add} disabled={!f.name.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: C.green }}><Plus size={16} /> Ajouter</button>
       </Sheet>
     )}
 

@@ -255,9 +255,9 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
         <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => onIdea("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
       </div>
 
@@ -269,7 +269,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       {/* Poids du jour */}
       <div className="mt-4">
-        <WeightCard date={activeDate} weight={weight} onWeight={onWeight} />
+        <WeightCard date={activeDate} weight={weight} onWeight={onWeight} pushNav={pushNav} navBack={navBack} />
       </div>
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
@@ -296,10 +296,13 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 }
 
 
-function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, onViewRecipe }) {
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, onViewRecipe, pushNav, navBack }) {
   const ui = SLOT_UI[slotKey];
   const [naming, setNaming] = useState(false);
   const [comboName, setComboName] = useState("");
+  const openNaming = () => { if (pushNav) pushNav(() => setNaming(false)); setNaming(true); };
+  const closeNaming = () => { setComboName(""); if (navBack) navBack(); else setNaming(false); };
+  const saveCombo = () => { if (comboName.trim()) { onSaveCombo(slotKey, meals, comboName.trim()); closeNaming(); } };
   const sub = meals.reduce((a, m) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 });
   const has = meals.length > 0;
   const planned = meals.some((m) => m.planned);
@@ -332,15 +335,16 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
               <MealItemRow key={m.id || i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe ? (mm) => onViewRecipe(mm, slotKey, i) : undefined} />
             ))}
           </ul>
-          {onSaveCombo && (naming ? (
-            <div className="mt-2 flex items-center gap-2">
-              <input value={comboName} onChange={(e) => setComboName(e.target.value)} placeholder="Nom du repas" autoFocus className="min-w-0 flex-1 rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} onKeyDown={(e) => { if (e.key === "Enter" && comboName.trim()) { onSaveCombo(slotKey, meals, comboName.trim()); setComboName(""); setNaming(false); } }} />
-              <button onClick={() => { if (comboName.trim()) { onSaveCombo(slotKey, meals, comboName.trim()); setComboName(""); setNaming(false); } }} className="shrink-0 rounded-xl px-3 py-2 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: ui.color }}>OK</button>
-              <button onClick={() => { setNaming(false); setComboName(""); }} className="shrink-0 rounded-xl px-2 py-2 text-sm active:scale-95" style={{ color: C.muted }}>Annuler</button>
-            </div>
-          ) : (
-            <button onClick={() => setNaming(true)} className="mt-1 ml-4 flex items-center gap-1 text-[11px] active:scale-95" style={{ color: C.muted }}><Bookmark size={11} /> Enregistrer ce repas</button>
-          ))}
+          {onSaveCombo && (
+            <button onClick={openNaming} className="mt-1 ml-4 flex items-center gap-1 text-[11px] active:scale-95" style={{ color: C.muted }}><Bookmark size={11} /> Enregistrer ce repas</button>
+          )}
+          {naming && (
+            <Sheet open onClose={closeNaming} title="Enregistrer ce repas" subtitle={SLOTS[slotKey].label} icon={<Bookmark size={18} />} iconColor={ui.color}>
+              <p className="mb-3 text-xs leading-relaxed" style={{ color: C.sub }}>Réutilise ce repas en 1 tap plus tard (pioche → Mes repas).</p>
+              <input value={comboName} onChange={(e) => setComboName(e.target.value)} placeholder="Nom du repas (ex. Bowl tofu)" autoFocus className="mb-3 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} onKeyDown={(e) => { if (e.key === "Enter") saveCombo(); }} />
+              <button onClick={saveCombo} disabled={!comboName.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: ui.color }}><Bookmark size={16} /> Enregistrer</button>
+            </Sheet>
+          )}
         </>
       )}
     </div>
@@ -571,31 +575,39 @@ function PlateBar({ segments, total }) {
 }
 
 
-function WeightCard({ date, weight, onWeight }) {
+function WeightCard({ date, weight, onWeight, pushNav, navBack }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(weight != null ? String(weight) : "");
   useEffect(() => { setVal(weight != null ? String(weight) : ""); }, [weight, date]);
-  const save = () => { const kg = parseFloat(val.replace(",", ".")); onWeight(isNaN(kg) ? null : kg); setEditing(false); };
+  const open = () => { if (pushNav) pushNav(() => setEditing(false)); setEditing(true); };
+  const close = () => { if (navBack) navBack(); else setEditing(false); };
+  const save = () => { const kg = parseFloat(val.replace(",", ".")); onWeight(isNaN(kg) ? null : kg); close(); };
+  const fld = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
   return (
-    <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={cardStyle()}>
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}><Scale size={16} /></span>
-        <div className="leading-tight">
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.weight }}>Poids</p>
-          <p className="text-sm font-semibold" style={{ color: weight != null ? C.ink : C.muted }}>{weight != null ? `${weight} kg` : "Non noté"}</p>
+    <>
+      <div className="mb-4 flex items-center justify-between rounded-2xl px-4 py-3" style={cardStyle()}>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}><Scale size={16} /></span>
+          <div className="leading-tight">
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.weight }}>Poids</p>
+            <p className="text-sm font-semibold" style={{ color: weight != null ? C.ink : C.muted }}>{weight != null ? `${weight} kg` : "Non noté"}</p>
+          </div>
         </div>
-      </div>
-      {editing ? (
-        <div className="flex items-center gap-2">
-          <input autoFocus value={val} onChange={(e) => setVal(e.target.value)} inputMode="decimal" placeholder="kg" className="w-20 rounded-xl px-3 py-1.5 text-sm font-semibold outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <button onClick={save} className="rounded-xl px-3 py-1.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Check size={16} /></button>
-        </div>
-      ) : (
-        <button onClick={() => setEditing(true)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: weight != null ? C.paper : C.ink, color: weight != null ? C.sub : C.paper, border: weight != null ? `1px solid ${C.line}` : "none" }}>
+        <button onClick={open} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: weight != null ? C.paper : C.ink, color: weight != null ? C.sub : C.paper, border: weight != null ? `1px solid ${C.line}` : "none" }}>
           {weight != null ? "Modifier" : "Noter"}
         </button>
+      </div>
+      {editing && (
+        <Sheet open onClose={close} title="Poids du jour" subtitle={fmtFull(parseISO(date))} icon={<Scale size={18} />} iconColor={C.weight}>
+          <p className="mb-2 text-xs" style={{ color: C.sub }}>Ton poids du matin, à jeun, donne la tendance la plus fiable.</p>
+          <div className="flex items-center gap-2">
+            <input autoFocus value={val} onChange={(e) => setVal(e.target.value)} inputMode="decimal" placeholder="kg" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-base font-semibold outline-none" style={fld} onKeyDown={(e) => e.key === "Enter" && save()} />
+            <span className="text-sm font-semibold" style={{ color: C.muted }}>kg</span>
+          </div>
+          <button onClick={save} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Check size={16} /> Enregistrer</button>
+        </Sheet>
       )}
-    </div>
+    </>
   );
 }
 

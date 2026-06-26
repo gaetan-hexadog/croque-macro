@@ -404,15 +404,18 @@ function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {
             </span>
           );
         })}
-        {onAdd && <button onClick={() => setAdding((a) => !a)} className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}`, color: C.muted }}>+ Autre</button>}
+        {onAdd && <button onClick={() => setAdding(true)} className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px dashed ${C.line}`, color: C.muted }}>+ Autre</button>}
       </div>
       {adding && (
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <input value={n} onChange={(e) => setN(e.target.value)} placeholder="Nom" autoFocus className="min-w-0 flex-1 rounded-lg px-2 py-1.5 text-xs outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <input value={k} onChange={(e) => setK(e.target.value)} inputMode="numeric" placeholder="kcal" className="w-14 rounded-lg px-2 py-1.5 text-xs outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="prot" className="w-14 rounded-lg px-2 py-1.5 text-xs outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <button onClick={save} className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white active:scale-95" style={{ backgroundColor: C.protein }}>OK</button>
-        </div>
+        <Sheet open onClose={() => setAdding(false)} title={`Ajouter — ${label}`} icon={<Plus size={18} />} iconColor={C.protein} z={50}>
+          <p className="mb-3 text-xs" style={{ color: C.sub }}>Macros par dose/portion telles que tu les utilises dans le shake.</p>
+          <input value={n} onChange={(e) => setN(e.target.value)} placeholder="Nom (ex. Whey vanille)" autoFocus className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+          <div className="mb-3 flex gap-2">
+            <input value={k} onChange={(e) => setK(e.target.value)} inputMode="numeric" placeholder="kcal" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} onKeyDown={(e) => e.key === "Enter" && save()} />
+            <input value={p} onChange={(e) => setP(e.target.value)} inputMode="numeric" placeholder="prot. (g)" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} onKeyDown={(e) => e.key === "Enter" && save()} />
+          </div>
+          <button onClick={save} disabled={!n.trim() || isNaN(parseInt(k, 10))} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: C.protein }}><Plus size={16} /> Ajouter</button>
+        </Sheet>
       )}
     </div>
   );

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Search, ScanLine, X, Check, Plus, Loader, Bookmark } from "lucide-react";
+import { Search, ScanLine, X, Check, Plus, Loader, Bookmark, Pencil } from "lucide-react";
 import { searchProducts, fetchProductByBarcode } from "../lib/openfoodfacts.js";
 import { scoreProduct } from "../core.js";
 import { ProductVerdict } from "./ProductVerdict.jsx";
+import { Sheet } from "./Sheet.jsx";
 
 // Recherche Open Food Facts : texte + scan code-barres, puis saisie au gramme.
 // Reçoit le thème `C` et `accent` en props pour éviter tout couplage avec App.
@@ -193,18 +194,21 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
           </div>
           <button onClick={() => setSelected(null)} className="shrink-0 rounded-full p-1.5 active:scale-90" style={{ color: C.muted }}><X size={16} /></button>
         </div>
-        <button onClick={() => setEditing((v) => !v)} className="mb-2 text-xs underline-offset-2 hover:underline" style={{ color: C.muted }}>
-          Pour 100 {unit} : {fmt(pf(macros.kcal))} kcal · {fmt(pf(macros.p))} g prot. · <span style={{ color: C.protein }}>{editing ? "fermer" : "ajuster"}</span>
+        <button onClick={() => setEditing(true)} className="mb-2 text-xs underline-offset-2 hover:underline" style={{ color: C.muted }}>
+          Pour 100 {unit} : {fmt(pf(macros.kcal))} kcal · {fmt(pf(macros.p))} g prot. · <span style={{ color: C.protein }}>ajuster</span>
         </button>
 
         {editing && (
-          <div className="mb-3 grid grid-cols-4 gap-2 rounded-2xl cm-card" style={{ backgroundColor: C.paper }}>
-            <p className="col-span-4 -mb-1 text-[11px]" style={{ color: C.sub }}>Valeurs pour 100 {unit} (corrige si OFF se trompe) :</p>
-            {mField("kcal", "kcal")}
-            {mField("p", "prot.")}
-            {mField("c", "gluc.")}
-            {mField("f", "lip.")}
-          </div>
+          <Sheet open onClose={() => setEditing(false)} title="Corriger les valeurs" subtitle={`pour 100 ${unit}`} icon={<Pencil size={18} />} iconColor={C.protein} z={60}>
+            <p className="mb-3 text-xs" style={{ color: C.sub }}>Open Food Facts se trompe parfois — corrige les valeurs pour 100 {unit}.</p>
+            <div className="grid grid-cols-2 gap-3">
+              {mField("kcal", "kcal")}
+              {mField("p", "prot. (g)")}
+              {mField("c", "gluc. (g)")}
+              {mField("f", "lip. (g)")}
+            </div>
+            <button onClick={() => setEditing(false)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.protein }}><Check size={16} /> OK</button>
+          </Sheet>
         )}
 
         {verdict && <div className="mb-3"><ProductVerdict C={C} verdict={verdict} /></div>}
