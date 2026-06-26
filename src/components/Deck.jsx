@@ -293,7 +293,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
               ) : (
                 <div className="space-y-2">
                   {slotRecipes.map((r) => (
-                    <button key={r.id} onClick={() => onChoose({ name: r.name, kcal: r.kcal, p: r.p, qty: 1 })} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                    <button key={r.id} onClick={() => onChoose(recipeToPick(r))} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold" style={{ color: C.ink }}>{r.emoji ? `${r.emoji} ` : ""}{r.name}{r.custom && <span style={{ color: C.protein }}> ·perso</span>}</span>
                         <span className="block text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{r.kcal} kcal · {r.p} g prot.</span>
@@ -370,9 +370,20 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
       {servingFor && <ServingPicker food={servingFor} accent={ui.color} onChoose={(it) => { onChoose(it); setServingFor(null); }} onClose={() => setServingFor(null)} />}
 
       {/* Créer une recette depuis la pioche : enregistre dans Ma cuisine + ajoute au repas */}
-      {creatingRecipe && <AddRecipeSheet defaultSlots={[slotKey]} onClose={() => setCreatingRecipe(false)} onAdd={(r) => { onAddRecipe && onAddRecipe(r); onChoose({ name: r.name, kcal: r.kcal, p: r.p, qty: 1 }); setCreatingRecipe(false); }} />}
+      {creatingRecipe && <AddRecipeSheet defaultSlots={[slotKey]} onClose={() => setCreatingRecipe(false)} onAdd={(r) => { onAddRecipe && onAddRecipe(r); onChoose(recipeToPick(r)); setCreatingRecipe(false); }} />}
     </>
   );
+}
+
+// Construit un pick depuis une recette EN GARDANT ingrédients/étapes/emoji → le bouton
+// « RECETTE » (consultation) apparaît bien une fois ajoutée à un repas.
+function recipeToPick(r) {
+  const it = { name: r.name, kcal: r.kcal, p: r.p, qty: 1 };
+  const ings = (r.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name || ""}`.trim())).filter(Boolean);
+  if (ings.length) it.ingredients = ings;
+  if (r.steps?.length) it.steps = r.steps;
+  if (r.emoji) it.emoji = r.emoji;
+  return it;
 }
 
 function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {

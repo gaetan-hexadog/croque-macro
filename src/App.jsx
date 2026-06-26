@@ -694,6 +694,7 @@ export default function PiocheRepas() {
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
             targetSuggestion={showTargetSuggestion ? targetSuggestion : null}
             onApplyTarget={applyTargetSuggestion} onDismissTarget={() => setTargetDismissed(targetSuggestion.kcal)}
+            favorites={assistFavorites} knownFoods={assistKnownFoods} pantry={pantry} onAddRecipe={addRecipe}
           />
         )}
         {(view === "journal" || view === "progres") && (

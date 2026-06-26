@@ -9,7 +9,7 @@ const QUICK = ["Il me manque un ingrédient", "Sans …", "Plus de protéines", 
 
 // Adapter une recette via l'assistant : remplacer/retirer un ingrédient, compléter…
 // → renvoie une version adaptée que l'on peut remplacer ou enregistrer comme nouvelle.
-export function RecipeAdaptSheet({ recipe, favorites = [], knownFoods = [], pantry = [], onReplace, onSaveNew, onClose }) {
+export function RecipeAdaptSheet({ recipe, favorites = [], knownFoods = [], pantry = [], onReplace, onSaveNew, onClose, z }) {
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -41,7 +41,7 @@ export function RecipeAdaptSheet({ recipe, favorites = [], knownFoods = [], pant
   });
 
   return (
-    <Sheet open onClose={onClose} title="Adapter la recette" subtitle={recipe?.name} icon={<Wand2 size={18} />} iconColor={C.weight}>
+    <Sheet open onClose={onClose} title="Adapter la recette" subtitle={recipe?.name} icon={<Wand2 size={18} />} iconColor={C.weight} z={z}>
       <p className="mb-2 text-xs" style={{ color: C.sub }}>Que veux-tu changer ? (ingrédient manquant, en retirer un, compléter, alléger…)</p>
       <input value={instruction} onChange={(e) => setInstruction(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(); }} placeholder="Ex. remplace le tofu, je n'ai pas de fromage blanc…" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
       <div className="mb-3 flex flex-wrap gap-1.5">

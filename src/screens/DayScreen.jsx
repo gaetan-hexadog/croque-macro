@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach,
 } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SectionTitle } from "../components/ui.jsx";
+import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
 
 // Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
 function QuickChips({ items = [], onQuick, color }) {
@@ -23,17 +24,18 @@ function QuickChips({ items = [], onQuick, color }) {
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe }) {
   const [showTpl, setShowTpl] = useState(false);
   const [dismissRebal, setDismissRebal] = useState(false);
-  const [viewRecipe, setViewRecipe] = useState(null);
+  const [viewRecipe, setViewRecipe] = useState(null); // { m, slot, index }
+  const [adapting, setAdapting] = useState(null);     // recette consultée envoyée à l'assistant
   // Le « + » d'un repas ouvre DIRECTEMENT la pioche (elle logge déjà tout : recherche,
   // habituels 1-tap, photo, assistant, scan, recettes…). La baguette ouvre la suggestion.
   // Toutes les sheets passent par l'historique → geste retour OS cohérent partout.
   const nav = (close) => (pushNav ? pushNav(close) : null);
   const closeNav = () => (navBack ? navBack() : null);
   const openAdd = (slot) => onPick(slot);
-  const openRecipe = (m) => { nav(() => setViewRecipe(null)); setViewRecipe(m); };
+  const openRecipe = (m, slot, index) => { nav(() => setViewRecipe(null)); setViewRecipe({ m, slot, index }); };
   const openTpl = () => { nav(() => setShowTpl(false)); setShowTpl(true); };
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -271,7 +273,12 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
 
-      {viewRecipe && <RecipeViewSheet m={viewRecipe} onClose={closeNav} />}
+      {viewRecipe && <RecipeViewSheet m={viewRecipe.m} onClose={closeNav} onAdapt={onAddRecipe ? () => setAdapting(viewRecipe) : undefined} />}
+      {adapting && (
+        <RecipeAdaptSheet recipe={adapting.m} favorites={favorites} knownFoods={knownFoods} pantry={pantry} z={50}
+          onReplace={(r) => { onEditItem(adapting.slot, adapting.index, { name: r.name, kcal: r.kcal, p: r.p, ingredients: r.ingredients, steps: r.steps, emoji: r.emoji }); setAdapting(null); closeNav(); }}
+          onSaveNew={(r) => onAddRecipe(r)} onClose={() => setAdapting(null)} />
+      )}
 
       {showTpl && (
         <TemplatesSheet
@@ -321,7 +328,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
         <>
           <ul className="mt-1.5">
             {meals.map((m, i) => (
-              <MealItemRow key={m.id || i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe} />
+              <MealItemRow key={m.id || i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe ? (mm) => onViewRecipe(mm, slotKey, i) : undefined} />
             ))}
           </ul>
           {onSaveCombo && (naming ? (
@@ -374,7 +381,7 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
               onRemove={() => onClear(slot, i)}
               onEdit={onEdit ? (patch) => onEdit(slot, i, patch) : undefined}
               onConfirm={onConfirm ? () => onConfirm(slot, i) : undefined}
-              onViewRecipe={onViewRecipe} />
+              onViewRecipe={onViewRecipe ? (mm) => onViewRecipe(mm, slot, i) : undefined} />
           ))}
         </ul>
       )}
@@ -426,13 +433,21 @@ function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm,
       </div>
 
       {open && (
-        <div className="flex items-center justify-between gap-2 pb-2.5 pl-4">
-          <QtyStepper value={q} onChange={onQty} accent={accent} />
-          <div className="flex gap-1.5">
-            {onEdit && <button onClick={() => setEditing(true)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={14} /></button>}
-            {onReplace && <button onClick={onReplace} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Remplacer"><Shuffle size={14} /></button>}
-            <button onClick={onRemove} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }} aria-label="Supprimer"><Trash2 size={14} /></button>
+        <div className="space-y-2 pb-2.5 pl-4">
+          <div className="flex items-center justify-between gap-2">
+            <QtyStepper value={q} onChange={onQty} accent={accent} />
+            <div className="flex gap-1.5">
+              {onEdit && <button onClick={() => setEditing(true)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={14} /></button>}
+              {onReplace && <button onClick={onReplace} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Remplacer"><Shuffle size={14} /></button>}
+              <button onClick={onRemove} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }} aria-label="Supprimer"><Trash2 size={14} /></button>
+            </div>
           </div>
+          {/* Flag planifié : ce que je PRÉVOIS de manger vs ce que je viens de manger. */}
+          {onEdit && (
+            <button onClick={() => onEdit({ planned: !planned })} className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={planned ? { backgroundColor: `${accent}1f`, color: accent, border: `1px solid ${accent}55` } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+              <CalendarClock size={13} /> {planned ? "Planifié — pas encore mangé" : "Marquer comme planifié"}
+            </button>
+          )}
         </div>
       )}
 
@@ -584,10 +599,15 @@ function WeightCard({ date, weight, onWeight }) {
 }
 
 // Fiche recette consultable depuis un repas loggé (si l'item porte ingrédients/étapes).
-function RecipeViewSheet({ m, onClose }) {
+function RecipeViewSheet({ m, onClose, onAdapt }) {
   const ings = m.ingredients || [], steps = m.steps || [];
   return (
     <Sheet open onClose={onClose} title={m.name} subtitle={`${r0(m.kcal)} kcal · ${r0(m.p)} g prot.`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <BookOpen size={18} />} iconColor={C.weight}>
+      {onAdapt && (
+        <button onClick={onAdapt} className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight, border: `1px solid ${C.weight}55` }}>
+          <Wand2 size={16} /> Personnaliser avec l'assistant
+        </button>
+      )}
       <div className="space-y-5">
         {ings.length > 0 && (
           <section>
