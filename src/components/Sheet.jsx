@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronLeft } from "lucide-react";
 import { C } from "../core.js";
 
@@ -31,7 +32,9 @@ export function Sheet({ open, onClose, children, title, subtitle, icon, iconColo
   const onTouchEnd = () => { if (dragY > 90) onClose(); setDragY(0); startRef.current = null; };
 
   const translate = shown ? dragY : (reduce ? 0 : 640);
-  return (
+  // Portal vers <body> : sinon `position: fixed` se cale sur un ancêtre transformé
+  // (cartes, animations) au lieu du viewport → la sheet s'affiche dans la carte.
+  const node = (
     <div
       className="fixed inset-0 flex items-end justify-center"
       style={{ zIndex: z, backgroundColor: C.overlay, backdropFilter: "blur(3px)", opacity: shown ? 1 : 0, transition: reduce ? "none" : "opacity .25s ease" }}
@@ -62,4 +65,5 @@ export function Sheet({ open, onClose, children, title, subtitle, icon, iconColo
       </div>
     </div>
   );
+  return typeof document !== "undefined" ? createPortal(node, document.body) : node;
 }
