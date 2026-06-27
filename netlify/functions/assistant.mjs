@@ -295,7 +295,15 @@ async function explainText(body, apiKey) {
   return json(200, { text, model: MODEL });
 }
 
-// Conversation multi-tours (texte libre) — chat assistant avec contexte d'app.
+// Outils que l'assistant peut PROPOSER en chat (l'app affiche une carte, l'utilisateur confirme).
+const CHAT_TOOLS = [
+  { name: "save_recipe", description: "Proposer d'enregistrer une recette dans la cuisine de Bob (quand tu proposes une recette qu'il pourrait vouloir garder).", input_schema: { type: "object", properties: { name: { type: "string" }, emoji: { type: "string" }, cat: { type: "string", enum: ["pdj", "dej", "diner", "snack"] }, kcal: { type: "number" }, p: { type: "number", description: "protéines en g" }, ingredients: { type: "array", items: { type: "string" } }, steps: { type: "array", items: { type: "string" } }, desc: { type: "string" } }, required: ["name", "kcal", "p"] } },
+  { name: "log_meal", description: "Proposer d'ajouter un repas/aliment au journal du JOUR de Bob, dans un créneau.", input_schema: { type: "object", properties: { slot: { type: "string", enum: ["pdj", "dej", "diner", "snack"] }, name: { type: "string" }, kcal: { type: "number" }, p: { type: "number" } }, required: ["slot", "name", "kcal", "p"] } },
+  { name: "add_to_pantry", description: "Proposer d'ajouter un aliment au frigo/placard de Bob.", input_schema: { type: "object", properties: { name: { type: "string" }, unit: { type: "string", enum: ["g", "ml", "pièce"] }, qty: { type: "number" }, kcal100: { type: "number", description: "kcal pour 100 unités" }, p100: { type: "number", description: "protéines g pour 100 unités" } }, required: ["name"] } },
+  { name: "update_recipe", description: "Proposer de METTRE À JOUR une recette EXISTANTE de Bob, identifiée par son nom EXACT tel que listé dans le contexte. Fournis les nouvelles valeurs complètes.", input_schema: { type: "object", properties: { target_name: { type: "string", description: "nom actuel exact de la recette à modifier" }, name: { type: "string" }, emoji: { type: "string" }, cat: { type: "string", enum: ["pdj", "dej", "diner", "snack"] }, kcal: { type: "number" }, p: { type: "number" }, ingredients: { type: "array", items: { type: "string" } }, steps: { type: "array", items: { type: "string" } }, desc: { type: "string" } }, required: ["target_name"] } },
+];
+
+// Conversation multi-tours — chat assistant avec contexte d'app + outils d'action (proposés).
 async function chatText(body, apiKey) {
   const { system } = body;
   if (!Array.isArray(body.messages) || !body.messages.length) return json(400, { error: "Messages manquants." });
@@ -306,14 +314,16 @@ async function chatText(body, apiKey) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: MODEL, temperature: 0.4, max_tokens: 1000, system: system || undefined, messages }),
+      body: JSON.stringify({ model: MODEL, temperature: 0.4, max_tokens: 1200, system: system || undefined, messages, tools: CHAT_TOOLS }),
     });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
-  const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n").trim();
-  if (!text) return json(502, { error: "Réponse vide de Claude." });
-  return json(200, { text, model: MODEL });
+  const blocks = data.content || [];
+  const text = blocks.filter((c) => c.type === "text").map((c) => c.text).join("\n").trim();
+  const actions = blocks.filter((c) => c.type === "tool_use").map((c) => ({ type: c.name, input: c.input || {} }));
+  if (!text && !actions.length) return json(502, { error: "Réponse vide de Claude." });
+  return json(200, { text, actions, model: MODEL });
 }
 
 export default async (req) => {

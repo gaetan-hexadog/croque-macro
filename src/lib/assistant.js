@@ -69,7 +69,7 @@ export async function explainWeight({ system, prompt }, opts = {}) {
 }
 
 // Chat multi-tours avec contexte d'app. payload = { system, messages:[{role,content}] }.
-// Renvoie une string (la réponse de l'assistant).
+// Renvoie { text, actions } — actions = propositions d'action (tool use) à confirmer côté UI.
 export async function chatAssistant({ system, messages }, opts = {}) {
   const res = await postAssistant({ chat: true, system, messages }, { ...opts, authMsg: "Connecte-toi pour discuter avec l'assistant." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
@@ -78,8 +78,8 @@ export async function chatAssistant({ system, messages }, opts = {}) {
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError(out?.error || `Réponse impossible (${res.status}).`, { status: res.status, kind: "server" });
-  if (!out || !out.text) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
-  return out.text;
+  if (!out || (!out.text && !Array.isArray(out.actions))) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+  return { text: out.text || "", actions: Array.isArray(out.actions) ? out.actions : [] };
 }
 
 // Importe une recette depuis une URL (la function fetch la page + extrait + macros).

@@ -573,6 +573,41 @@ export default function PiocheRepas() {
     toastAdd(item.name, item.kcal, item.p, () => setDay((d) => ({ ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).filter((x) => x.id !== pk.id) } })));
   };
   const addExtra = (extra) => { setDay((d) => ({ ...d, picks: { ...d.picks, extras: [...(d.picks.extras || []), { ...extra, qty: 1, id: newId("pk") }] } })); toastAdd(extra.name, extra.kcal, extra.p); };
+  // Actions PROPOSÉES par le chat assistant, exécutées seulement sur confirmation de Bob.
+  // Renvoie un message de succès (string) ou throw (affiché sur la carte).
+  const chatAction = (action) => {
+    const a = action?.input || {};
+    if (action?.type === "save_recipe") {
+      addRecipe({ name: a.name, emoji: a.emoji || "", cat: a.cat || "dej", slots: a.cat ? [a.cat] : ["dej"], kcal: Math.round(a.kcal) || 0, p: Math.round(a.p) || 0, ingredients: Array.isArray(a.ingredients) ? a.ingredients : [], steps: Array.isArray(a.steps) ? a.steps : [], desc: a.desc || "" });
+      return `« ${a.name} » enregistrée dans ta cuisine.`;
+    }
+    if (action?.type === "log_meal") {
+      if (!a.slot || !a.name) throw new Error("Repas incomplet.");
+      quickAdd(a.slot, { name: a.name, kcal: Math.round(a.kcal) || 0, p: Math.round(a.p) || 0 });
+      return `Ajouté à ${SLOTS[a.slot]?.label || a.slot}.`;
+    }
+    if (action?.type === "add_to_pantry") {
+      if (!a.name) throw new Error("Nom manquant.");
+      addPantry(a.name, { unit: a.unit || "g", qty: Math.round(a.qty) || 0, kcal100: Math.round(a.kcal100) || 0, p100: Math.round((a.p100 || 0) * 10) / 10 });
+      return `« ${a.name} » ajouté au frigo.`;
+    }
+    if (action?.type === "update_recipe") {
+      const all = [...customRecipes, ...library.recipes];
+      const target = all.find((r) => r.name && r.name.toLowerCase() === String(a.target_name || "").toLowerCase());
+      if (!target) throw new Error(`Recette « ${a.target_name} » introuvable.`);
+      const patch = { name: a.name || target.name };
+      if (a.emoji) patch.emoji = a.emoji;
+      if (a.cat) patch.cat = a.cat;
+      if (a.kcal != null) patch.kcal = Math.round(a.kcal);
+      if (a.p != null) patch.p = Math.round(a.p);
+      if (Array.isArray(a.ingredients)) patch.ingredients = a.ingredients;
+      if (Array.isArray(a.steps)) patch.steps = a.steps;
+      if (a.desc != null) patch.desc = a.desc;
+      updateRecipe(target.id, patch);
+      return `« ${target.name} » mise à jour.`;
+    }
+    throw new Error("Action inconnue.");
+  };
   const toggleSkip = () => setDay((d) => ({ skipBreakfast: !d.skipBreakfast, picks: d.skipBreakfast ? d.picks : { ...d.picks, pdj: [] } }));
   const toggleTraining = () => setDay((d) => ({ ...d, training: !d.training }));
   const resetDay = () => { const prev = day; setDay(() => ({ ...EMPTY_DAY() })); showToast("Journée vidée", () => setDay(() => prev)); };
@@ -781,7 +816,7 @@ export default function PiocheRepas() {
           <AccountSheet session={session} status={syncStatus} onClose={navBack} />
         )}
         {chatOpen && (
-          <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} onClose={navBack} />
+          <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} onAction={chatAction} onClose={navBack} />
         )}
       </Suspense>
       <Toast toast={toast} onClose={() => setToast(null)} />

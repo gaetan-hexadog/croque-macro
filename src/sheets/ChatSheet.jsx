@@ -1,23 +1,34 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2 } from "lucide-react";
+import { Sparkles, Send, Loader2, Plus, Pencil, BookmarkPlus, Check } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { chatAssistant, AssistantError } from "../lib/assistant.js";
 
 const STARTERS = [
   "Que manger ce soir avec ce qu'il me reste ?",
+  "Propose-moi une recette de déj et enregistre-la",
   "Il me reste combien de protéines aujourd'hui ?",
-  "Une idée de petit-déj rapide et protéiné ?",
   "Mon poids a bougé, pourquoi à ton avis ?",
 ];
 
-// Chat assistant : conversation libre, le system porte le contexte d'app (passé en prop).
-// Éphémère (repart à zéro à la fermeture). Le system est relu à CHAQUE envoi → contexte frais.
-export function ChatSheet({ system, onClose }) {
-  const [msgs, setMsgs] = useState([]); // { role: "user"|"assistant", content }
+const SLOT_LABEL = { pdj: "petit-déj", dej: "déjeuner", diner: "dîner", snack: "en-cas" };
+const num = (v) => (v != null ? Math.round(v) : 0);
+const META = {
+  save_recipe: (a) => ({ icon: BookmarkPlus, btn: "Enregistrer dans ma cuisine", title: a.name, sub: `${num(a.kcal)} kcal · ${num(a.p)} g prot.` }),
+  log_meal: (a) => ({ icon: Plus, btn: `Ajouter au ${SLOT_LABEL[a.slot] || a.slot}`, title: a.name, sub: `${num(a.kcal)} kcal · ${num(a.p)} g prot.` }),
+  add_to_pantry: (a) => ({ icon: Plus, btn: "Ajouter au frigo", title: a.name, sub: a.kcal100 ? `${num(a.kcal100)} kcal · ${a.p100 ?? "?"} g /100${a.unit || "g"}` : "au frigo" }),
+  update_recipe: (a) => ({ icon: Pencil, btn: "Remplacer la recette", title: a.target_name, sub: a.kcal != null ? `→ ${num(a.kcal)} kcal · ${num(a.p)} g prot.` : "mise à jour" }),
+};
+
+// Chat assistant agentique : conversation libre + cartes d'action à CONFIRMER (tool use).
+// Le system porte le contexte d'app (relu à chaque envoi). onAction(action) exécute et
+// renvoie un message de confirmation (ou throw). Éphémère (repart à zéro à la fermeture).
+export function ChatSheet({ system, onAction, onClose }) {
+  const [msgs, setMsgs] = useState([]); // { role, content, actions? }
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [acts, setActs] = useState({}); // `${i}-${ai}` → { done?: string, err?: string }
   const scrollRef = useRef(null);
   useEffect(() => { scrollRef.current && scrollRef.current.scrollTo({ top: 1e9, behavior: "smooth" }); }, [msgs, busy]);
 
@@ -28,20 +39,31 @@ export function ChatSheet({ system, onClose }) {
     const next = [...msgs, { role: "user", content }];
     setMsgs(next); setBusy(true);
     try {
-      const reply = await chatAssistant({ system, messages: next });
-      setMsgs((m) => [...m, { role: "assistant", content: reply }]);
+      const apiMsgs = next.map((m) => ({ role: m.role, content: m.content || "(proposition d'action)" }));
+      const { text: reply, actions } = await chatAssistant({ system, messages: apiMsgs });
+      setMsgs((m) => [...m, { role: "assistant", content: reply, actions }]);
     } catch (e) {
       setErr(e instanceof AssistantError ? e.message : "Réponse impossible — réessaie.");
     } finally { setBusy(false); }
   };
 
+  const runAction = async (key, action) => {
+    if (acts[key]?.done) return;
+    try {
+      const msg = await onAction(action);
+      setActs((s) => ({ ...s, [key]: { done: msg || "Fait." } }));
+    } catch (e) {
+      setActs((s) => ({ ...s, [key]: { err: e?.message || "Action impossible." } }));
+    }
+  };
+
   return (
-    <Sheet open onClose={onClose} title="Assistant" subtitle="Il connaît ton contexte (budget, frigo, recettes…)" icon={<Sparkles size={18} />} iconColor={C.accent}>
+    <Sheet open onClose={onClose} title="Assistant" subtitle="Il connaît ton contexte et peut agir (tu confirmes)" icon={<Sparkles size={18} />} iconColor={C.accent}>
       <div className="flex flex-col" style={{ height: "min(68vh, 580px)" }}>
         <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto pb-2" style={{ scrollbarWidth: "none" }}>
           {msgs.length === 0 && !busy && (
             <div className="space-y-3 py-2">
-              <p className="text-sm leading-relaxed" style={{ color: C.sub }}>Pose-moi une question — je connais ton budget du jour, ta semaine, ton frigo et tes recettes.</p>
+              <p className="text-sm leading-relaxed" style={{ color: C.sub }}>Pose-moi une question — je connais ton budget du jour, ta semaine, ton frigo et tes recettes, et je peux enregistrer/logger/modifier (tu valides toujours).</p>
               <div className="flex flex-col gap-1.5">
                 {STARTERS.map((s) => (
                   <button key={s} onClick={() => send(s)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
@@ -52,10 +74,39 @@ export function ChatSheet({ system, onClose }) {
             </div>
           )}
           {msgs.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed" style={m.role === "user"
-                ? { backgroundColor: C.accent, color: "#1a1208", borderBottomRightRadius: 6 }
-                : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink, borderBottomLeftRadius: 6 }}>{m.content}</div>
+            <div key={i}>
+              {(m.content || m.role === "user") && (
+                <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed" style={m.role === "user"
+                    ? { backgroundColor: C.accent, color: "#1a1208", borderBottomRightRadius: 6 }
+                    : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink, borderBottomLeftRadius: 6 }}>{m.content || "…"}</div>
+                </div>
+              )}
+              {m.actions?.map((action, ai) => {
+                const key = `${i}-${ai}`, st = acts[key], meta = (META[action.type] || (() => null))(action.input || {});
+                if (!meta) return null;
+                const Icon = meta.icon;
+                return (
+                  <div key={ai} className="mt-1.5 flex justify-start">
+                    <div className="w-[85%] rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.accent}55` }}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${C.accent}1f`, color: C.accent }}><Icon size={15} /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold" style={{ color: C.ink }}>{meta.title || "—"}</span>
+                          {meta.sub && <span className="block text-[11px]" style={{ color: C.muted }}>{meta.sub}</span>}
+                        </span>
+                      </div>
+                      {st?.done ? (
+                        <p className="flex items-center gap-1.5 text-xs font-bold" style={{ color: C.green }}><Check size={14} /> {st.done}</p>
+                      ) : st?.err ? (
+                        <p className="text-xs font-semibold" style={{ color: C.over }}>{st.err}</p>
+                      ) : (
+                        <button onClick={() => runAction(key, action)} className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.accent, color: "#1a1208" }}><Icon size={14} /> {meta.btn}</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ))}
           {busy && (
@@ -75,7 +126,7 @@ export function ChatSheet({ system, onClose }) {
             placeholder="Écris ta question…"
             className="max-h-28 min-h-[2.75rem] flex-1 resize-none rounded-2xl px-3.5 py-3 text-sm outline-none"
             style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <button onClick={() => send()} disabled={!input.trim() || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.accent, color: "#1a1208" }} aria-label="Envoyer">
+          <button onClick={() => send()} disabled={!input.trim() || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.accent, color: "#1a1208" }} aria-label="Envoyer">
             <Send size={18} />
           </button>
         </div>
