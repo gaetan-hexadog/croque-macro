@@ -22,7 +22,7 @@ const WISH_CHIPS = [
 export function MealSuggestSheet({
   slot = "dej", remKcal = 0, remP = 0,
   dayRemKcal = 0, dayRemP = 0, reserveKcal = 0, weekBalance,
-  favorites = [], knownFoods = [], localIdeas = [],
+  favorites = [], knownFoods = [], localIdeas = [], dayContext = [],
   pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
   onLog, onSaveRecipe, dateLabel, onClose,
 }) {
@@ -45,7 +45,15 @@ export function MealSuggestSheet({
     const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     const out = pantry.filter((x) => x.out).map((x) => deburr(x.name)).filter(Boolean);
     const hasRupture = (r) => { const hay = deburr(r.name + " " + (r.ingredients || []).map((i) => (typeof i === "string" ? i : i.name)).join(" ")); return out.some((o) => hay.includes(o)); };
-    return localIdeas
+    // Dédup : une recette catalogue éditée vit en double (copie perso + original, même id) → on
+    // ne la garde qu'une fois (par id ET par nom, la version perso d'abord car listée en premier).
+    const seenId = new Set(), seenName = new Set();
+    const uniq = (localIdeas || []).filter((r) => {
+      const nm = deburr(r.name);
+      if ((r.id && seenId.has(r.id)) || seenName.has(nm)) return false;
+      if (r.id) seenId.add(r.id); seenName.add(nm); return true;
+    });
+    return uniq
       .filter((r) => (r.cat || r.slot) === slot && (r.kcal || 0) <= cap && !hasRupture(r))
       .sort((a, b) => (b.p || 0) - (a.p || 0))
       .slice(0, 4)
@@ -61,7 +69,7 @@ export function MealSuggestSheet({
       const dining = chips.has("resto");
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal: budK, remP: budP, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal,
+        mode: "meal", slot, remKcal: budK, remP: budP, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal, dayContext,
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...exclude.split(",").map((s) => s.trim()).filter(Boolean)],
         dateLabel,

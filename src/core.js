@@ -564,7 +564,7 @@ function buildAssistantPrompt({
       if (weekBalance > 300) L.push(`Sur la semaine je suis SOUS mon budget (+${r0(weekBalance)} kcal de marge) → un petit plaisir gourmand raisonnable est OK s'il rentre dans la marge.`);
       else if (weekBalance < -300) L.push("Sur la semaine je suis AU-DESSUS de mon budget → reste sobre et protéiné.");
     }
-    if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. COMPLÈTE la journée de façon cohérente : varie les aliments (ne répète pas ce qui est déjà là), équilibre les macros.`);
+    if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. IMPORTANT — propose pour ce créneau quelque chose de DIFFÉRENT : ne RÉUTILISE PAS les ingrédients principaux déjà mangés aujourd'hui (même source de protéine, même légume, même féculent). Ex. : si courgettes + saucisse végé au déjeuner, choisis un AUTRE légume et une AUTRE protéine le soir. Complète la journée en variant, et équilibre les macros restantes.`);
     if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
     if (concise) L.push("Reste CONCIS, mais chaque ingrédient AVEC sa quantité (qty + unit) ; 1-2 variantes. N'inclus PAS les étapes de préparation.");
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
