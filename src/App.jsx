@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell } from "lucide-react";
+import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./lib/sport.js";
 import { loadLive } from "./sport/liveSession.js";
@@ -27,6 +27,7 @@ const CuisineScreen = lazy(() => import("./screens/CuisineScreen.jsx").then((m) 
 const SportScreen = lazy(() => import("./sport/SportScreen.jsx").then((m) => ({ default: m.SportScreen })));
 const SettingsSheet = lazy(() => import("./screens/Settings.jsx").then((m) => ({ default: m.SettingsSheet })));
 const AccountSheet = lazy(() => import("./sheets/AccountSheet.jsx").then((m) => ({ default: m.AccountSheet })));
+const ChatSheet = lazy(() => import("./sheets/ChatSheet.jsx").then((m) => ({ default: m.ChatSheet })));
 
 export default function PiocheRepas() {
   const [settings, setSettings] = useState({ kcal: 1850, protein: 150 });
@@ -58,6 +59,7 @@ export default function PiocheRepas() {
   const [session, setSession] = useState(null);          // session Supabase (null = pas connecté)
   const [sessionChecked, setSessionChecked] = useState(false); // getSession résolu → on peut décider gate vs app
   const [accountOpen, setAccountOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
   const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
   const [targetDismissed, setTargetDismissed] = useState(null); // poids pour lequel la suggestion de cible a été masquée
@@ -91,6 +93,7 @@ export default function PiocheRepas() {
   const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
   const openSettings = useCallback(() => go("reglages"), [go]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
+  const openChat = useCallback(() => { pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
   const openIdea = useCallback((slot) => { pushNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [pushNav]);
@@ -676,6 +679,9 @@ export default function PiocheRepas() {
                 {h?.onSettings && (
                   <button onClick={h.onSettings} aria-label="Réglages de la séance" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><SlidersHorizontal size={18} /></button>
                 )}
+                {!onBack && (
+                  <button onClick={openChat} aria-label="Assistant — discuter" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1f`, color: C.accent }}><Sparkles size={18} /></button>
+                )}
                 {!onBack && view !== "reglages" && (
                   <button onClick={openSettings} aria-label="Réglages de l'app" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Settings2 size={18} /></button>
                 )}
@@ -777,6 +783,9 @@ export default function PiocheRepas() {
       <Suspense fallback={null}>
         {accountOpen && (
           <AccountSheet session={session} status={syncStatus} onClose={navBack} />
+        )}
+        {chatOpen && (
+          <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} onClose={navBack} />
         )}
       </Suspense>
       <Toast toast={toast} onClose={() => setToast(null)} />

@@ -68,6 +68,20 @@ export async function explainWeight({ system, prompt }, opts = {}) {
   return out.text;
 }
 
+// Chat multi-tours avec contexte d'app. payload = { system, messages:[{role,content}] }.
+// Renvoie une string (la réponse de l'assistant).
+export async function chatAssistant({ system, messages }, opts = {}) {
+  const res = await postAssistant({ chat: true, system, messages }, { ...opts, authMsg: "Connecte-toi pour discuter avec l'assistant." });
+  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
+  let out;
+  try { out = await res.json(); } catch { out = null; }
+  if (!res.ok) throw new AssistantError(out?.error || `Réponse impossible (${res.status}).`, { status: res.status, kind: "server" });
+  if (!out || !out.text) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+  return out.text;
+}
+
 // Importe une recette depuis une URL (la function fetch la page + extrait + macros).
 export async function importRecipeFromUrl(url, opts = {}) {
   const res = await postAssistant({ url }, { ...opts, authMsg: "Connecte-toi pour importer." });

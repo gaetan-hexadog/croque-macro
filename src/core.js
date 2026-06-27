@@ -602,8 +602,34 @@ function buildWeightExplainPrompt({ days = {}, weights = {}, settings = {}, refI
   return { system, prompt };
 }
 
+// System prompt du CHAT assistant : injecte le contexte d'app (budget jour, repas,
+// semaine, frigo, recettes) pour qu'il réponde sans qu'on lui réexplique tout.
+function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], recipes = [], refISO = TODAY }) {
+  const d = days[refISO], tot = dayTotals(d);
+  const remK = Math.max(0, (settings.kcal || 1850) - tot.kcal), remP = Math.max(0, (settings.protein || 150) - tot.p);
+  const todayItems = [];
+  if (d && d.picks) for (const k of ["pdj", "dej", "diner", "snacks", "extras"]) (d.picks[k] || []).forEach((it) => { if (it && it.name) todayItems.push(`${it.name}${it.planned ? " (prévu)" : ""}`); });
+  const recent = [];
+  for (let i = 1; i <= 3; i++) { const iso = addDays(refISO, -i); const t = dayTotals(days[iso]); const w = weights[iso]; if (t.kcal || w != null) recent.push(`${fmtShort(iso)} ${w != null ? `${w} kg ` : ""}${t.kcal} kcal/${t.p} g`); }
+  let week = "";
+  try { const wc = weekCoach(weekStats(days, settings, refISO, 7), settings, weights, refISO); if (wc?.headline) week = `${wc.headline}${wc.detail ? ` — ${wc.detail}` : ""}`; } catch {}
+  const have = pantry.filter((x) => !x.out && x.name).slice(0, 40).map((x) => `${x.name}${x.kcal100 ? ` (${x.kcal100} kcal/${x.p100 ?? "?"} g par 100${x.unit || "g"})` : ""}`);
+  const recNames = (recipes || []).map((r) => r && r.name).filter(Boolean).slice(0, 60);
+  return [
+    "Tu es l'assistant nutrition personnel de Bob, en mode CONVERSATION. Réponds en français, de façon concise, concrète et chaleureuse. Tu CONNAIS son contexte ci-dessous — utilise-le, ne redemande jamais ce que tu sais déjà.",
+    "Règles diététiques NON négociables : végétarien (œufs/fromages au lait de VACHE uniquement, jamais chèvre/brebis) ; Bob ne boit pas de lait de vache, lait végétal par défaut = AMANDE non sucré ; la protéine vient des aliments protéinés et de la poudre. Objectif : perte de gras.",
+    `Cibles : ${settings.kcal || 1850} kcal / ${settings.protein || 150} g protéines par jour.`,
+    `AUJOURD'HUI (${fmtFull(refISO)}) : ${tot.kcal} kcal · ${tot.p} g prot. consommés → IL RESTE ${remK} kcal · ${remP} g prot.${todayItems.length ? ` Déjà mangé/prévu : ${todayItems.join(", ")}.` : " Rien loggé pour l'instant."}`,
+    recent.length ? `Jours précédents : ${recent.join(" | ")}.` : "",
+    week ? `Bilan semaine : ${week}` : "",
+    have.length ? `Frigo/placard dispo : ${have.join(", ")}.` : "Frigo : (vide ou non renseigné).",
+    recNames.length ? `Recettes enregistrées de Bob : ${recNames.join(", ")}.` : "",
+    "Quand tu proposes un repas/une recette, respecte les règles et le budget restant, et privilégie ce qu'il a au frigo. Pour les macros, additionne ingrédient par ingrédient depuis les valeurs connues ; si une valeur manque, estime de façon conservatrice et dis-le. Évite d'empiler sel (transformés/condiments) et grosses charges de fibres/légumineuses (rétention d'eau).",
+  ].filter(Boolean).join("\n");
+}
+
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

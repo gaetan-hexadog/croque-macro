@@ -295,6 +295,27 @@ async function explainText(body, apiKey) {
   return json(200, { text, model: MODEL });
 }
 
+// Conversation multi-tours (texte libre) — chat assistant avec contexte d'app.
+async function chatText(body, apiKey) {
+  const { system } = body;
+  if (!Array.isArray(body.messages) || !body.messages.length) return json(400, { error: "Messages manquants." });
+  const messages = body.messages.slice(-20).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 4000) })).filter((m) => m.content);
+  if (!messages.length) return json(400, { error: "Messages vides." });
+  let data;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: MODEL, temperature: 0.4, max_tokens: 1000, system: system || undefined, messages }),
+    });
+    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+    data = await res.json();
+  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
+  const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n").trim();
+  if (!text) return json(502, { error: "Réponse vide de Claude." });
+  return json(200, { text, model: MODEL });
+}
+
 export default async (req) => {
   if (req.method !== "POST") return json(405, { error: "Méthode non autorisée." });
 
@@ -324,6 +345,7 @@ export default async (req) => {
   if (body && typeof body.image === "string") return analyzePhoto(body.image, body.media_type, apiKey);
   if (body && body.workout) return adaptWorkoutAI(body, apiKey);
   if (body && body.explain) return explainText(body, apiKey);
+  if (body && body.chat) return chatText(body, apiKey);
 
   const { system, prompt, mode = "meal" } = body || {};
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
