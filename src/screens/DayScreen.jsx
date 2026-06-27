@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, Loader2 } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight,
+  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt,
 } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SectionTitle } from "../components/ui.jsx";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
 import { RecipeDetailSheet } from "../components/RecipeDetailSheet.jsx";
+import { explainWeight, AssistantError } from "../lib/assistant.js";
 
 // Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
 function QuickChips({ items = [], onQuick, color }) {
@@ -269,7 +270,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       {/* Poids du jour */}
       <div className="mt-4">
-        <WeightCard date={activeDate} weight={weight} onWeight={onWeight} pushNav={pushNav} navBack={navBack} weights={weights} weekBalance={wcoach.balance} />
+        <WeightCard date={activeDate} weight={weight} onWeight={onWeight} pushNav={pushNav} navBack={navBack} weights={weights} weekBalance={wcoach.balance} days={days} settings={settings} />
       </div>
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
@@ -575,10 +576,24 @@ function PlateBar({ segments, total }) {
 }
 
 
-function WeightCard({ date, weight, onWeight, pushNav, navBack, weights = {}, weekBalance }) {
+function WeightCard({ date, weight, onWeight, pushNav, navBack, weights = {}, weekBalance, days = {}, settings = {} }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(weight != null ? String(weight) : "");
+  const [explaining, setExplaining] = useState(false);
+  const [exp, setExp] = useState({ busy: false, text: "", err: "" });
   useEffect(() => { setVal(weight != null ? String(weight) : ""); }, [weight, date]);
+  // « Pourquoi ce poids ? » : l'assistant lit les repas/pesées récents (texte libre).
+  const analyze = async () => {
+    if (pushNav) pushNav(() => setExplaining(false));
+    setExplaining(true); setExp({ busy: true, text: "", err: "" });
+    try {
+      const text = await explainWeight(buildWeightExplainPrompt({ days, weights, settings, refISO: date }));
+      setExp({ busy: false, text, err: "" });
+    } catch (e) {
+      setExp({ busy: false, text: "", err: e instanceof AssistantError ? e.message : "Analyse impossible." });
+    }
+  };
+  const closeExplain = () => { if (navBack) navBack(); else setExplaining(false); };
   // Garde-fou « eau, pas gras » : pic au-dessus de la tendance (jusqu'à la veille).
   // MAIS on ne réassure que si le bilan kcal de la semaine n'est pas en vrai surplus —
   // sinon une part du poids peut être réelle (on le dit honnêtement au lieu de mentir).
@@ -606,18 +621,17 @@ function WeightCard({ date, weight, onWeight, pushNav, navBack, weights = {}, we
         </button>
       </div>
       {water && (
-        <div className="mb-4 -mt-2 flex items-start gap-2 rounded-2xl px-3.5 py-2.5" style={{ backgroundColor: `${surplus ? C.warn : C.weight}12`, border: `1px solid ${surplus ? C.warn : C.weight}33` }}>
+        <button onClick={analyze} className="mb-4 -mt-2 flex w-full items-start gap-2 rounded-2xl px-3.5 py-2.5 text-left active:scale-95" style={{ backgroundColor: `${surplus ? C.warn : C.weight}12`, border: `1px solid ${surplus ? C.warn : C.weight}33` }}>
           <Sparkles size={14} style={{ color: surplus ? C.warn : C.weight, marginTop: 1, flexShrink: 0 }} />
-          {surplus ? (
-            <p className="text-[11px] leading-relaxed" style={{ color: C.sub }}>
-              <b style={{ color: C.ink }}>+{String(delta).replace(".", ",")} kg</b> vs ta tendance, mais tu es ~{Math.abs(Math.round(weekBalance))} kcal <b style={{ color: C.ink }}>au-dessus de ton plan</b> cette semaine — une partie peut être réelle. Le sel et les fibres l'amplifient ; juge sur la tendance 2-3 sem.
-            </p>
-          ) : (
-            <p className="text-[11px] leading-relaxed" style={{ color: C.sub }}>
-              <b style={{ color: C.ink }}>+{String(delta).replace(".", ",")} kg</b> vs ta tendance — et tu es dans ton plan : quasi sûrement de l'<b style={{ color: C.ink }}>eau</b> (sel, fibres/légumineuses, glucides, transit), pas du gras. C'est la courbe sur 2-3 semaines qui compte.
-            </p>
-          )}
-        </div>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] leading-relaxed" style={{ color: C.sub }}>
+              {surplus
+                ? <><b style={{ color: C.ink }}>+{String(delta).replace(".", ",")} kg</b> vs ta tendance, mais tu es ~{Math.abs(Math.round(weekBalance))} kcal <b style={{ color: C.ink }}>au-dessus de ton plan</b> cette semaine — une partie peut être réelle. Le sel et les fibres l'amplifient ; juge sur la tendance 2-3 sem.</>
+                : <><b style={{ color: C.ink }}>+{String(delta).replace(".", ",")} kg</b> vs ta tendance — et tu es dans ton plan : quasi sûrement de l'<b style={{ color: C.ink }}>eau</b> (sel, fibres/légumineuses, glucides, transit), pas du gras. C'est la courbe sur 2-3 semaines qui compte.</>}
+            </span>
+            <span className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-bold" style={{ color: surplus ? C.warn : C.weight }}>Analyser mes repas <ChevronRight size={12} /></span>
+          </span>
+        </button>
       )}
       {editing && (
         <Sheet open onClose={close} title="Poids du jour" subtitle={fmtFull(date)} icon={<Scale size={18} />} iconColor={C.weight}>
@@ -627,6 +641,18 @@ function WeightCard({ date, weight, onWeight, pushNav, navBack, weights = {}, we
             <span className="text-sm font-semibold" style={{ color: C.muted }}>kg</span>
           </div>
           <button onClick={save} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Check size={16} /> Enregistrer</button>
+          <button onClick={analyze} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><Sparkles size={14} /> Analyser mes derniers jours</button>
+        </Sheet>
+      )}
+      {explaining && (
+        <Sheet open onClose={closeExplain} title="Pourquoi ce poids ?" subtitle="d'après tes repas récents" icon={<Sparkles size={18} />} iconColor={C.weight} z={50}>
+          {exp.busy ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" /> L'assistant lit tes derniers jours…</div>
+          ) : exp.err ? (
+            <p className="py-2 text-sm leading-relaxed" style={{ color: C.over }}>{exp.err}</p>
+          ) : (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: C.ink }}>{exp.text}</p>
+          )}
         </Sheet>
       )}
     </>

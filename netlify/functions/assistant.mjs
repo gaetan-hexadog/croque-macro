@@ -276,6 +276,25 @@ async function analyzePhoto(data, mediaType, apiKey) {
   return json(200, { meals });
 }
 
+// Réponse en TEXTE LIBRE (pas d'outil) — ex. expliquer une variation de poids.
+async function explainText(body, apiKey) {
+  const { system, prompt } = body;
+  if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
+  let data;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: MODEL, temperature: 0.3, max_tokens: 700, system: system || undefined, messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+    data = await res.json();
+  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
+  const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n").trim();
+  if (!text) return json(502, { error: "Réponse vide de Claude." });
+  return json(200, { text, model: MODEL });
+}
+
 export default async (req) => {
   if (req.method !== "POST") return json(405, { error: "Méthode non autorisée." });
 
@@ -304,6 +323,7 @@ export default async (req) => {
   if (body && typeof body.url === "string" && body.url.trim()) return importRecipe(body.url.trim(), apiKey);
   if (body && typeof body.image === "string") return analyzePhoto(body.image, body.media_type, apiKey);
   if (body && body.workout) return adaptWorkoutAI(body, apiKey);
+  if (body && body.explain) return explainText(body, apiKey);
 
   const { system, prompt, mode = "meal" } = body || {};
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });

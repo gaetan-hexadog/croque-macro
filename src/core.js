@@ -584,8 +584,26 @@ function buildAssistantPrompt({
   return { mode, system: sys, prompt: L.join("\n") };
 }
 
+// Prompt « explique mon poids » : repas + pesées des ~10 derniers jours → texte libre
+// qui distingue l'eau (sel/fibres/glucides/transit) du gras réel, en citant ses repas.
+function buildWeightExplainPrompt({ days = {}, weights = {}, settings = {}, refISO = TODAY }) {
+  const lines = [];
+  for (let i = 9; i >= 0; i--) {
+    const iso = addDays(refISO, -i);
+    const d = days[iso], w = weights[iso];
+    const names = [];
+    if (d && d.picks) for (const k of ["pdj", "dej", "diner", "snacks", "extras"]) (d.picks[k] || []).forEach((it) => { if (it && it.name && !it.planned) names.push(it.name); });
+    const tot = dayTotals(d);
+    if (!names.length && w == null) continue;
+    lines.push(`${fmtShort(iso)} : ${w != null ? `${w} kg · ` : ""}${tot.kcal} kcal · ${tot.p} g prot.${names.length ? ` — ${names.join(", ")}` : ""}`);
+  }
+  const system = "Tu es l'assistant nutrition de Bob (objectif perte de gras, cibles ~1850 kcal / 150 g protéines). On te donne ses repas et pesées des derniers jours. Explique en français, en 4 à 6 phrases MAXIMUM et en texte fluide (pas de listes à puces), ce que reflète sa variation de poids récente : distingue clairement ce qui est de l'EAU (sodium des aliments transformés et condiments, grosses charges de fibres/légumineuses, glucides, transit, cycle) de ce qui pourrait être du GRAS réel. Sois CONCRET en citant SES propres repas. Reste rassurant mais HONNÊTE : si ses apports ont été en vrai surplus calorique, dis-le franchement. Termine par UN repère actionnable simple.";
+  const prompt = `Mes cibles : ${settings.kcal || 1850} kcal / ${settings.protein || 150} g de protéines par jour.\n\nMes derniers jours (date · poids si pesé · kcal/protéines · repas) :\n${lines.join("\n") || "(peu de données)"}\n\nExplique ma variation de poids récente.`;
+  return { system, prompt };
+}
+
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };
