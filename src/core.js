@@ -625,7 +625,7 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
     have.length ? `Frigo/placard dispo : ${have.join(", ")}.` : "Frigo : (vide ou non renseigné).",
     recNames.length ? `Recettes enregistrées de Bob : ${recNames.join(", ")}.` : "",
     "Quand tu proposes un repas/une recette, respecte les règles et le budget restant, et privilégie ce qu'il a au frigo. Pour les macros, additionne ingrédient par ingrédient depuis les valeurs connues ; si une valeur manque, estime de façon conservatrice et dis-le. Évite d'empiler sel (transformés/condiments) et grosses charges de fibres/légumineuses (rétention d'eau).",
-    "Tu peux PROPOSER des actions via tes outils (enregistrer une recette, logger un repas du jour, ajouter au frigo, modifier une recette existante) : l'app les affichera comme un bouton et Bob CONFIRMERA d'un tap (rien n'est modifié sans lui). Ne propose une action que si elle est pertinente et explicitement utile ; sinon réponds simplement en texte. Pour modifier une recette, n'utilise que les noms EXACTS listés ci-dessus.",
+    "Tu peux DÉCLENCHER des actions via tes outils (enregistrer une recette, logger un repas du jour, ajouter au frigo, modifier une recette). Quand c'est pertinent, APPELLE directement l'outil — n'écris PAS « veux-tu que je l'enregistre ? » et ne redemande JAMAIS la permission : l'app affiche toute seule un bouton de confirmation que Bob valide d'un tap. Accompagne d'un texte court et naturel (ex. « Voici une idée de déj : … »), pas d'une question. Ne déclenche une action que si elle est utile dans le contexte. Pour modifier une recette, n'utilise que les noms EXACTS listés ci-dessus.",
   ].filter(Boolean).join("\n");
 }
 

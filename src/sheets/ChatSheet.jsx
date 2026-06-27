@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, Plus, Pencil, BookmarkPlus, Check } from "lucide-react";
+import { Sparkles, Send, Plus, Pencil, BookmarkPlus, Check } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { chatAssistant, AssistantError } from "../lib/assistant.js";
@@ -19,6 +19,29 @@ const META = {
   add_to_pantry: (a) => ({ icon: Plus, btn: "Ajouter au frigo", title: a.name, sub: a.kcal100 ? `${num(a.kcal100)} kcal · ${a.p100 ?? "?"} g /100${a.unit || "g"}` : "au frigo" }),
   update_recipe: (a) => ({ icon: Pencil, btn: "Remplacer la recette", title: a.target_name, sub: a.kcal != null ? `→ ${num(a.kcal)} kcal · ${num(a.p)} g prot.` : "mise à jour" }),
 };
+
+// Avatar de l'assistant (pastille dégradée).
+const Avatar = () => (
+  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: `linear-gradient(140deg, ${C.warn}, ${C.accent})`, color: "#1a1208", boxShadow: `0 2px 8px -2px ${C.accent}66` }}><Sparkles size={14} /></span>
+);
+
+// Points animés « l'assistant écrit ».
+const Dots = () => (
+  <span className="flex items-center gap-1 px-1 py-1.5">
+    {[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.muted, animation: "cmBounce 1s infinite ease-in-out", animationDelay: `${i * 0.16}s` }} />)}
+  </span>
+);
+
+// Rendu léger : **gras** + lignes à puces, en gardant les sauts de ligne.
+const renderRich = (text) => String(text || "").split("\n").map((line, i) => {
+  const bullet = /^\s*[-•*]\s+/.test(line);
+  const body = bullet ? line.replace(/^\s*[-•*]\s+/, "") : line;
+  const parts = body.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((p, j) => (p.startsWith("**") && p.endsWith("**")
+    ? <strong key={j} className="font-bold">{p.slice(2, -2)}</strong>
+    : <React.Fragment key={j}>{p}</React.Fragment>));
+  if (bullet) return <div key={i} className="flex gap-1.5"><span className="mt-px shrink-0" style={{ color: C.accent }}>•</span><span className="min-w-0">{parts}</span></div>;
+  return <div key={i}>{parts.length ? parts : " "}</div>;
+});
 
 // Chat assistant agentique : conversation libre + cartes d'action à CONFIRMER (tool use).
 // Le system porte le contexte d'app (relu à chaque envoi). onAction(action) exécute et
@@ -73,22 +96,23 @@ export function ChatSheet({ system, onAction, onClose }) {
               </div>
             </div>
           )}
-          {msgs.map((m, i) => (
-            <div key={i}>
-              {(m.content || m.role === "user") && (
-                <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed" style={m.role === "user"
-                    ? { backgroundColor: C.accent, color: "#1a1208", borderBottomRightRadius: 6 }
-                    : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink, borderBottomLeftRadius: 6 }}>{m.content || "…"}</div>
-                </div>
-              )}
-              {m.actions?.map((action, ai) => {
-                const key = `${i}-${ai}`, st = acts[key], meta = (META[action.type] || (() => null))(action.input || {});
-                if (!meta) return null;
-                const Icon = meta.icon;
-                return (
-                  <div key={ai} className="mt-1.5 flex justify-start">
-                    <div className="w-[85%] rounded-2xl p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.accent}55` }}>
+          {msgs.map((m, i) => m.role === "user" ? (
+            <div key={i} className="flex justify-end">
+              <div className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: `${C.accent}22`, border: `1px solid ${C.accent}3a`, color: C.ink }}>{m.content}</div>
+            </div>
+          ) : (
+            <div key={i} className="flex items-start gap-2">
+              <Avatar />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                {m.content && (
+                  <div className="w-fit max-w-full rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{renderRich(m.content)}</div>
+                )}
+                {m.actions?.map((action, ai) => {
+                  const key = `${i}-${ai}`, st = acts[key], meta = (META[action.type] || (() => null))(action.input || {});
+                  if (!meta) return null;
+                  const Icon = meta.icon;
+                  return (
+                    <div key={ai} className="rounded-2xl rounded-bl-md p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.accent}55` }}>
                       <div className="mb-2 flex items-center gap-2">
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${C.accent}1f`, color: C.accent }}><Icon size={15} /></span>
                         <span className="min-w-0 flex-1">
@@ -104,16 +128,15 @@ export function ChatSheet({ system, onAction, onClose }) {
                         <button onClick={() => runAction(key, action)} className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.accent, color: "#1a1208" }}><Icon size={14} /> {meta.btn}</button>
                       )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           ))}
           {busy && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted, borderBottomLeftRadius: 6 }}>
-                <Loader2 size={15} className="animate-spin" /> réfléchit…
-              </div>
+            <div className="flex items-start gap-2">
+              <Avatar />
+              <div className="rounded-2xl rounded-bl-md px-2 py-0.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}><Dots /></div>
             </div>
           )}
           {err && <p className="px-1 text-xs" style={{ color: C.over }}>{err}</p>}
@@ -124,7 +147,7 @@ export function ChatSheet({ system, onAction, onClose }) {
             value={input} onChange={(e) => setInput(e.target.value)} rows={1}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             placeholder="Écris ta question…"
-            className="max-h-28 min-h-[2.75rem] flex-1 resize-none rounded-2xl px-3.5 py-3 text-sm outline-none"
+            className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl px-3.5 py-3 text-sm outline-none"
             style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
           <button onClick={() => send()} disabled={!input.trim() || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.accent, color: "#1a1208" }} aria-label="Envoyer">
             <Send size={18} />
