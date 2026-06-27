@@ -17,7 +17,6 @@ import { AuthGate } from "./screens/AuthGate.jsx";
 import { MealSuggestSheet } from "./sheets/MealSuggestSheet.jsx";
 import { QuickLogSheet } from "./sheets/QuickLogSheet.jsx";
 import { PantrySheet } from "./sheets/PantrySheet.jsx";
-import { SectionTitle } from "./components/ui.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./screens/JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./screens/ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
@@ -715,12 +714,9 @@ export default function PiocheRepas() {
           />
         )}
         {(view === "journal" || view === "progres") && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <ProgressScreen days={days} weights={weights} settings={settings} />
-            <div>
-              <SectionTitle>Historique jour par jour</SectionTitle>
-              <JournalScreen days={days} weights={weights} settings={settings} onOpen={goToDay} activeDate={activeDate} />
-            </div>
+            <JournalScreen days={days} weights={weights} settings={settings} onOpen={goToDay} activeDate={activeDate} />
           </div>
         )}
         {view === "guide" && (
