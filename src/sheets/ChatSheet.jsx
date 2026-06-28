@@ -12,17 +12,16 @@ const STARTERS = [
 ];
 
 const SLOT_LABEL = { pdj: "petit-déj", dej: "déjeuner", diner: "dîner", snack: "en-cas" };
-const num = (v) => (v != null ? Math.round(v) : 0);
 const META = {
-  save_recipe: (a) => ({ icon: BookmarkPlus, btn: "Enregistrer dans ma cuisine", title: a.name, sub: `${num(a.kcal)} kcal · ${num(a.p)} g prot.` }),
-  log_meal: (a) => ({ icon: Plus, btn: `Ajouter au ${SLOT_LABEL[a.slot] || a.slot}`, title: a.name, sub: `${num(a.kcal)} kcal · ${num(a.p)} g prot.` }),
-  add_to_pantry: (a) => ({ icon: Plus, btn: "Ajouter au frigo", title: a.name, sub: a.kcal100 ? `${num(a.kcal100)} kcal · ${a.p100 ?? "?"} g /100${a.unit || "g"}` : "au frigo" }),
-  update_recipe: (a) => ({ icon: Pencil, btn: "Remplacer la recette", title: a.target_name, sub: a.kcal != null ? `→ ${num(a.kcal)} kcal · ${num(a.p)} g prot.` : "mise à jour" }),
+  save_recipe: (a) => ({ icon: BookmarkPlus, chip: `Enregistrer${a.name ? ` « ${a.name} »` : " la recette"}` }),
+  log_meal: (a) => ({ icon: Plus, chip: `Logger · ${SLOT_LABEL[a.slot] || a.slot}` }),
+  add_to_pantry: (a) => ({ icon: Plus, chip: `Frigo${a.name ? ` · ${a.name}` : ""}` }),
+  update_recipe: (a) => ({ icon: Pencil, chip: `Mettre à jour${a.target_name ? ` « ${a.target_name} »` : " la recette"}` }),
 };
 
-// Avatar de l'assistant (pastille dégradée).
+// Avatar de l'assistant (pastille dégradée, léger relief).
 const Avatar = () => (
-  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: `linear-gradient(140deg, ${C.warn}, ${C.accent})`, color: "#1a1208", boxShadow: `0 2px 8px -2px ${C.accent}66` }}><Sparkles size={14} /></span>
+  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: `radial-gradient(circle at 32% 28%, ${C.warn}, ${C.accent})`, color: "#1a1208", boxShadow: `0 3px 10px -3px ${C.accent}80, inset 0 0 0 1px rgba(255,255,255,0.28)` }}><Sparkles size={15} /></span>
 );
 
 // Points animés « l'assistant écrit ».
@@ -107,29 +106,18 @@ export function ChatSheet({ system, onAction, onClose }) {
                 {m.content && (
                   <div className="w-fit max-w-full rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{renderRich(m.content)}</div>
                 )}
-                {m.actions?.map((action, ai) => {
-                  const key = `${i}-${ai}`, st = acts[key], meta = (META[action.type] || (() => null))(action.input || {});
-                  if (!meta) return null;
-                  const Icon = meta.icon;
-                  return (
-                    <div key={ai} className="rounded-2xl rounded-bl-md p-3" style={{ backgroundColor: C.paper, border: `1px solid ${C.accent}55` }}>
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${C.accent}1f`, color: C.accent }}><Icon size={15} /></span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-bold" style={{ color: C.ink }}>{meta.title || "—"}</span>
-                          {meta.sub && <span className="block text-[11px]" style={{ color: C.muted }}>{meta.sub}</span>}
-                        </span>
-                      </div>
-                      {st?.done ? (
-                        <p className="flex items-center gap-1.5 text-xs font-bold" style={{ color: C.green }}><Check size={14} /> {st.done}</p>
-                      ) : st?.err ? (
-                        <p className="text-xs font-semibold" style={{ color: C.over }}>{st.err}</p>
-                      ) : (
-                        <button onClick={() => runAction(key, action)} className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.accent, color: "#1a1208" }}><Icon size={14} /> {meta.btn}</button>
-                      )}
-                    </div>
-                  );
-                })}
+                {m.actions?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {m.actions.map((action, ai) => {
+                      const key = `${i}-${ai}`, st = acts[key], meta = (META[action.type] || (() => null))(action.input || {});
+                      if (!meta) return null;
+                      const Icon = meta.icon;
+                      if (st?.done) return <span key={ai} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Check size={13} className="shrink-0" /> <span className="truncate">{st.done}</span></span>;
+                      if (st?.err) return <span key={ai} className="inline-flex max-w-full items-center rounded-full px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: `${C.over}1f`, color: C.over }}><span className="truncate">{st.err}</span></span>;
+                      return <button key={ai} onClick={() => runAction(key, action)} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.accent, color: "#1a1208" }}><Icon size={13} className="shrink-0" /> <span className="truncate">{meta.chip}</span></button>;
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ))}
