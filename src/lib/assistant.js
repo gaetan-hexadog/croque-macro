@@ -73,18 +73,57 @@ export async function explainWeight({ system, prompt }, opts = {}) {
 }
 
 // Chat multi-tours avec contexte d'app. payload = { system, messages:[{role,content}] }.
-// Renvoie { text, actions } — actions = propositions d'action (tool use) à confirmer côté UI.
-export async function chatAssistant({ system, messages }, opts = {}) {
+// La function relaie le flux SSE d'Anthropic : on lit les deltas de texte au fil de l'eau
+// (onToken(textPartiel)) et on reconstitue les tool_use (actions) à la fin.
+// Renvoie { text, actions } — actions = propositions d'action à confirmer côté UI.
+export async function chatAssistant({ system, messages }, { onToken, ...opts } = {}) {
   const res = await postAssistant({ chat: true, system, messages }, { ...opts, authMsg: "Connecte-toi pour discuter avec l'assistant." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError(out?.error || `Réponse impossible (${res.status}).`, { status: res.status, kind: "server" });
-  if (!out || (!out.text && !Array.isArray(out.actions))) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
-  return { text: out.text || "", actions: Array.isArray(out.actions) ? out.actions : [] };
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  // Pas de flux (erreur applicative renvoyée en JSON, ou environnement sans streaming) → repli.
+  if (!ct.includes("event-stream") || !res.body || !res.body.getReader) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError(out?.error || `Réponse impossible (${res.status}).`, { status: res.status, kind: "server" });
+    return { text: out?.text || "", actions: Array.isArray(out?.actions) ? out.actions : [] };
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "", text = "", tool = null, toolJson = "";
+  const actions = [];
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let ev; try { ev = JSON.parse(payload); } catch { continue; }
+        if (ev.type === "content_block_start") {
+          if (ev.content_block?.type === "tool_use") { tool = { type: ev.content_block.name, input: {} }; toolJson = ""; }
+        } else if (ev.type === "content_block_delta") {
+          if (ev.delta?.type === "text_delta") { text += ev.delta.text || ""; onToken && onToken(text); }
+          else if (ev.delta?.type === "input_json_delta") { toolJson += ev.delta.partial_json || ""; }
+        } else if (ev.type === "content_block_stop") {
+          if (tool) { try { tool.input = toolJson ? JSON.parse(toolJson) : {}; } catch { tool.input = {}; } actions.push(tool); tool = null; toolJson = ""; }
+        } else if (ev.type === "error") {
+          throw new AssistantError(ev.error?.message || "Erreur de l'assistant.", { kind: "server" });
+        }
+      }
+    }
+  } catch (e) {
+    if (e instanceof AssistantError) throw e;
+    throw new AssistantError("Flux interrompu — réessaie.", { kind: "offline" });
+  }
+  if (!text && !actions.length) throw new AssistantError("Réponse vide de l'assistant.", { kind: "server" });
+  return { text: text.trim(), actions };
 }
 
 // Importe une recette depuis une URL (la function fetch la page + extrait + macros).

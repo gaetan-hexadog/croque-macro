@@ -52,3 +52,7 @@ button {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
   40% { transform: translateY(-4px); opacity: 1; }
 }
+
+/* Caret clignotant pendant le streaming du chat assistant. */
+@keyframes cmBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.cm-caret { display: inline-block; margin-left: 1px; animation: cmBlink 1s steps(1) infinite; font-weight: 400; }

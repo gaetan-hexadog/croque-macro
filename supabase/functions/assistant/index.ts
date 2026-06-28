@@ -252,22 +252,19 @@ async function explainText(body: any, apiKey: string) {
   return json(200, { text, model: MODEL });
 }
 
+// Chat en STREAMING : on relaie le flux SSE d'Anthropic tel quel ; le client parse les
+// deltas de texte (affichage au fil de l'eau) et reconstitue les tool_use (actions) à la fin.
 async function chatText(body: any, apiKey: string) {
   const { system } = body;
   if (!Array.isArray(body.messages) || !body.messages.length) return json(400, { error: "Messages manquants." });
   const messages = body.messages.slice(-20).map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 4000) })).filter((m: any) => m.content);
   if (!messages.length) return json(400, { error: "Messages vides." });
-  let data: any;
+  let res: Response;
   try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.4, max_tokens: 1200, system: sysCache(system), messages, tools: CHAT_TOOLS }) });
-    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
-    data = await res.json();
+    res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.4, max_tokens: 1200, system: sysCache(system), messages, tools: CHAT_TOOLS, stream: true }) });
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
-  const blocks = data.content || [];
-  const text = blocks.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n").trim();
-  const actions = blocks.filter((c: any) => c.type === "tool_use").map((c: any) => ({ type: c.name, input: c.input || {} }));
-  if (!text && !actions.length) return json(502, { error: "Réponse vide de Claude." });
-  return json(200, { text, actions, model: MODEL });
+  if (!res.ok || !res.body) { const t = await res.text().catch(() => ""); return json(res.status || 502, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+  return new Response(res.body, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", ...CORS } });
 }
 
 Deno.serve(async (req: Request) => {

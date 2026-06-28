@@ -54,17 +54,22 @@ export function ChatSheet({ system, onAction, onClose }) {
   const scrollRef = useRef(null);
   useEffect(() => { scrollRef.current && scrollRef.current.scrollTo({ top: 1e9, behavior: "smooth" }); }, [msgs, busy]);
 
+  // Met à jour le contenu de la bulle assistant en cours de stream (la dernière flaggée).
+  const patchStream = (fn) => setMsgs((m) => { const c = m.slice(); for (let k = c.length - 1; k >= 0; k--) { if (c[k].streaming) { c[k] = fn(c[k]); break; } } return c; });
+
   const send = async (text) => {
     const content = (text != null ? text : input).trim();
     if (!content || busy) return;
     setInput(""); setErr("");
     const next = [...msgs, { role: "user", content }];
-    setMsgs(next); setBusy(true);
+    setMsgs([...next, { role: "assistant", content: "", actions: [], streaming: true }]); // placeholder qui se remplit
+    setBusy(true);
     try {
       const apiMsgs = next.map((m) => ({ role: m.role, content: m.content || "(proposition d'action)" }));
-      const { text: reply, actions } = await chatAssistant({ system, messages: apiMsgs });
-      setMsgs((m) => [...m, { role: "assistant", content: reply, actions }]);
+      const { text: reply, actions } = await chatAssistant({ system, messages: apiMsgs }, { onToken: (t) => patchStream((x) => ({ ...x, content: t })) });
+      patchStream(() => ({ role: "assistant", content: reply, actions }));
     } catch (e) {
+      setMsgs((m) => m.filter((x) => !x.streaming));
       setErr(e instanceof AssistantError ? e.message : "Réponse impossible — réessaie.");
     } finally { setBusy(false); }
   };
@@ -103,10 +108,12 @@ export function ChatSheet({ system, onAction, onClose }) {
             <div key={i} className="flex items-start gap-2">
               <Avatar />
               <div className="min-w-0 flex-1 space-y-1.5">
-                {m.content && (
-                  <div className="w-fit max-w-full rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{renderRich(m.content)}</div>
-                )}
-                {m.actions?.length > 0 && (
+                {m.streaming && !m.content ? (
+                  <div className="w-fit rounded-2xl rounded-bl-md px-2 py-0.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}><Dots /></div>
+                ) : m.content ? (
+                  <div className="w-fit max-w-full rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{renderRich(m.content)}{m.streaming && <span className="cm-caret" style={{ color: C.accent }}>▍</span>}</div>
+                ) : null}
+                {!m.streaming && m.actions?.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {m.actions.map((action, ai) => {
                       const key = `${i}-${ai}`, st = acts[key], meta = (META[action.type] || (() => null))(action.input || {});
@@ -121,12 +128,6 @@ export function ChatSheet({ system, onAction, onClose }) {
               </div>
             </div>
           ))}
-          {busy && (
-            <div className="flex items-start gap-2">
-              <Avatar />
-              <div className="rounded-2xl rounded-bl-md px-2 py-0.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}><Dots /></div>
-            </div>
-          )}
           {err && <p className="px-1 text-xs" style={{ color: C.over }}>{err}</p>}
         </div>
 
