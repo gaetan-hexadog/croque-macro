@@ -33,21 +33,27 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill 
   const [ingRows, setIngRows] = useState(src?.ingredients?.length ? src.ingredients.map(parseIng) : [{ qty: "", unit: "", name: "" }]);
   const [steps, setSteps] = useState(src?.steps?.length ? src.steps.join("\n") : "");
   const [quick, setQuick] = useState(!!src?.quick);
+  const [varRows, setVarRows] = useState(src?.variants?.length ? src.variants.map((v) => ({ label: v.label || "", kcal: String(v.kcal ?? ""), protein: String(v.protein ?? "") })) : []);
   const toggleSlot = (k) => setSlots((s) => s.includes(k) ? s.filter((x) => x !== k) : [...s, k]);
   const setIng = (i, key, v) => setIngRows((rows) => rows.map((r, idx) => idx === i ? { ...r, [key]: v } : r));
   const addIng = () => setIngRows((rows) => [...rows, { qty: "", unit: "", name: "" }]);
   const delIng = (i) => setIngRows((rows) => rows.length > 1 ? rows.filter((_, idx) => idx !== i) : rows);
+  const setVar = (i, key, v) => setVarRows((rows) => rows.map((r, idx) => idx === i ? { ...r, [key]: v } : r));
+  const addVar = () => setVarRows((rows) => [...rows, { label: "", kcal: "", protein: "" }]);
+  const delVar = (i) => setVarRows((rows) => rows.filter((_, idx) => idx !== i));
   const valid = name.trim() && !isNaN(parseInt(kcal, 10)) && slots.length > 0;
   // Garde anti perte de saisie : si l'utilisateur a touché au form et ferme par
   // erreur (X / geste retour), on confirme avant d'abandonner.
   const initSlots = src?.slots?.length ? src.slots : src?.cat ? [src.cat] : (defaultSlots && defaultSlots.length ? defaultSlots : ["dej"]);
   const initIng = src?.ingredients?.length ? src.ingredients.map(parseIng) : [{ qty: "", unit: "", name: "" }];
+  const initVar = src?.variants?.length ? src.variants.map((v) => ({ label: v.label || "", kcal: String(v.kcal ?? ""), protein: String(v.protein ?? "") })) : [];
   const dirty =
     name.trim() !== (src?.name || "").trim() ||
     kcal !== (src != null ? String(src.kcal ?? "") : "") ||
     p !== (src != null ? String(src.p ?? "") : "") ||
     steps !== (src?.steps?.length ? src.steps.join("\n") : "") ||
     JSON.stringify(ingRows) !== JSON.stringify(initIng) ||
+    JSON.stringify(varRows) !== JSON.stringify(initVar) ||
     JSON.stringify(slots) !== JSON.stringify(initSlots);
   const guardedClose = () => { if (dirty && !window.confirm("Abandonner cette recette ? Tes saisies seront perdues.")) return; onClose(); };
   const submit = () => {
@@ -57,7 +63,7 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill 
       ingredients: ingRows.map((r) => [r.qty, r.unit, r.name].map((x) => String(x).trim()).filter(Boolean).join(" ")).filter(Boolean),
       steps: steps.split("\n").map((s) => s.trim()).filter(Boolean),
       quick,
-      variants: Array.isArray(src?.variants) ? src.variants : [],
+      variants: varRows.map((r) => ({ label: r.label.trim(), kcal: parseInt(r.kcal, 10) || 0, protein: parseInt(r.protein, 10) || 0 })).filter((v) => v.label),
     });
   };
   const field = { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink };
@@ -103,6 +109,19 @@ export function AddRecipeSheet({ onClose, onAdd, defaultSlots, initial, prefill 
 
       <label className={lab} style={{ color: C.sub }}>Préparation <span style={{ textTransform: "none", color: C.muted }}>(optionnel, une étape par ligne)</span></label>
       <textarea value={steps} onChange={(e) => setSteps(e.target.value)} rows={3} placeholder={"Cuire le riz\nPoêler le tofu\nMélanger la sauce"} className="mb-3 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={field} />
+
+      <label className={lab} style={{ color: C.sub }}>Variantes <span style={{ textTransform: "none", color: C.muted }}>(optionnel — ajustent les macros, ex. « +1 dose protéine »)</span></label>
+      <div className="mb-1.5 space-y-2">
+        {varRows.map((r, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input value={r.label} onChange={(e) => setVar(i, "label", e.target.value)} placeholder="Ex. + fromage blanc" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none" style={field} />
+            <input value={r.kcal} onChange={(e) => setVar(i, "kcal", e.target.value)} inputMode="numeric" placeholder="±kcal" className="w-16 shrink-0 rounded-xl px-2 py-2.5 text-center text-sm outline-none" style={field} />
+            <input value={r.protein} onChange={(e) => setVar(i, "protein", e.target.value)} inputMode="numeric" placeholder="±g" className="w-14 shrink-0 rounded-xl px-2 py-2.5 text-center text-sm outline-none" style={field} />
+            <button onClick={() => delVar(i)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ color: C.muted }} aria-label="Retirer"><X size={15} /></button>
+          </div>
+        ))}
+      </div>
+      <button onClick={addVar} className="mb-4 flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.protein }}><Plus size={13} /> Ajouter une variante</button>
 
       <button onClick={() => setQuick((v) => !v)} className="mb-4 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={quick ? { backgroundColor: C.ink, color: C.bg } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>⚡ Rapide {quick ? "· oui" : ""}</button>
 

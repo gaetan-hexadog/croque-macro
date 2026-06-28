@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Wand2, Pencil, Trash2, ChefHat, Share2, Check } from "lucide-react";
+import { Wand2, Pencil, Trash2, ChefHat, Share2, Check, BookmarkPlus, SlidersHorizontal } from "lucide-react";
 import { C, oneEmoji } from "../core.js";
 import { Sheet } from "./Sheet.jsx";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
@@ -18,16 +18,25 @@ const nowSlot = () => { const h = new Date().getHours(); return h < 11 ? "pdj" :
 // Fiche recette/repas UNIFIÉE (Cuisine + Suivi journalier). Actions optionnelles selon le
 // contexte : onUse → « Ajouter à un créneau » (+ variantes) ; onAdapt → assistant ;
 // onEdit / onDelete → gestion. Bouton « Partager » dispo partout (texte propre → feuille Android).
-export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete }) {
+export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete, onSave, saved, onApplyVariant }) {
   const [varSel, setVarSel] = useState(() => new Set());
   const [shared, setShared] = useState(null); // "shared" | "copied" | "fail"
+  const [savedLocal, setSavedLocal] = useState(false);
   const now = nowSlot();
   const meta = kindMeta[m.kind] || kindMeta.aliment;
   const canAdd = !!onUse;
-  const hasVariants = canAdd && Array.isArray(m.variants) && m.variants.length > 0;
-  const eff = applyVariants(m, varSel);
+  const canVary = !!onApplyVariant; // consultation depuis le suivi : ajuster un repas (planifié) loggé
+  // Base des variantes : depuis le suivi, un item loggé porte m.base (macros/nom d'origine) ;
+  // en cuisine, la recette ELLE-MÊME est la base.
+  const variants = Array.isArray(m.variants) ? m.variants : [];
+  const varBase = { name: m.base?.name ?? m.name, kcal: m.base?.kcal ?? m.kcal, p: m.base?.p ?? m.p, variants };
+  const hasVariants = (canAdd || canVary) && variants.length > 0;
+  const eff = applyVariants(varBase, varSel);
+  const isSaved = saved || savedLocal;
   const toggleVar = (i) => setVarSel((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
-  const add = (slot) => { const labels = variantLabels(m, varSel); onUse({ ...m, kcal: eff.kcal, p: eff.p, name: labels.length ? `${m.name} · ${labels.join(", ")}` : m.name }, slot); onClose(); };
+  const varName = () => { const labels = variantLabels(varBase, varSel); return labels.length ? `${varBase.name} · ${labels.join(", ")}` : varBase.name; };
+  const add = (slot) => { onUse({ ...m, kcal: eff.kcal, p: eff.p, name: varName(), base: { name: varBase.name, kcal: varBase.kcal, p: varBase.p }, variants }, slot); onClose(); };
+  const applyVar = () => { onApplyVariant({ kcal: eff.kcal, p: eff.p, name: varName() }); onClose(); };
   const share = async () => { const r = await shareOrCopy(formatRecipeText(m), m.name); if (r !== "abort") { setShared(r); setTimeout(() => setShared(null), 2000); } };
   const shareLabel = shared === "copied" ? "Copié !" : shared === "fail" ? "Échec — réessaie" : shared === "shared" ? "Partagé" : "Partager la recette";
 
@@ -59,13 +68,13 @@ export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete
         )}
         {hasVariants && (
           <section>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Variantes</p>
-            <VariantChips variants={m.variants} sel={varSel} onToggle={toggleVar} />
+            <VariantChips variants={variants} sel={varSel} onToggle={toggleVar} />
+            {canVary && <p className="mt-1.5 text-[11px]" style={{ color: C.muted }}>Coche des variantes pour ajuster ce repas{m.planned ? " planifié" : ""}.</p>}
           </section>
         )}
       </div>
 
-      {(canAdd || onAdapt || onEdit || onDelete) && (
+      {(canAdd || canVary || onAdapt || onEdit || onDelete || onSave) && (
         <div className="mt-5 space-y-3">
           {canAdd && (
             <div>
@@ -78,6 +87,16 @@ export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete
               </div>
             </div>
           )}
+          {canVary && hasVariants && (
+            <button onClick={applyVar} disabled={varSel.size === 0} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: C.green }}>
+              <SlidersHorizontal size={15} /> {varSel.size ? `Mettre à jour ce repas · ${eff.kcal} kcal · ${eff.p} g` : "Choisis une variante pour ajuster"}
+            </button>
+          )}
+          {onSave && (isSaved ? (
+            <p className="flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold" style={{ backgroundColor: `${C.green}14`, color: C.green }}><Check size={15} /> Déjà dans ta cuisine</p>
+          ) : (
+            <button onClick={() => { onSave(); setSavedLocal(true); }} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight, border: `1px solid ${C.weight}55` }}><BookmarkPlus size={15} /> Enregistrer dans ma cuisine</button>
+          ))}
           {(onAdapt || onEdit) && (
             <div className="flex gap-2">
               {onAdapt && <button onClick={onAdapt} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.weight}1f`, color: C.weight }}><Wand2 size={15} /> Personnaliser</button>}

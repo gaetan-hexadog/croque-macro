@@ -383,6 +383,8 @@ function recipeToPick(r) {
   if (ings.length) it.ingredients = ings;
   if (r.steps?.length) it.steps = r.steps;
   if (r.emoji) it.emoji = r.emoji;
+  // Variantes + base (macros/nom d'origine) → ajustables plus tard depuis la consultation du suivi.
+  if (Array.isArray(r.variants) && r.variants.length) { it.variants = r.variants; it.base = { name: r.name, kcal: r.kcal, p: r.p }; }
   return it;
 }
 

@@ -26,7 +26,7 @@ function QuickChips({ items = [], onQuick, color }) {
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, sportCatchUp, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe, savedRecipeNames }) {
   const [showTpl, setShowTpl] = useState(false);
   const [dismissRebal, setDismissRebal] = useState(false);
   const [viewRecipe, setViewRecipe] = useState(null); // { m, slot, index }
@@ -166,6 +166,18 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </button>
       )}
 
+      {/* Rattrapage : séance(s) dont le jour est passé sans avoir été faites cette semaine */}
+      {sportCatchUp && (
+        <button onClick={onGoSport} className="mb-4 flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={{ backgroundColor: `${C.over}14`, border: `1px solid ${C.over}55` }}>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.over}22`, color: C.over }}><Dumbbell size={18} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold" style={{ color: C.ink }}>{sportCatchUp.length > 1 ? `${sportCatchUp.length} séances à rattraper` : `${sportCatchUp[0].name} à rattraper`}</span>
+            <span className="block text-xs" style={{ color: C.sub }}>{sportCatchUp.length > 1 ? `${sportCatchUp.map((s) => s.name).join(", ")} — leur jour est passé cette semaine` : `${sportCatchUp[0].subtitle} · son jour (${sportCatchUp[0].day.toLowerCase()}) est passé — fais-la aujourd'hui`}</span>
+          </span>
+          <span className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold text-white" style={{ backgroundColor: C.over }}>Rattraper</span>
+        </button>
+      )}
+
       {/* Coaching recomposition : force ↔ poids */}
       {recomp && (
         <div className="mb-4 flex gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}14`, border: `1px solid ${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}44` }}>
@@ -275,7 +287,16 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       <p className="mt-6 px-2 text-center text-xs" style={{ color: C.muted }}>Valeurs estimées par portion. Un déficit léger et tenable bat un régime agressif.</p>
 
-      {viewRecipe && <RecipeDetailSheet m={viewRecipe.m} onClose={closeNav} onAdapt={onAddRecipe ? () => setAdapting(viewRecipe) : undefined} />}
+      {viewRecipe && (() => {
+        const vm = viewRecipe.m, baseName = (vm.base?.name || vm.name || "").toLowerCase();
+        const isSaved = savedRecipeNames ? savedRecipeNames.has(baseName) : undefined;
+        const recipeFromItem = () => ({ name: vm.base?.name || vm.name, emoji: vm.emoji, cat: viewRecipe.slot || "dej", slots: [viewRecipe.slot || "dej"], kcal: vm.base?.kcal ?? vm.kcal, p: vm.base?.p ?? vm.p, ingredients: vm.ingredients || [], steps: vm.steps || [], variants: vm.variants || [] });
+        return <RecipeDetailSheet m={vm} onClose={closeNav}
+          onAdapt={onAddRecipe ? () => setAdapting(viewRecipe) : undefined}
+          onApplyVariant={(vm.variants?.length && onEditItem) ? (patch) => onEditItem(viewRecipe.slot, viewRecipe.index, patch) : undefined}
+          onSave={onAddRecipe ? () => onAddRecipe(recipeFromItem()) : undefined}
+          saved={isSaved} />;
+      })()}
       {adapting && (
         <RecipeAdaptSheet recipe={adapting.m} favorites={favorites} knownFoods={knownFoods} pantry={pantry} z={50}
           onReplace={(r) => { onEditItem(adapting.slot, adapting.index, { name: r.name, kcal: r.kcal, p: r.p, ingredients: r.ingredients, steps: r.steps, emoji: r.emoji }); setAdapting(null); closeNav(); }}

@@ -3,7 +3,7 @@ import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, 
 import {
   SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
 } from "./core.js";
-import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./lib/sport.js";
+import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, recompSignal } from "./lib/sport.js";
 import { loadLive } from "./sport/liveSession.js";
 import { getLibrarySync, refreshLibrary } from "./lib/library.js";
 import { supabase } from "./lib/supabaseClient.js";
@@ -326,6 +326,16 @@ export default function PiocheRepas() {
     if (!sid) return null;
     return { sid, week, name: SESSIONS[sid]?.name, subtitle: SESSIONS[sid]?.subtitle, done: !!workouts[`W${week}-${sid}`] };
   }, [sport, activeDate, workouts]);
+  // Séances à rattraper : prévues plus tôt cette semaine, jour passé, pas encore faites.
+  // Affiché uniquement sur AUJOURD'HUI (le rattrapage se fait sur la semaine en cours).
+  const sportCatchUp = useMemo(() => {
+    if (!sport.startDate || activeDate !== TODAY) return null;
+    const week = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(sport.startDate);
+    const sessionDays = sport.preferences?.sessionDays || { A: 2, B: 4, C: 6 };
+    const ids = getCatchUp(workouts, sessionDays, week);
+    if (!ids.length) return null;
+    return ids.map((sid) => ({ sid, name: SESSIONS[sid]?.name, subtitle: SESSIONS[sid]?.subtitle, day: SESSIONS[sid]?.day }));
+  }, [sport, activeDate, workouts]);
   // Coaching recomposition : croise tendance de force et tendance de poids (today).
   const recomp = useMemo(() => recompSignal(workouts, observedTrend(days, weights, TODAY)), [workouts, days, weights]);
   // Suppression d'une séance loggée (depuis le détail) : local + remote (la sync auto
@@ -477,6 +487,9 @@ export default function PiocheRepas() {
   }));
   const removePantry = (id) => { const it = pantry.find((x) => x.id === id); setPantry((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} retiré du frigo`, () => setPantry((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   // « Ma cuisine » : bibliothèque unifiée (vue dérivée des 3 listes, aucune donnée reshapée).
+  // Noms de recettes déjà en cuisine (perso + catalogue) → pour savoir, depuis le suivi,
+  // si une recette consultée est déjà enregistrée.
+  const savedRecipeNames = useMemo(() => new Set([...customRecipes, ...library.recipes].map((r) => (r.name || "").toLowerCase())), [customRecipes, library.recipes]);
   const meals = useMemo(() => {
     // Recettes du catalogue (foods kind=recipe) éditées → une copie perso (même id) les
     // MASQUE. On affiche : recettes perso + recettes catalogue non masquées + combos + aliments.
@@ -494,6 +507,8 @@ export default function PiocheRepas() {
     const slot = slotOverride || (m.kind === "recette" ? (m.cat || "dej") : (m.slots && m.slots[0]) || "dej"), key = picksKey(slot);
     const item = { name: m.name, kcal: m.kcal, p: m.p, qty: 1, id: newId("pk") };
     if (m.kind === "recette") { if (m.ingredients?.length) item.ingredients = m.ingredients; if (m.steps?.length) item.steps = m.steps; if (m.emoji) item.emoji = m.emoji; }
+    // Variantes ajustables depuis le suivi : on garde les variantes + la base (d'origine si fournie par la fiche).
+    if (Array.isArray(m.variants) && m.variants.length) { item.variants = m.variants; item.base = m.base || { name: m.name, kcal: m.kcal, p: m.p }; }
     setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), item].slice(0, 8) } }));
     bumpUsage(m.name);
     toastAdd(m.name, m.kcal, m.p);
@@ -735,7 +750,7 @@ export default function PiocheRepas() {
             days={days} weights={weights} onOpenWeek={() => go("journal")} onSaveCombo={saveCombo}
             picks={picks} skipBreakfast={skipBreakfast} slotTarget={slotTarget}
             training={training} onToggleTraining={toggleTraining}
-            sportInfo={sportInfo} recomp={recomp} onGoSport={() => go("sport")}
+            sportInfo={sportInfo} sportCatchUp={sportCatchUp} recomp={recomp} onGoSport={() => go("sport")}
             onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={openQuickLog} onPlan={() => go("idees")} onRebalance={rebalanceSlot}
             pushNav={pushNav} navBack={navBack}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
@@ -747,6 +762,7 @@ export default function PiocheRepas() {
             targetSuggestion={showTargetSuggestion ? targetSuggestion : null}
             onApplyTarget={applyTargetSuggestion} onDismissTarget={() => setTargetDismissed(targetSuggestion.kcal)}
             favorites={assistFavorites} knownFoods={assistKnownFoods} pantry={pantry} onAddRecipe={addRecipe}
+            savedRecipeNames={savedRecipeNames}
           />
         )}
         {(view === "journal" || view === "progres") && (
