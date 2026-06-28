@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { Sparkles, Loader2, Refrigerator, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, Refrigerator, AlertCircle, ChevronDown } from "lucide-react";
 import { C, buildAssistantPrompt, correctMacros } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
@@ -39,6 +39,7 @@ export function MealSuggestSheet({
   const [chips, setChips] = useState(() => new Set());
   const [indulge, setIndulge] = useState(false); // « je me fais plaisir » → budget = restant du jour entier
   const [pantryOpen, setPantryOpen] = useState(false);
+  const [localCollapsed, setLocalCollapsed] = useState(false); // replié quand l'assistant répond (sinon le retour se planque sous tes recettes)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
@@ -77,7 +78,7 @@ export function MealSuggestSheet({
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
   const ask = async () => {
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setLocalCollapsed(true); // replie tes recettes → le retour de l'assistant est visible direct
     try {
       const dining = chips.has("resto");
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
@@ -129,11 +130,21 @@ export function MealSuggestSheet({
       </div>
       <p className="mb-3 mt-1 px-1 text-[10px]" style={{ color: C.muted }}>Les chips filtrent tes recettes en direct ; <b style={{ color: C.sub }}>✨</b> demande de nouvelles idées à l'assistant.</p>
 
-      {/* Tes recettes, filtrées en direct */}
+      {/* Tes recettes, filtrées en direct — repliables (repliées dès qu'on interroge l'assistant) */}
       {localFiltered.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Dans tes recettes{chips.size || excludeTerms.length ? " · filtrées" : ""} · {localFiltered.length}</p>
-          {localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `l${i}`)} saved={savedKeys.has(`l${i}`)} />)}
+          <button onClick={() => setLocalCollapsed((c) => !c)} className="flex w-full items-center gap-1.5 active:opacity-70">
+            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Dans tes recettes{chips.size || excludeTerms.length ? " · filtrées" : ""} · {localFiltered.length}</span>
+            <ChevronDown size={13} style={{ color: C.muted, marginLeft: "auto", transform: localCollapsed ? "none" : "rotate(180deg)", transition: "transform .2s" }} />
+          </button>
+          {!localCollapsed && localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `l${i}`)} saved={savedKeys.has(`l${i}`)} />)}
+        </div>
+      )}
+
+      {/* L'assistant réfléchit — visible, pour qu'on voie qu'il se passe quelque chose */}
+      {busy && !results && (
+        <div className="mt-2 flex items-center justify-center gap-2 rounded-2xl px-3 py-4 text-sm" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+          <Loader2 size={16} className="animate-spin" style={{ color: C.accent }} /> L'assistant prépare des idées…
         </div>
       )}
 

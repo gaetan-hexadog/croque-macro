@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, Loader2 } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2 } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt,
 } from "../core.js";
@@ -249,7 +249,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
       {/* Les repas — une carte distincte par repas */}
       <SectionTitle className="mt-1" right={
-        onSuggestNow && <button onClick={onSuggestNow} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><Wand2 size={13} /> Assistant</button>
+        onPlan && <button onClick={onPlan} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.green }}><CalendarRange size={13} /> Planifier ma journée</button>
       }>Les repas</SectionTitle>
 
       {/* Démarrage rapide sur jour vide : reprendre une journée type en 1 tap */}
