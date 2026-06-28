@@ -1,14 +1,15 @@
 import React, { useState } from "react";
-import { Plus, BookmarkPlus, ChevronDown, Check } from "lucide-react";
-import { C, cardStyle, oneEmoji } from "../core.js";
+import { Plus, BookmarkPlus, ChevronDown, Check, AlertTriangle } from "lucide-react";
+import { C, cardStyle, oneEmoji, dietaryWarnings } from "../core.js";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 
 const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim();
 
 // Carte d'une suggestion de repas (locale ou générée). onLog/onSave reçoivent le
 // repas EFFECTIF (variantes appliquées). Partagée par l'idée du jour et la planif.
-export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajouter" }) {
+export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajouter", check = false }) {
   const [open, setOpen] = useState(false);
+  const warns = check ? dietaryWarnings(meal) : [];
   const [sel, setSel] = useState(() => new Set());
   const eff = applyVariants(meal, sel);
   const toggle = (i) => setSel((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
@@ -29,6 +30,12 @@ export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajout
           {meal.note && <p className="mt-1 text-[11px] italic" style={{ color: C.muted }}>{meal.note}</p>}
         </div>
       </div>
+      {warns.length > 0 && (
+        <div className="mt-2 flex items-start gap-1.5 rounded-xl px-2.5 py-1.5" style={{ backgroundColor: `${C.over}14`, border: `1px solid ${C.over}44` }}>
+          <AlertTriangle size={13} style={{ color: C.over, marginTop: 1, flexShrink: 0 }} />
+          <p className="text-[11px] leading-snug" style={{ color: C.sub }}>Non conforme à tes règles : <b style={{ color: C.over }}>{warns.join(", ")}</b>. Régénère pour une autre option.</p>
+        </div>
+      )}
       {hasDetail ? (
         <button onClick={() => setOpen((o) => !o)} className="mt-2 flex items-center gap-1 text-[11px] font-medium" style={{ color: C.sub }}>
           <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} /> {open ? "Masquer" : "Recette"}

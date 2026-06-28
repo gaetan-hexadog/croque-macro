@@ -29,6 +29,9 @@ const json = (status: number, obj: unknown) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", ...CORS } });
 
 const aHeaders = (apiKey: string) => ({ "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" });
+// Prompt caching : le system (règles diététiques + format) est stable entre appels →
+// on le marque cacheable (TTL ~5 min) pour couper latence + coût sur les appels répétés.
+const sysCache = (s?: string) => (s ? [{ type: "text", text: s, cache_control: { type: "ephemeral" } }] : undefined);
 
 // ── Outils (sortie structurée forcée) ────────────────────────────────────────
 const PROPOSE_TOOL = {
@@ -240,7 +243,7 @@ async function explainText(body: any, apiKey: string) {
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
   let data: any;
   try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.3, max_tokens: 700, system: system || undefined, messages: [{ role: "user", content: prompt }] }) });
+    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.3, max_tokens: 700, system: sysCache(system), messages: [{ role: "user", content: prompt }] }) });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
@@ -256,7 +259,7 @@ async function chatText(body: any, apiKey: string) {
   if (!messages.length) return json(400, { error: "Messages vides." });
   let data: any;
   try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.4, max_tokens: 1200, system: system || undefined, messages, tools: CHAT_TOOLS }) });
+    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.4, max_tokens: 1200, system: sysCache(system), messages, tools: CHAT_TOOLS }) });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
@@ -299,7 +302,7 @@ Deno.serve(async (req: Request) => {
 
   let data: any;
   try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: system || undefined, messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }) });
+    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }) });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 400) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }

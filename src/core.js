@@ -460,6 +460,25 @@ function oneEmoji(s) {
   catch { return Array.from(str)[0] || str; }
 }
 
+// Garde-fou diététique : scanne les ingrédients d'un repas proposé et renvoie la liste
+// des ingrédients NON CONFORMES (viande/poisson, fromage chèvre/brebis, lait de vache bu).
+// Conservateur : « jambon végétal », « saucisse végé »… ne sont PAS flaggés.
+const VEG_OK = /v[ée]g[ée]|vegan|tofu|soja|seitan|tempeh|pois\s?chiche|lentille|haricot/i;
+const MEAT_FISH = /\b(poulet|poule|b[œo]uf|veau|porc|agneau|mouton|dinde|canard|lapin|gibier|merguez|chorizo|charcuterie|foie\s?gras|anchois|thon|saumon|cabillaud|colin|merlu|truite|sardine|maquereau|bar|dorade|crevette|gambas|moule|hu[îi]tre|calamar|poulpe|poisson|fruits\s?de\s?mer|g[ée]latine|lardons?\s?fum)\b/i;
+const AMBIG_MEAT = /\b(jambon|bacon|lardons?|saucisses?|steak|nuggets?|escalope|boulettes?|hach[ée]|cordon\s?bleu)\b/i;
+const NONCOW_DAIRY = /\b(ch[èe]vre|brebis|feta|roquefort|pecorino|manchego|crottin|ossau|rocamadour)\b/i;
+const COW_MILK_DRINK = /\blait\s+(de\s+vache|entier|demi[\s-]?[ée]cr[ée]m[ée]|[ée]cr[ée]m[ée])\b/i;
+function dietaryWarnings(meal) {
+  const out = [];
+  const ings = (meal?.ingredients || []).map((i) => (typeof i === "string" ? i : i?.name || "")).filter(Boolean);
+  const hay = (meal?.title || "") + " " + ings.join(" ");
+  for (const s of ings.length ? ings : [hay]) {
+    const t = s.toLowerCase();
+    if (MEAT_FISH.test(t) || NONCOW_DAIRY.test(t) || COW_MILK_DRINK.test(t) || (AMBIG_MEAT.test(t) && !VEG_OK.test(t))) out.push(s);
+  }
+  return out;
+}
+
 // ── Assistant repas (API Claude) ─────────────────────────────────────────────
 // Construit { system, prompt, mode } pour la Netlify Function. Le system porte
 // les règles diététiques NON négociables ; le prompt porte le contexte du jour
@@ -647,5 +666,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

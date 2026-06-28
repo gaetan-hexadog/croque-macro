@@ -155,7 +155,7 @@ export function MealSuggestSheet({
       {results && (
         <div className="mt-3 space-y-2 pb-2">
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Proposé par l'assistant</p>
-          {results.map((m, i) => <MealCard key={keyOf(m, i)} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `r${i}`)} saved={savedKeys.has(`r${i}`)} />)}
+          {results.map((m, i) => <MealCard key={keyOf(m, i)} meal={m} check onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `r${i}`)} saved={savedKeys.has(`r${i}`)} />)}
           <button onClick={ask} disabled={busy} className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: "transparent", color: C.green, border: `1.5px solid ${C.green}` }}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {busy ? "L'assistant réfléchit…" : "Régénérer"}
           </button>
