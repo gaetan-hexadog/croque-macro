@@ -447,6 +447,15 @@ function buildClaudePrompt({ customMeals = [], remKcal, remP, dateLabel } = {}) 
   return L.join("\n");
 }
 
+// Garde-fou « une seule icône » : garde le 1er grapheme emoji (gère les emojis
+// multi-codepoints : ZWJ, teintes…), ignore le reste. Une recette = un emoji.
+function oneEmoji(s) {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  try { const it = new Intl.Segmenter().segment(str)[Symbol.iterator]().next(); return it.value ? it.value.segment : str; }
+  catch { return Array.from(str)[0] || str; }
+}
+
 // ── Assistant repas (API Claude) ─────────────────────────────────────────────
 // Construit { system, prompt, mode } pour la Netlify Function. Le system porte
 // les règles diététiques NON négociables ; le prompt porte le contexte du jour
@@ -625,12 +634,12 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
     have.length ? `Frigo/placard dispo : ${have.join(", ")}.` : "Frigo : (vide ou non renseigné).",
     recNames.length ? `Recettes enregistrées de Bob : ${recNames.join(", ")}.` : "",
     "Quand tu proposes un repas/une recette, respecte les règles et le budget restant, et privilégie ce qu'il a au frigo. Pour les macros, additionne ingrédient par ingrédient depuis les valeurs connues ; si une valeur manque, estime de façon conservatrice et dis-le. Évite d'empiler sel (transformés/condiments) et grosses charges de fibres/légumineuses (rétention d'eau).",
-    "Tu peux DÉCLENCHER des actions via tes outils (enregistrer une recette, logger un repas du jour, ajouter au frigo, modifier une recette). Quand c'est pertinent, APPELLE directement l'outil — n'écris PAS « veux-tu que je l'enregistre ? » et ne redemande JAMAIS la permission : l'app affiche toute seule un bouton de confirmation que Bob valide d'un tap. Accompagne d'un texte court et naturel (ex. « Voici une idée de déj : … »), pas d'une question. Ne déclenche une action que si elle est utile dans le contexte. Pour modifier une recette, n'utilise que les noms EXACTS listés ci-dessus.",
+    "Tu peux DÉCLENCHER des actions via tes outils : save_recipe (enregistrer une recette), log_meal (logger un repas du jour), add_to_pantry (ajouter au frigo), update_recipe (modifier une recette existante). RÈGLE ABSOLUE : dès qu'une action est pertinente, APPELLE l'outil IMMÉDIATEMENT dans CE message — ne demande JAMAIS la permission avant. C'est l'app qui affiche un bouton de confirmation que Bob valide d'un tap ; toi, ton rôle est juste de déclencher l'outil. Ceci vaut pour TOUTES les actions, y compris MODIFIER : si tu repères qu'une recette existante gagnerait à être mise à jour, appelle update_recipe TOUT DE SUITE — n'écris JAMAIS « je peux la mettre à jour si tu veux », « veux-tu que… », ni aucune question de permission. Accompagne d'un texte court et affirmatif (« Voici une idée de déj : … », « Je mets à jour ta recette X : … »), jamais d'une question. Pour update_recipe, n'utilise que les noms EXACTS de recettes listés ci-dessus.",
   ].filter(Boolean).join("\n");
 }
 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

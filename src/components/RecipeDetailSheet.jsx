@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Wand2, Pencil, Trash2, ChefHat, Share2, Check } from "lucide-react";
-import { C } from "../core.js";
+import { C, oneEmoji } from "../core.js";
 import { Sheet } from "./Sheet.jsx";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 import { formatRecipeText, shareOrCopy } from "../lib/share.js";
@@ -32,7 +32,7 @@ export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete
   const shareLabel = shared === "copied" ? "Copié !" : shared === "fail" ? "Échec — réessaie" : shared === "shared" ? "Partagé" : "Partager la recette";
 
   return (
-    <Sheet open onClose={onClose} title={m.name} subtitle={`${eff.kcal} kcal · ${eff.p} g prot.${varSel.size ? " · ajusté" : ""}`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <ChefHat size={18} />} iconColor={meta.color}>
+    <Sheet open onClose={onClose} title={m.name} subtitle={`${eff.kcal} kcal · ${eff.p} g prot.${varSel.size ? " · ajusté" : ""}`} icon={m.emoji ? <span className="text-lg leading-none">{oneEmoji(m.emoji)}</span> : <ChefHat size={18} />} iconColor={meta.color}>
       <button onClick={share} className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: shared && shared !== "fail" ? C.green : C.sub }}>
         {shared && shared !== "fail" ? <Check size={16} /> : <Share2 size={16} />} {shareLabel}
       </button>

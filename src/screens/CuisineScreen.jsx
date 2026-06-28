@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, Check, Search, X, Pencil, Refrigerator, Globe, Loader2, Wand2, ChefHat, ScanLine, Star, Clock, BookOpen, ChevronRight } from "lucide-react";
-import { C, cardStyle } from "../core.js";
+import { C, cardStyle, oneEmoji } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
 import { importRecipeFromUrl } from "../lib/assistant.js";
@@ -92,7 +92,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
           <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             {recents.map((m) => (
               <button key={`r-${m.kind}-${m.id}`} onClick={() => setDetail(m)} className="flex w-40 shrink-0 flex-col rounded-2xl cm-card text-left active:scale-95" style={cardStyle()}>
-                <span className="text-2xl">{m.emoji || "🍽️"}</span>
+                <span className="text-2xl">{oneEmoji(m.emoji) || "🍽️"}</span>
                 <span className="mt-1.5 truncate text-xs font-bold" style={{ color: C.ink }}>{m.name}</span>
                 <span className="mt-0.5 text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>
               </button>
@@ -126,7 +126,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
                 return (
                   <div key={`${m.kind}-${m.id}`} className="flex items-center gap-3 rounded-2xl px-4 py-3" style={cardStyle()}>
                     <button onClick={() => setDetail(m)} className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-70">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg" style={{ background: `${c}1a` }}>{m.emoji || "🍽️"}</span>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg" style={{ background: `${c}1a` }}>{oneEmoji(m.emoji) || "🍽️"}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5"><span className="truncate text-sm font-bold" style={{ color: C.ink }}>{m.name}</span>{favSet.has(m.name) && <Star size={11} fill={C.protein} color={C.protein} />}</span>
                         <span className="mt-0.5 flex items-center gap-1.5">
@@ -186,7 +186,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
 function SlotPickSheet({ m, onClose, onUse }) {
   const c = kindColor(m.kind);
   return (
-    <Sheet open onClose={onClose} title={`Ajouter ${m.name}`} subtitle={`${m.kcal} kcal · ${m.p} g · à quel repas ?`} icon={m.emoji ? <span className="text-lg leading-none">{m.emoji}</span> : <Plus size={18} />} iconColor={c}>
+    <Sheet open onClose={onClose} title={`Ajouter ${m.name}`} subtitle={`${m.kcal} kcal · ${m.p} g · à quel repas ?`} icon={m.emoji ? <span className="text-lg leading-none">{oneEmoji(m.emoji)}</span> : <Plus size={18} />} iconColor={c}>
       <div className="grid grid-cols-2 gap-2">
         {SLOT_CHOICES.map(([k, l]) => <button key={k} onClick={() => { onUse(m, k); onClose(); }} className="rounded-2xl py-3.5 text-sm font-bold active:scale-95" style={{ backgroundColor: `${c}1a`, color: c }}>{l}</button>)}
       </div>

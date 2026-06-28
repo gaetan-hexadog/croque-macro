@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, recompSignal } from "./lib/sport.js";
 import { loadLive } from "./sport/liveSession.js";
@@ -440,9 +440,10 @@ export default function PiocheRepas() {
   };
   const deleteCombo = (id) => { const it = combos.find((x) => x.id === id); setCombos((c) => c.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimé`, () => setCombos((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
-  const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, id: newId("rec"), custom: true }, ...cur].slice(0, 200));
+  const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, emoji: oneEmoji(r.emoji), id: newId("rec"), custom: true }, ...cur].slice(0, 200));
   const deleteRecipe = (id) => { const it = customRecipes.find((x) => x.id === id); setCustomRecipes((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimée`, () => setCustomRecipes((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
-  const updateRecipe = (id, patch) => {
+  const updateRecipe = (id, rawPatch) => {
+    const patch = rawPatch && rawPatch.emoji != null ? { ...rawPatch, emoji: oneEmoji(rawPatch.emoji) } : rawPatch;
     if (customRecipes.some((x) => x.id === id)) { setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x)); return; }
     // Recette du catalogue : on crée une copie perso (même id) qui la masque dans `meals`.
     const lib = library.recipes.find((x) => x.id === id);

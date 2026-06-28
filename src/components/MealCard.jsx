@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Plus, BookmarkPlus, ChevronDown, Check } from "lucide-react";
-import { C, cardStyle } from "../core.js";
+import { C, cardStyle, oneEmoji } from "../core.js";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 
 const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim();
@@ -20,7 +20,7 @@ export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajout
   return (
     <div className="rounded-2xl cm-card" style={cardStyle()}>
       <div className="flex items-start gap-2.5">
-        <span className="text-2xl leading-none">{meal.emoji || "🍽️"}</span>
+        <span className="text-2xl leading-none">{oneEmoji(meal.emoji) || "🍽️"}</span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold leading-tight" style={{ color: C.ink }}>{meal.title}</p>
           <p className="mt-0.5 text-xs" style={{ color: C.sub }}>
