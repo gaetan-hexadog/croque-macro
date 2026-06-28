@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Plus, Pencil, BookmarkPlus, Check, ImagePlus, X } from "lucide-react";
+import { Sparkles, Send, Plus, Pencil, BookmarkPlus, Check, ImagePlus, X, ScanLine } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { chatAssistant, AssistantError } from "../lib/assistant.js";
 import { compressImage } from "../lib/image.js";
+import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
+import { fetchProductByBarcode } from "../lib/openfoodfacts.js";
 
 const STARTERS = [
   "Que manger ce soir avec ce qu'il me reste ?",
@@ -53,6 +55,7 @@ export function ChatSheet({ system, onAction, onClose }) {
   const [err, setErr] = useState("");
   const [acts, setActs] = useState({}); // `${i}-${ai}` → { done?: string, err?: string }
   const [img, setImg] = useState(null); // photo en attente : { dataUrl, base64, mediaType }
+  const [scanning, setScanning] = useState(false);
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
   useEffect(() => { scrollRef.current && scrollRef.current.scrollTo({ top: 1e9, behavior: "smooth" }); }, [msgs, busy]);
@@ -61,6 +64,20 @@ export function ChatSheet({ system, onAction, onClose }) {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
     setErr("");
     try { setImg(await compressImage(f)); } catch { setErr("Image illisible — réessaie."); }
+  };
+
+  // Code-barres scanné → valeurs OFF exactes pré-remplies dans la saisie (Bob complète/envoie).
+  const onScan = async (code) => {
+    setScanning(false); setErr("");
+    try {
+      const p = await fetchProductByBarcode(code);
+      if (!p) { setErr(`Code ${code} introuvable dans Open Food Facts.`); return; }
+      if (p.per100?.kcal == null) { setErr(`« ${p.name} » trouvé, mais sans valeurs nutritionnelles.`); return; }
+      const u = p.liquid ? "ml" : "g";
+      const parts = [`${Math.round(p.per100.kcal)} kcal`, p.per100.p != null ? `${Math.round(p.per100.p)} g prot.` : null, p.per100.f != null ? `${Math.round(p.per100.f)} g lipides` : null, p.per100.s != null ? `${Math.round(p.per100.s)} g sucres` : null].filter(Boolean);
+      const summary = `J'ai scanné : ${p.name}${p.brand ? ` (${p.brand})` : ""}${p.quantity ? `, ${p.quantity}` : ""}. Pour 100 ${u} : ${parts.join(", ")}. Ton avis, et ajoute-le à mon frigo si pertinent.`;
+      setInput((v) => (v.trim() ? `${v.trim()} ` : "") + summary);
+    } catch { setErr("Lecture produit indisponible (réseau)."); }
   };
 
   // Met à jour le contenu de la bulle assistant en cours de stream (la dernière flaggée).
@@ -102,6 +119,11 @@ export function ChatSheet({ system, onAction, onClose }) {
   return (
     <Sheet open onClose={onClose} title="Assistant" subtitle="Il connaît ton contexte et peut agir (tu confirmes)" icon={<Sparkles size={18} />} iconColor={C.accent}>
       <div className="flex flex-col" style={{ height: "min(68vh, 580px)" }}>
+        {scanning ? (
+          <div className="flex flex-1 flex-col justify-center">
+            <BarcodeScanner onDetect={onScan} onClose={() => setScanning(false)} />
+          </div>
+        ) : (<>
         <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto pb-2" style={{ scrollbarWidth: "none" }}>
           {msgs.length === 0 && !busy && (
             <div className="space-y-3 py-2">
@@ -164,6 +186,9 @@ export function ChatSheet({ system, onAction, onClose }) {
             <button onClick={() => fileRef.current?.click()} disabled={busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Ajouter une photo">
               <ImagePlus size={18} />
             </button>
+            <button onClick={() => { setErr(""); setScanning(true); }} disabled={busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Scanner un code-barres">
+              <ScanLine size={18} />
+            </button>
             <textarea
               value={input} onChange={(e) => setInput(e.target.value)} rows={1}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
@@ -175,6 +200,7 @@ export function ChatSheet({ system, onAction, onClose }) {
             </button>
           </div>
         </div>
+        </>)}
       </div>
     </Sheet>
   );

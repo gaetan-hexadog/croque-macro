@@ -4,6 +4,7 @@ import { searchProducts, fetchProductByBarcode } from "../lib/openfoodfacts.js";
 import { scoreProduct } from "../core.js";
 import { ProductVerdict } from "./ProductVerdict.jsx";
 import { Sheet } from "./Sheet.jsx";
+import { BarcodeScanner } from "./BarcodeScanner.jsx";
 
 // Recherche Open Food Facts : texte + scan code-barres, puis saisie au gramme.
 // Reçoit le thème `C` et `accent` en props pour éviter tout couplage avec App.
@@ -19,20 +20,13 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   const [editing, setEditing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [saved, setSaved] = useState(false);
-  const videoRef = useRef(null);
-  const rafRef = useRef(0);
   const abortRef = useRef(null);
-  const zxingRef = useRef(null); // controls du lecteur ZXing (fallback iOS / navigateurs sans BarcodeDetector)
 
   useEffect(() => { if (initialQuery && initialQuery.trim()) runSearch(); /* lance la recherche en ligne avec la requête héritée */ }, []);
 
   const fmt = (v) => (v == null ? "—" : Number.isInteger(v) ? String(v) : String(Math.round(v * 10) / 10).replace(".", ","));
   // Sélection d'un produit → on copie ses macros dans un état éditable (pour 100 g/ml).
   const pick = (p) => { setSelected(p); setGrams("100"); setEditing(false); setUnit(p.liquid ? "ml" : "g"); setMacros({ kcal: p.per100.kcal ?? "", p: p.per100.p ?? "", c: p.per100.c ?? "", f: p.per100.f ?? "", s: p.per100.s ?? "" }); };
-  // Scan dispo si l'API native existe (Android/Chrome) OU si on a accès caméra (iOS → fallback ZXing).
-  const hasNativeDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
-  const supported = typeof navigator !== "undefined" && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-
   async function runSearch() {
     const term = q.trim();
     if (!term) return;
@@ -50,64 +44,8 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
     }
   }
 
-  async function startScan() {
-    setError("");
-    if (!supported) { setError("Caméra indisponible sur cet appareil."); return; }
-    if (hasNativeDetector) return startScanNative();
-    return startScanZXing();
-  }
-
-  // Voie rapide : API BarcodeDetector native (Android / Chrome).
-  async function startScanNative() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      setScanning(true);
-      await new Promise((r) => setTimeout(r, 0));
-      const v = videoRef.current;
-      if (!v) { stream.getTracks().forEach((t) => t.stop()); setScanning(false); return; }
-      v.srcObject = stream;
-      await v.play();
-      const det = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] });
-      const tick = async () => {
-        if (!videoRef.current) return;
-        try {
-          const codes = await det.detect(videoRef.current);
-          if (codes && codes.length) { const code = codes[0].rawValue; stopScan(); lookupBarcode(code); return; }
-        } catch (_) {}
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    } catch (e) {
-      setScanning(false);
-      setError("Caméra indisponible ou autorisation refusée.");
-    }
-  }
-
-  // Fallback iOS / navigateurs sans BarcodeDetector : décodage JS via ZXing (chargé à la demande).
-  async function startScanZXing() {
-    try {
-      setScanning(true);
-      await new Promise((r) => setTimeout(r, 0));
-      const v = videoRef.current;
-      if (!v) { setScanning(false); return; }
-      const { BrowserMultiFormatReader } = await import("@zxing/browser");
-      const reader = new BrowserMultiFormatReader();
-      zxingRef.current = await reader.decodeFromVideoDevice(undefined, v, (result) => {
-        if (result) { const code = result.getText(); stopScan(); lookupBarcode(code); }
-      });
-    } catch (e) {
-      setScanning(false);
-      setError("Caméra indisponible ou autorisation refusée.");
-    }
-  }
-
-  function stopScan() {
-    cancelAnimationFrame(rafRef.current);
-    if (zxingRef.current) { try { zxingRef.current.stop(); } catch (_) {} zxingRef.current = null; }
-    const v = videoRef.current;
-    if (v && v.srcObject) { v.srcObject.getTracks().forEach((t) => t.stop()); v.srcObject = null; }
-    setScanning(false);
-  }
+  // Code lu par le scanner → on referme la caméra et on cherche le produit.
+  function onScanDetect(code) { setScanning(false); lookupBarcode(code); }
 
   async function lookupBarcode(code) {
     setLoading(true); setError(""); setResults([]); setSelected(null);
@@ -123,7 +61,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
     }
   }
 
-  useEffect(() => () => { stopScan(); if (abortRef.current) abortRef.current.abort(); }, []);
+  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
 
   const pf = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
   const pfn = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : null; };
@@ -162,18 +100,8 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
     setTimeout(() => setSaved(false), 1800);
   }
 
-  // ── Vue scan ──
-  if (scanning) {
-    return (
-      <div className="rounded-3xl cm-card" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-        <p className="mb-2 text-sm font-semibold" style={{ color: C.ink }}>Vise le code-barres…</p>
-        <div className="overflow-hidden rounded-2xl" style={{ backgroundColor: "#000", aspectRatio: "4 / 3" }}>
-          <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        </div>
-        <button onClick={stopScan} className="mt-3 w-full rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>Annuler le scan</button>
-      </div>
-    );
-  }
+  // ── Vue scan ── (composant caméra partagé)
+  if (scanning) return <BarcodeScanner onDetect={onScanDetect} onClose={() => setScanning(false)} />;
 
   // ── Vue produit sélectionné (saisie grammes) ──
   if (selected) {
@@ -256,7 +184,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
         <button onClick={runSearch} className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: accent }}>OK</button>
       </div>
 
-      <button onClick={startScan} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${accent}1a`, color: accent }}>
+      <button onClick={() => { setError(""); setScanning(true); }} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${accent}1a`, color: accent }}>
         <ScanLine size={16} /> Scanner un code-barres
       </button>
 
