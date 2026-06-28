@@ -106,7 +106,7 @@ export function PhaseStage({ title, detail, seconds, sound, onDone }) {
 // ── Repos inter-séries FORCE (chrono qui s'enchaîne TOUT SEUL à 0) ───────────
 // Le timer sert à quelque chose : à 0 on passe automatiquement à la suite (bip).
 // Boutons = raccourcis : passer le repos maintenant (avant 0) ou rallonger.
-export function RestStage({ seconds, sound, nextLabel, onReady }) {
+export function RestStage({ seconds, sound, nextLabel, next, onReady }) {
   const [left, setLeft] = useCountdown(seconds, true, { sound, onDone: onReady });
   return (
     <ColorStage from={C.weight} to={`${C.weight}bb`} actions={
@@ -116,8 +116,18 @@ export function RestStage({ seconds, sound, nextLabel, onReady }) {
       </div>
     }>
       <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.9)" }}>Repos</p>
-      <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={120} color="#fff" /></div>
-      {nextLabel && <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>Ensuite : {nextLabel}</p>}
+      <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={next ? 100 : 120} color="#fff" /></div>
+      {next ? (
+        // Annonce de l'exo suivant DANS le repos (plus d'écran d'annonce séparé).
+        <div className="mt-2 w-full max-w-sm rounded-2xl px-4 py-3 text-left" style={{ backgroundColor: "rgba(255,255,255,0.16)" }}>
+          <p className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.85)" }}>Ensuite</p>
+          <p className="mt-0.5 text-base font-extrabold leading-tight" style={{ color: "#fff" }}>{next.name}</p>
+          <p className="mt-0.5 text-sm font-semibold" style={{ color: "rgba(255,255,255,0.92)" }}>{next.target}{next.charge ? ` · ${next.charge}` : ""}</p>
+          {next.tech && <p className="mt-1.5 text-xs leading-snug" style={{ color: "rgba(255,255,255,0.82)" }}>{next.tech}</p>}
+        </div>
+      ) : nextLabel ? (
+        <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>Ensuite : {nextLabel}</p>
+      ) : null}
     </ColorStage>
   );
 }

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Pause, RotateCcw, Flame } from "lucide-react";
+import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Pause, RotateCcw, Flame, Target, Repeat, Clock, Timer } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
-import { NumberFlow, DurationFlow, PrescriptionBadge, DIFFS, diffColor } from "./components.jsx";
+import { NumberFlow, DurationFlow, PrescriptionBadge, StatTile, DIFFS, diffColor } from "./components.jsx";
 import { SessionShell, Stage, CountdownStage, PhaseStage, RestStage, IntervalStage } from "./SessionShell.jsx";
 import { SessionSummary } from "./SessionSummary.jsx";
 import { useCountdown } from "./timers.jsx";
@@ -72,6 +72,9 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
   const stop = () => { clearLive(); onCancel(); };
   const goNextStep = () => { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); setPhase("prepare"); setSetIdx(0); setShowTips(false); };
+  // Passe à l'exercice suivant DIRECTEMENT sur la 1ʳᵉ série (sans écran d'annonce ni
+  // « prépare-toi » 5s) : l'annonce a déjà été montrée dans le repos qui précède.
+  const goNextExerciseSet = () => { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); setSetIdx(0); setPhase("set"); setShowTips(false); };
   const setReps = (exIdx, delta) => setLog((prev) => prev.map((e, i) => i !== exIdx ? e : { ...e, sets: e.sets.map((s, j) => j !== setIdx ? s : { ...s, repsDone: Math.max(0, (s.repsDone ?? s.repsTarget ?? 0) + delta) }) }));
   const adjustCharge = (exIdx, delta) => setLog((prev) => prev.map((e, i) => {
     if (i !== exIdx || e.charge == null) return e;
@@ -83,8 +86,8 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     setLog((prev) => prev.map((e, i) => i !== exIdx ? e : { ...e, sets: e.sets.map((s, j) => j !== setIdx ? s : { ...s, difficulty: diff }) }));
     const next = exs[exIdx + 1];
     if (setIdx < ex.sets - 1) setPhase("rest");          // repos entre séries → série suivante
-    else if (next && ex.superset && next.superset === ex.superset) goNextStep(); // superset : enchaîne sans repos
-    else if (next) setPhase("restNext");                 // repos après la DERNIÈRE série → exo suivant
+    else if (next && ex.superset && next.superset === ex.superset) goNextExerciseSet(); // superset : enchaîne sans repos
+    else if (next) setPhase("restNext");                 // repos (avec annonce) après la DERNIÈRE série → exo suivant
     else goNextStep();                                   // dernier exo → finition / retour au calme
   };
 
@@ -157,18 +160,27 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
           return <CountdownStage seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}`} sound={sound} onDone={() => setPhase("set")} />;
         }
         if (phase === "rest") {
-          return <RestStage seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("countdown"); }} />;
+          // Repos entre séries → la fin enchaîne DIRECTEMENT la série (pas de 5s en plus).
+          return <RestStage seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("set"); }} />;
         }
         if (phase === "restNext") {
-          const next = exs[exIdx + 1];
-          return <RestStage seconds={ex.rest} sound={sound} nextLabel={next ? next.name : "Suite"} onReady={goNextStep} />;
+          // Repos inter-exercices : on intègre l'ANNONCE de l'exo suivant (plus d'écran séparé).
+          const nx = exs[exIdx + 1];
+          const nxEntry = log[exIdx + 1];
+          const nxIsTime = nx.type === "bodyweight" && nx.repsSeconds;
+          const nxCharge = nxEntry.charge != null ? `${nxEntry.charge} kg${nx.loadLabel ? ` · ${nx.loadLabel}` : ""}` : (nx.type === "bodyweight" ? "Poids du corps" : "");
+          const nxReps = nxIsTime ? nx.reps : (typeof nx.reps === "string" ? nx.reps : `${nxEntry.sets[0].repsTarget ?? nx.reps} reps`);
+          return <RestStage seconds={ex.rest} sound={sound} next={{ name: nx.name, target: `${nx.sets} × ${nxReps}`, charge: nxCharge, tech: nx.tech }} onReady={goNextExerciseSet} />;
         }
         // phase === "set"
         return (
           <Stage>
-            <div className="flex items-center justify-between">
-              <span className="rounded-xl px-3 py-1.5 text-sm font-extrabold text-white" style={{ background: `linear-gradient(120deg, ${C.protein}, ${C.accent})` }}>SÉRIE {setIdx + 1}/{ex.sets}</span>
-              <button onClick={() => setShowTips((v) => !v)} className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: showTips ? `${C.accent}1a` : C.paper, color: showTips ? C.accent : C.sub }}><Info size={13} /> Technique</button>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-lg font-extrabold leading-tight" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
+                <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: C.accent }}>Série {setIdx + 1}/{ex.sets}</span>
+              </div>
+              <button onClick={() => setShowTips((v) => !v)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: showTips ? `${C.accent}1a` : C.paper, color: showTips ? C.accent : C.sub }}><Info size={13} /> Technique</button>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
@@ -217,41 +229,43 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   );
 }
 
-// Annonce d'un exercice (force) — hiérarchie nette, alignée sur le reste de l'app :
-// titre + 3 tuiles cible (séries / reps|durée / repos) + charge + technique.
+// Annonce d'un exercice (force) — écran « hero » premium, harmonisé avec l'accueil
+// Sport (carte teintée + tuiles StatTile à dégradé radial). N'apparaît que pour le
+// 1ᵉʳ exo (les suivants sont annoncés dans le repos qui précède).
 function PrepareExercise({ ex, entry, chargeLine, last, isTime, exIdx, total, onReady }) {
   const presc = entry.presc;
-  const repsLabel = isTime ? `${ex.reps}` : (typeof ex.reps === "string" ? ex.reps : `${entry.sets[0].repsTarget ?? ex.reps}`);
+  const heroCol = ex.type === "heavy" ? C.protein : ex.type === "bodyweight" ? C.green : ex.type === "fixed" ? C.weight : C.accent;
   const noteCol = presc.direction === "down" ? C.over : presc.direction === "up" ? C.green : C.sub;
+  const perSideLike = ex.perSide || (typeof ex.reps === "string" && /\//.test(ex.reps));
+  const repsVal = isTime ? `${ex.repsSeconds || repsNum(ex.reps)}s` : `${entry.sets[0].repsTarget ?? repsNum(ex.reps) ?? ex.reps}`;
+  const repsLab = isTime ? (perSideLike ? "Tenir/côté" : "Tenir") : (perSideLike ? "Reps/côté" : "Reps");
   return (
     <Stage scroll>
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        {/* En-tête */}
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-2">
+        {/* Hero teinté */}
+        <div className="rounded-3xl p-5" style={cardStyle({ background: `radial-gradient(135% 120% at 0% 0%, ${heroCol}2e, transparent 62%), ${C.cardGrad}` })}>
+          <div className="mb-2.5 flex items-center justify-between gap-2">
             <span className="flex items-center gap-1.5">
-              <span className="rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}>Exo {exIdx + 1}/{total}</span>
+              <span className="rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: `${heroCol}1f`, color: heroCol }}>Exo {exIdx + 1}/{total}</span>
               {ex.superset && <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>Superset</span>}
             </span>
             <PrescriptionBadge presc={presc} ex={ex} />
           </div>
-          <p className="text-[26px] font-extrabold leading-tight" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
+          <p className="text-[28px] font-extrabold leading-[1.05]" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
+          {chargeLine && (
+            <div className="mt-3.5 flex items-center gap-2.5 rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.ink }}>
+              <Dumbbell size={16} style={{ color: C.bg }} />
+              <span className="text-sm font-extrabold" style={{ color: C.bg, fontFamily: FONT }}>{chargeLine}</span>
+            </div>
+          )}
         </div>
 
-        {/* Cible : 3 tuiles */}
+        {/* Cible : 3 tuiles harmonisées avec l'accueil Sport */}
         <div className="grid grid-cols-3 gap-2">
-          <PrepTile label="Séries" value={ex.sets} />
-          <PrepTile label={isTime ? "Tenir" : ex.perSide ? "Reps/côté" : "Reps"} value={repsLabel} />
-          <PrepTile label="Repos" value={`${ex.rest}s`} />
+          <StatTile icon={Target} color={C.accent} value={ex.sets} label="Séries" size={22} />
+          <StatTile icon={isTime ? Timer : Repeat} color={C.green} value={repsVal} label={repsLab} size={22} />
+          <StatTile icon={Clock} color={C.weight} value={`${ex.rest}s`} label="Repos" size={22} />
         </div>
-
-        {/* Charge */}
-        {chargeLine && (
-          <div className="flex items-center gap-2.5 rounded-2xl px-4 py-3.5" style={{ backgroundColor: C.ink }}>
-            <Dumbbell size={17} style={{ color: C.bg }} />
-            <span className="text-base font-extrabold" style={{ color: C.bg, fontFamily: FONT }}>{chargeLine}</span>
-          </div>
-        )}
 
         {presc.note && <p className="rounded-xl px-3 py-2 text-xs font-medium" style={{ backgroundColor: C.paper, color: noteCol }}>{presc.note}</p>}
 
@@ -268,18 +282,8 @@ function PrepareExercise({ ex, entry, chargeLine, last, isTime, exIdx, total, on
           {ex.tips?.length > 0 && <ul className="mt-2 space-y-1.5">{ex.tips.map((t, i) => <li key={i} className="flex gap-1.5 text-sm" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span>{t}</li>)}</ul>}
         </div>
       </div>
-      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Commencer</button>
+      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Je suis prêt</button>
     </Stage>
-  );
-}
-
-// Tuile « cible » (séries / reps / repos) — cohérente avec les cartes de l'app.
-function PrepTile({ label, value }) {
-  return (
-    <div className="rounded-2xl px-2 py-3 text-center" style={cardStyle()}>
-      <p className="text-lg font-extrabold leading-none" style={{ color: C.ink, fontFamily: FONT }}>{value}</p>
-      <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: C.muted }}>{label}</p>
-    </div>
   );
 }
 
