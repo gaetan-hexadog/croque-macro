@@ -22,7 +22,8 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptaWxrdmZ6andoendzdGViaWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMDg2NDMsImV4cCI6MjA3Njc4NDY0M30.gW0DszeiFFt4i5m6ubGJ5d_FfayAtrT2xDw4zgzV4CQ";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-sonnet-4-6";
-const MAX_TOKENS = { meal: 2600, day: 4096, week: 16000 };
+// Bornés pour rester SOUS le timeout des functions Netlify (générer trop de tokens = 504).
+const MAX_TOKENS = { meal: 1800, day: 2400, week: 4000 };
 
 // Schéma de sortie structurée : Claude DOIT appeler cet outil → JSON valide
 // garanti (pas de parsing fragile de texte libre).

@@ -47,6 +47,7 @@ export async function askAssistant(payload, opts = {}) {
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
+  if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
@@ -61,6 +62,7 @@ export async function explainWeight({ system, prompt }, opts = {}) {
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
+  if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
@@ -75,6 +77,7 @@ export async function chatAssistant({ system, messages }, opts = {}) {
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
+  if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError(out?.error || `Réponse impossible (${res.status}).`, { status: res.status, kind: "server" });
@@ -120,6 +123,7 @@ export async function adaptWorkout({ workout, equipment, minutes }, { signal } =
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
+  if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError(out?.error || `Adaptation impossible (${res.status}).`, { status: res.status, kind: "server" });
