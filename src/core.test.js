@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount } from "./core.js";
+import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros } from "./core.js";
 import { mergeAppState } from "./lib/sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
@@ -155,6 +155,23 @@ describe("scoreProduct", () => {
   });
   it("orange si ratio moyen mais gras/sucre ok", () => {
     expect(scoreProduct({ kcal: 200, p: 14, fat: 5, sugar: 10 }).flag).toBe("mid");
+  });
+});
+
+describe("correctMacros", () => {
+  const meal = (ingredients) => ({ title: "x", kcal: 999, protein: 99, ingredients });
+  it("recalcule un ingrédient g/ml qui matche le frigo depuis la densité /100", () => {
+    const m = correctMacros(meal([{ qty: 150, unit: "g", name: "skyr nature", kcal: 80, protein: 12 }]), [], [{ name: "Skyr", kcal100: 60, p100: 10 }]);
+    expect(m.ingredients[0]).toMatchObject({ kcal: 90, protein: 15 }); // 60×1,5 / 10×1,5
+    expect(m).toMatchObject({ kcal: 90, protein: 15 });                // total resommé
+  });
+  it("NE confond PAS « amande » (frigo) avec « lait d'amande » (têtes différentes)", () => {
+    const m = correctMacros(meal([{ qty: 250, unit: "ml", name: "lait d'amande", kcal: 38, protein: 1 }]), [], [{ name: "amandes", kcal100: 600, p100: 21 }]);
+    expect(m.ingredients[0].kcal).toBe(38); // inchangé — pas de faux match catastrophique (sinon 1500)
+  });
+  it("laisse le repas intact sans macros par ingrédient", () => {
+    const before = { kcal: 300, protein: 20, ingredients: [{ qty: 100, unit: "g", name: "skyr" }] };
+    expect(correctMacros(before, [], [{ name: "skyr", kcal100: 60, p100: 10 }])).toBe(before);
   });
 });
 

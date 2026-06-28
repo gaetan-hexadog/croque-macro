@@ -485,18 +485,23 @@ function dietaryWarnings(meal) {
 function correctMacros(meal, knownFoods = [], pantry = []) {
   const ings = meal && meal.ingredients;
   if (!Array.isArray(ings) || !ings.length || ings.some((i) => typeof i.kcal !== "number")) return meal;
-  const db = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/s\b/g, "").trim();
-  const pan = (pantry || []).filter((x) => x && !x.out && (x.kcal100 || x.p100)).map((x) => ({ key: db(x.name), kcal100: x.kcal100 || 0, p100: x.p100 || 0 }));
+  // Mots significatifs (≥3 lettres, dé-accentués, singularisés grossièrement).
+  const words = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).map((w) => w.replace(/s$/, "")).filter((w) => w.length >= 3);
+  const pan = (pantry || []).filter((x) => x && !x.out && (x.kcal100 || x.p100)).map((x) => ({ w: words(x.name), kcal100: x.kcal100 || 0, p100: x.p100 || 0 })).filter((x) => x.w.length);
   if (!pan.length) return meal;
   let changed = false;
   const fixed = ings.map((i) => {
     const unit = String(i.unit || "").toLowerCase(), qty = Number(i.qty) || 0;
-    if ((unit === "g" || unit === "ml") && qty > 0) {
-      const k = db(i.name);
-      const m = k && pan.find((x) => x.key && (k.includes(x.key) || x.key.includes(k)));
-      if (m && (m.kcal100 || m.p100)) { changed = true; return { ...i, kcal: Math.round(m.kcal100 * qty / 100), protein: Math.round(m.p100 * qty / 100) }; }
-    }
-    return i;
+    if (unit !== "g" && unit !== "ml") return i;
+    if (qty <= 0) return i;
+    const iw = words(i.name);
+    if (!iw.length) return i;
+    // Match SÛR : même mot de tête + tous les mots du produit frigo présents dans l'ingrédient.
+    // (Empêche « amande » du frigo de capturer « lait d'amande » → densités opposées.)
+    const m = pan.find((x) => x.w[0] === iw[0] && x.w.every((w) => iw.includes(w)));
+    if (!m) return i;
+    changed = true;
+    return { ...i, kcal: Math.round(m.kcal100 * qty / 100), protein: Math.round(m.p100 * qty / 100) };
   });
   if (!changed) return meal;
   const kcal = Math.round(fixed.reduce((a, i) => a + (Number(i.kcal) || 0), 0));

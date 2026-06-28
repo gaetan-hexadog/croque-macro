@@ -93,9 +93,15 @@ export async function chatAssistant({ system, messages }, { onToken, ...opts } =
   const dec = new TextDecoder();
   let buf = "", text = "", tool = null, toolJson = "";
   const actions = [];
+  // Timeout d'INACTIVITÉ : le timeout global de postAssistant est levé dès les headers reçus ;
+  // sans ça, un flux figé laisserait l'UI bloquée (busy) indéfiniment.
+  const readNext = () => { let t; return Promise.race([
+    reader.read(),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new AssistantError("L'assistant s'est interrompu — réessaie.", { kind: "offline" })), 30000); }),
+  ]).finally(() => clearTimeout(t)); };
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readNext();
       if (done) break;
       buf += dec.decode(value, { stream: true });
       let nl;
@@ -119,6 +125,7 @@ export async function chatAssistant({ system, messages }, { onToken, ...opts } =
       }
     }
   } catch (e) {
+    try { reader.cancel(); } catch (_) {}
     if (e instanceof AssistantError) throw e;
     throw new AssistantError("Flux interrompu — réessaie.", { kind: "offline" });
   }
