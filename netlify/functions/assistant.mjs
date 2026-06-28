@@ -152,7 +152,7 @@ const IMPORT_TOOL = {
       servings: { type: "number", description: "Nombre de portions de la recette." },
       kcal: { type: "number", description: "kcal pour UNE portion." },
       protein: { type: "number", description: "protéines (g) pour UNE portion." },
-      ingredients: { type: "array", items: { type: "object", properties: { qty: { type: "number" }, unit: { type: "string" }, name: { type: "string" } }, required: ["name"] } },
+      ingredients: { type: "array", items: { type: "object", properties: { qty: { type: "number", description: "quantité POUR UNE portion (déjà divisée par le nombre de portions)" }, unit: { type: "string" }, name: { type: "string" } }, required: ["name"] } },
       steps: { type: "array", items: { type: "string" } },
     },
     required: ["found"],
@@ -231,7 +231,7 @@ async function importRecipe(url, apiKey) {
     return json(502, { error: "Impossible de charger cette page (inaccessible ou trop volumineuse)." });
   }
   const content = extractRecipeText(html);
-  const sys = "Tu extrais une recette depuis le contenu d'une page web. Renseigne le nom, les ingrédients (quantité + unité + nom), les étapes, le nombre de portions, et ESTIME les macros (kcal et protéines) pour UNE portion, de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Choisis le slot le plus probable (pdj/dej/diner/snack). Si la page ne contient pas de recette identifiable, mets found=false. Réponds en français via l'outil import_recipe.";
+  const sys = "Tu extrais une recette depuis le contenu d'une page web. Détecte d'abord le NOMBRE DE PORTIONS de la recette d'origine (`servings`). Puis NORMALISE TOUT pour UNE SEULE portion (1 personne) : divise par ce nombre de portions À LA FOIS les QUANTITÉS de chaque ingrédient ET les kcal/protéines (ex. recette pour 4 → tout divisé par 4). Le résultat doit être COHÉRENT : ingrédients ET macros pour 1 personne. Renseigne le nom, les ingrédients NORMALISÉS (quantité + unité + nom), les étapes (texte inchangé), et estime les macros de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Choisis le slot le plus probable (pdj/dej/diner/snack). Si la page ne contient pas de recette identifiable, mets found=false. Réponds en français via l'outil import_recipe.";
   let data;
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {

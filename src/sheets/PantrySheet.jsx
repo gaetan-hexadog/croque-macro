@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { X, ScanLine, Pencil, Check, Refrigerator, ChevronLeft, RotateCcw, Trash2, Plus } from "lucide-react";
+import { X, ScanLine, Pencil, Check, Refrigerator, ChevronLeft, RotateCcw, Trash2, Plus, Share2 } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import OffSearch from "../components/OffSearch.jsx";
+import { formatPantryText, shareOrCopy } from "../lib/share.js";
 
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
 const stripQty = (s) => String(s || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
@@ -26,6 +27,8 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   const [f, setF] = useState(blank);
   const [scanning, setScanning] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [shared, setShared] = useState("");
+  const share = async () => { const r = await shareOrCopy(formatPantryText(pantry), "Mon frigo"); if (r === "copied" || r === "shared") { setShared(r === "copied" ? "Copié" : "Partagé"); setTimeout(() => setShared(""), 2000); } };
   const [editId, setEditId] = useState(null);
   const [e, setE] = useState(blank);
   const set = (k) => (ev) => setF((s) => ({ ...s, [k]: ev.target.value }));
@@ -73,7 +76,9 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
           <p className="text-base font-extrabold" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>Mon frigo / placard</p>
           <p className="text-xs" style={{ color: C.muted }}>{dispo.length} dispo{rupture.length ? ` · ${rupture.length} en rupture` : ""}</p>
         </div>
-        <Refrigerator size={20} style={{ color: C.weight }} />
+        <button onClick={share} className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: shared ? `${C.green}1f` : C.card, border: `1px solid ${C.line}`, color: shared ? C.green : C.sub }} aria-label="Partager ma liste">
+          {shared ? <Check size={14} /> : <Share2 size={14} />} {shared || "Partager"}
+        </button>
       </div>
 
       <div className="mx-auto w-full max-w-md flex-1 space-y-4 overflow-y-auto px-4 pb-8 pt-4" style={{ scrollbarWidth: "none" }}>

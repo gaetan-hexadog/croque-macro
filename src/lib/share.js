@@ -27,6 +27,18 @@ export function formatRecipeText(m) {
   return L.join("\n");
 }
 
+// Frigo/placard → texte propre : ce que j'ai + ce qu'il faut réapprovisionner.
+export function formatPantryText(pantry = []) {
+  const dispo = (pantry || []).filter((x) => x && !x.out && x.name);
+  const out = (pantry || []).filter((x) => x && x.out && x.name);
+  const line = (x) => `- ${x.name}${x.qty ? ` (${x.qty} ${x.unit || "g"})` : ""}`;
+  const L = ["🧊 Mon frigo / placard"];
+  if (dispo.length) { L.push("", "Dispo :"); dispo.forEach((x) => L.push(line(x))); }
+  if (out.length) { L.push("", "À réapprovisionner :"); out.forEach((x) => L.push(`- ${x.name}`)); }
+  if (!dispo.length && !out.length) L.push("", "(vide)");
+  return L.join("\n");
+}
+
 // Tente le partage natif, sinon copie. Retourne le mode effectif pour le feedback UI.
 // "shared" | "copied" | "abort" (l'utilisateur a fermé la feuille) | "fail".
 export async function shareOrCopy(text, title) {
