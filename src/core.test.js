@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros } from "./core.js";
+import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros, catOf, protStock } from "./core.js";
 import { mergeAppState } from "./lib/sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
@@ -172,6 +172,42 @@ describe("correctMacros", () => {
   it("laisse le repas intact sans macros par ingrédient", () => {
     const before = { kcal: 300, protein: 20, ingredients: [{ qty: 100, unit: "g", name: "skyr" }] };
     expect(correctMacros(before, [], [{ name: "skyr", kcal100: 60, p100: 10 }])).toBe(before);
+  });
+});
+
+describe("catOf", () => {
+  it("classe par mots-clés", () => {
+    expect(catOf("Skyr nature")).toBe("proteine");
+    expect(catOf("Tofu ferme")).toBe("proteine");
+    expect(catOf("Fromage blanc 0%")).toBe("proteine");
+    expect(catOf("Flocons d'avoine")).toBe("placard");
+    expect(catOf("Épinards frais")).toBe("frais");
+    expect(catOf("Banane")).toBe("frais");
+  });
+  it("« lait d'amande » → boissons, pas laitiers (Bob ne boit pas de lait de vache)", () => {
+    expect(catOf("Lait d'amande")).toBe("boisson");
+  });
+  it("« amandes » → placard (≠ lait d'amande)", () => {
+    expect(catOf("Amandes")).toBe("placard");
+  });
+  it("inconnu → autre", () => {
+    expect(catOf("Bidule mystère")).toBe("autre");
+  });
+});
+
+describe("protStock", () => {
+  it("somme p100·qty/100, ignore pièce et sans-densité", () => {
+    const items = [
+      { p100: 10, qty: 500, unit: "g" },  // 50
+      { p100: 75, qty: 900, unit: "g" },  // 675
+      { p100: 6, qty: 5, unit: "pièce" }, // ignoré (pièce)
+      { qty: 200, unit: "g" },            // ignoré (pas de densité)
+    ];
+    expect(protStock(items)).toBe(725);
+  });
+  it("0 sur liste vide ou nulle", () => {
+    expect(protStock([])).toBe(0);
+    expect(protStock()).toBe(0);
   });
 });
 

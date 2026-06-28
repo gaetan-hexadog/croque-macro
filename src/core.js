@@ -509,6 +509,35 @@ function correctMacros(meal, knownFoods = [], pantry = []) {
   return { ...meal, ingredients: fixed, kcal, protein };
 }
 
+// ── Frigo : catégories + stock ───────────────────────────────────────────────
+// Range un aliment dans une catégorie par mots-clés. « lait d'amande » → boissons
+// (testé AVANT laitiers : Bob ne boit pas de lait de vache), « amandes » → placard.
+function catOf(name) {
+  const s = String(name || "").toLowerCase();
+  if (/lait d.amande|lait v[ée]g[ée]tal|boisson|jus|eau|caf[eé]/.test(s)) return "boisson";
+  if (/skyr|tofu|œuf|oeuf|feta|fromage|prot[eé]ine|pois chiche|tempeh|cacahu|seitan|yaourt|lentille|haricot/.test(s)) return "proteine";
+  if (/amande|avoine|flocon|chocolat|riz|p[aâ]te|sucre|huile|farine|noix|granola|miel|c[ée]r[ée]al/.test(s)) return "placard";
+  if (/[ée]pinard|banane|compote|pomme|tomate|salade|courgette|fruit|l[ée]gume|carotte|avocat|poivron/.test(s)) return "frais";
+  if (/lait|yaourt|cr[eè]me|beurre/.test(s)) return "laitier";
+  return "autre";
+}
+const CAT_ORDER = ["proteine", "frais", "laitier", "placard", "boisson", "autre"];
+// Métadonnées d'affichage d'une catégorie (lit C → suit le thème).
+function catMeta(k) {
+  return ({
+    proteine: { label: "Protéines", color: C.protein, emoji: "💪" },
+    frais: { label: "Fruits & légumes", color: C.green, emoji: "🥬" },
+    laitier: { label: "Frais & laitiers", color: C.weight, emoji: "🧀" },
+    placard: { label: "Placard", color: C.warn, emoji: "🫙" },
+    boisson: { label: "Boissons", color: C.extra, emoji: "🥤" },
+    autre: { label: "Autre", color: C.muted, emoji: "📦" },
+  })[k] || { label: "Autre", color: C.muted, emoji: "📦" };
+}
+// Protéines « en stock » : somme p100·qty/100 (ignore les pièces et le sans-densité).
+function protStock(items = []) {
+  return Math.round((items || []).reduce((a, it) => a + ((it && it.p100 && it.qty && it.unit !== "pièce") ? it.p100 * it.qty / 100 : 0), 0));
+}
+
 // ── Assistant repas (API Claude) ─────────────────────────────────────────────
 // Construit { system, prompt, mode } pour l'Edge Function (Supabase). Le system porte
 // les règles diététiques NON négociables ; le prompt porte le contexte du jour
@@ -698,5 +727,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };
