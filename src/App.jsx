@@ -729,7 +729,7 @@ export default function PiocheRepas() {
                 {h?.onSettings && (
                   <button onClick={h.onSettings} aria-label="Réglages de la séance" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><SlidersHorizontal size={18} /></button>
                 )}
-                {!onBack && (
+                {!onBack && view !== "sport" && (
                   <button onClick={openChat} aria-label="Assistant — discuter" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1f`, color: C.accent }}><Sparkles size={18} /></button>
                 )}
                 {!onBack && view !== "reglages" && (
