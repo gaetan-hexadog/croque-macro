@@ -22,7 +22,7 @@ const WISH_CHIPS = [
 export function MealSuggestSheet({
   slot = "dej", remKcal = 0, remP = 0,
   dayRemKcal = 0, dayRemP = 0, reserveKcal = 0, weekBalance,
-  favorites = [], knownFoods = [], localIdeas = [], dayContext = [],
+  favorites = [], knownFoods = [], localIdeas = [], dayContext = [], recentMeals = [],
   pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
   onLog, onSaveRecipe, dateLabel, onClose,
 }) {
@@ -69,7 +69,7 @@ export function MealSuggestSheet({
       const dining = chips.has("resto");
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal: budK, remP: budP, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal, dayContext,
+        mode: "meal", slot, remKcal: budK, remP: budP, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals,
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...exclude.split(",").map((s) => s.trim()).filter(Boolean)],
         dateLabel,

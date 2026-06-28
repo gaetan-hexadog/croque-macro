@@ -481,6 +481,7 @@ function buildAssistantPrompt({
   weekBalance,               // marge hebdo en kcal (+ = sous le budget → marge plaisir ; − = au-dessus)
   excludeTitles = [],        // mode meal : plats déjà proposés à NE PAS reproposer (régénérer un repas)
   dayContext = [],           // mode meal : repas DÉJÀ prévus/mangés ce jour-là (cohérence : compléter sans répéter)
+  recentMeals = [],          // mode meal : repas des JOURS PRÉCÉDENTS (éviter de répéter d'un jour à l'autre)
   count, concise = false,    // mode meal : nb d'options (déf. 3) ; concise = sans étapes (planif séquentielle rapide)
   recipe, instruction,       // mode adapt : recette de départ + consigne d'adaptation
   text,                      // mode parse : description en langage naturel d'un repas mangé
@@ -561,7 +562,7 @@ function buildAssistantPrompt({
     (r.ingredients || []).forEach((i) => L.push(`- ${typeof i === "string" ? i : `${i.qty ?? ""} ${i.unit ?? ""} ${i.name}`.trim()}`));
     if ((r.steps || []).length) { L.push("Préparation :"); r.steps.forEach((s, n) => L.push(`${n + 1}. ${s}`)); }
     L.push("");
-    L.push(`Adapte cette recette selon ma demande : « ${instruction || "améliore-la"} ». Garde l'esprit du plat. Renvoie UNE seule option (la version adaptée) avec tous les ingrédients chiffrés (qty + unit), les macros recalculées, et 1-2 variantes.`);
+    L.push(`Adapte cette recette selon ma demande : « ${instruction || "améliore-la"} ». RÈGLE IMPORTANTE : si je demande de RETIRER / ENLEVER / « sans » un ingrédient SANS proposer de remplacement, garde EXACTEMENT la même recette en supprimant SEULEMENT cet ingrédient (et recalcule juste les macros en conséquence) — n'invente PAS un nouveau plat et ne remplace PAS par autre chose. Ne change que ce que je demande, garde tout le reste à l'identique. Renvoie UNE seule option (la version adaptée) avec tous les ingrédients chiffrés (qty + unit), les macros recalculées, et 1-2 variantes.`);
   } else {
     const n = count || 3;
     const slotTxt = SLOT_LABELS[slot] || "repas";
@@ -578,6 +579,7 @@ function buildAssistantPrompt({
       else if (weekBalance < -300) L.push("Sur la semaine je suis AU-DESSUS de mon budget → reste sobre et protéiné.");
     }
     if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. IMPORTANT — propose pour ce créneau quelque chose de DIFFÉRENT : ne RÉUTILISE PAS les ingrédients principaux déjà mangés aujourd'hui (même source de protéine, même légume, même féculent). Ex. : si courgettes + saucisse végé au déjeuner, choisis un AUTRE légume et une AUTRE protéine le soir. Complète la journée en variant, et équilibre les macros restantes.`);
+    if (recentMeals.length) L.push(`Ces DERNIERS JOURS j'ai déjà mangé : ${recentMeals.slice(0, 18).join(" ; ")}. ÉVITE de me reproposer ces plats ou des plats très proches — fais VARIER d'un jour à l'autre (autres sources de protéine, autres légumes/féculents, autres cuisines). Ne me fais pas manger deux fois la même chose à 1-2 jours d'intervalle.`);
     if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
     if (concise) L.push("Reste CONCIS, mais chaque ingrédient AVEC sa quantité (qty + unit) ; 1-2 variantes. N'inclus PAS les étapes de préparation.");
     L.push(`Toutes pour le slot "${slot || "dej"}".`);
@@ -592,7 +594,7 @@ function buildAssistantPrompt({
     if (mode === "week") treat += " Sur la semaine, répartis 1 à 2 plaisirs maximum, pas chaque jour.";
     L.push(treat);
   }
-  if (!dining) L.push("Privilégie mon frigo (en portions) MAIS sans t'y limiter : complète librement avec d'autres aliments courants pour varier et atteindre les cibles.");
+  if (!dining) L.push("UTILISE EN PRIORITÉ les aliments listés dans mon frigo/placard ci-dessus : base au moins une PARTIE de chaque repas dessus quand c'est pertinent (indique la portion en g/ml). Tu PEUX compléter avec d'autres aliments courants pour varier et atteindre les cibles, mais ne fais pas comme si mon frigo n'existait pas.");
 
   return { mode, system: sys, prompt: L.join("\n") };
 }

@@ -825,6 +825,7 @@ export default function PiocheRepas() {
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           localIdeas={[...customRecipes, ...library.recipes]}
           dayContext={["pdj", "dej", "diner", "snacks", "extras"].flatMap((k) => picks?.[k] || []).filter(Boolean).map((it) => { const ings = (it.ingredients || []).map((x) => (typeof x === "string" ? x : x && x.name)).filter(Boolean).slice(0, 5); return `${it.name}${ings.length ? ` (${ings.join(", ")})` : ""}`; })}
+          recentMeals={(() => { const out = []; for (let i = 1; i <= 4; i++) { const d = days[addDays(activeDate, -i)]; if (!d?.picks) continue; ["pdj", "dej", "diner", "snacks", "extras"].forEach((k) => (d.picks[k] || []).forEach((it) => { if (it && it.name && !it.planned) out.push(it.name); })); } return [...new Set(out)]; })()}
           pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
           onLog={logSuggestion} onSaveRecipe={saveSuggestion}
           dateLabel={fmtFull(activeDate)} onClose={navBack} />
