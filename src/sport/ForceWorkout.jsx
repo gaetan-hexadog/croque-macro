@@ -283,21 +283,31 @@ function PrepTile({ label, value }) {
   );
 }
 
-// Chrono de maintien pour les gainages (compte à rebours réel, bips, +15 s).
+// Chrono de maintien pour les gainages (compte à rebours réel, carillon, +15 s).
+// perSide → enchaîne les 2 côtés (Côté 1/2 puis Côté 2/2), comme l'ancienne app.
 function HoldTimer({ seconds, sound, perSide }) {
+  const totalSides = perSide ? 2 : 1;
+  const [side, setSide] = useState(1);
   const [running, setRunning] = useState(false);
   const [left, setLeft] = useCountdown(seconds, running, { sound });
-  const done = left <= 0;
+  const doneSide = left <= 0;          // côté courant terminé
+  const allDone = doneSide && side >= totalSides;
   const started = left < seconds;
+  const startNextSide = () => { setSide((s) => s + 1); setLeft(seconds); setRunning(true); };
+  const restart = () => { setSide(1); setLeft(seconds); setRunning(true); };
   return (
     <div className="flex flex-col items-center">
-      <DurationFlow seconds={Math.max(0, left)} size={104} color={done ? C.green : C.ink} />
-      {perSide && <p className="mt-1 text-xs font-semibold" style={{ color: C.muted }}>par côté · refais de l'autre côté ensuite</p>}
+      {perSide && <p className="mb-1 text-xs font-bold uppercase tracking-wide" style={{ color: doneSide && !allDone ? C.weight : C.muted }}>Côté {side}/2</p>}
+      <DurationFlow seconds={Math.max(0, left)} size={104} color={doneSide ? C.green : C.ink} />
       <div className="mt-3 flex items-center gap-2.5">
-        <button onClick={() => { if (done) { setLeft(seconds); setRunning(true); } else setRunning((r) => !r); }} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: running ? C.weight : C.green }}>
-          {running ? <><Pause size={16} /> Pause</> : done ? <><RotateCcw size={16} /> Refaire</> : started ? <><Play size={16} /> Reprendre</> : <><Play size={16} /> Démarrer</>}
-        </button>
-        {started && !done && <button onClick={() => setLeft((l) => l + 15)} className="rounded-2xl px-4 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, color: C.sub }}>+15 s</button>}
+        {doneSide && !allDone ? (
+          <button onClick={startNextSide} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Play size={16} /> Démarrer côté 2</button>
+        ) : (
+          <button onClick={() => { if (allDone) restart(); else setRunning((r) => !r); }} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: running ? C.weight : C.green }}>
+            {running ? <><Pause size={16} /> Pause</> : allDone ? <><RotateCcw size={16} /> Refaire</> : started ? <><Play size={16} /> Reprendre</> : <><Play size={16} /> Démarrer</>}
+          </button>
+        )}
+        {started && !doneSide && <button onClick={() => setLeft((l) => l + 15)} className="rounded-2xl px-4 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, color: C.sub }}>+15 s</button>}
       </div>
     </div>
   );

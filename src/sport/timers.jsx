@@ -22,6 +22,14 @@ export function playBeep(freq = 880, dur = 0.18) {
   } catch (_) {}
 }
 
+// Carillon de FIN (triple bip montant) — signal franc « c'est terminé », repris de
+// l'ancienne app : plus reconnaissable qu'un bip seul quand on ne regarde pas l'écran.
+export function playEndChime() {
+  playBeep(660, 0.12);
+  setTimeout(() => playBeep(660, 0.12), 150);
+  setTimeout(() => playBeep(990, 0.26), 320);
+}
+
 // Décompte 1 s. Bips 660 Hz à 3-2-1, bip final 880 Hz à 0 puis onDone().
 // running=false met en pause. Renvoie [left, setLeft] (setLeft pour +15s/+30s).
 export function useCountdown(seconds, running = true, { sound = true, onDone } = {}) {
@@ -29,7 +37,7 @@ export function useCountdown(seconds, running = true, { sound = true, onDone } =
   useEffect(() => { setLeft(seconds); }, [seconds]);
   useEffect(() => {
     if (!running) return;
-    if (left <= 0) { if (sound) playBeep(880, 0.4); onDone && onDone(); return; }
+    if (left <= 0) { if (sound) playEndChime(); onDone && onDone(); return; }
     if (sound && left <= 3) playBeep(660, 0.12);
     const t = setTimeout(() => setLeft((l) => l - 1), 1000);
     return () => clearTimeout(t);
