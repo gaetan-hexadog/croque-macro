@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { ArrowLeft, Plus, Refrigerator } from "lucide-react";
+import { ArrowLeft, Plus, Refrigerator, Search, X } from "lucide-react";
 import { C } from "../core.js";
+
+const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // Piocher une PORTION d'un aliment du frigo : on liste les aliments dispo qui ont
 // une densité (kcal/100), on saisit une quantité (g/ml/…) → macros calculées → onPick.
@@ -8,6 +10,8 @@ export function FrigoPick({ pantry = [], accent = C.weight, onPick }) {
   const usable = pantry.filter((x) => !x.out && (x.kcal100 || x.p100));
   const [sel, setSel] = useState(null);
   const [qty, setQty] = useState("");
+  const [q, setQ] = useState("");
+  const filtered = q.trim() ? usable.filter((it) => deburr(it.name).includes(deburr(q))) : usable;
 
   if (sel) {
     const unit = sel.unit || "g";
@@ -41,7 +45,16 @@ export function FrigoPick({ pantry = [], accent = C.weight, onPick }) {
   }
   return (
     <div className="space-y-2">
-      {usable.map((it) => (
+      {usable.length > 4 && (
+        <div className="mb-1 flex items-center gap-2 rounded-2xl px-3 py-2" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+          <Search size={15} style={{ color: C.muted }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher dans mon frigo…" className="w-full bg-transparent text-sm outline-none" style={{ color: C.ink }} />
+          {q && <button onClick={() => setQ("")} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Effacer"><X size={15} /></button>}
+        </div>
+      )}
+      {filtered.length === 0 ? (
+        <p className="py-4 text-center text-sm" style={{ color: C.muted }}>Aucun aliment ne correspond.</p>
+      ) : filtered.map((it) => (
         <button key={it.id} onClick={() => { setSel(it); setQty(it.qty ? String(Math.min(it.qty, 100)) : "100"); }} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${accent}1f`, color: accent }}><Refrigerator size={15} /></span>
           <span className="min-w-0 flex-1">

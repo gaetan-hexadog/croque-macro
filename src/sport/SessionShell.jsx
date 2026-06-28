@@ -103,18 +103,19 @@ export function PhaseStage({ title, detail, seconds, sound, onDone }) {
   );
 }
 
-// ── Repos inter-séries FORCE (chrono indicatif, départ MANUEL) ───────────────
+// ── Repos inter-séries FORCE (chrono qui s'enchaîne TOUT SEUL à 0) ───────────
+// Le timer sert à quelque chose : à 0 on passe automatiquement à la suite (bip).
+// Boutons = raccourcis : passer le repos maintenant (avant 0) ou rallonger.
 export function RestStage({ seconds, sound, nextLabel, onReady }) {
-  const [left, setLeft] = useCountdown(seconds, true, { sound });
-  const over = left <= 0;
+  const [left, setLeft] = useCountdown(seconds, true, { sound, onDone: onReady });
   return (
     <ColorStage from={C.weight} to={`${C.weight}bb`} actions={
       <div className="space-y-2">
-        <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold active:scale-95" style={{ backgroundColor: "#fff", color: C.weight }}><Play size={18} /> {over ? "C'est parti 💪" : "Je suis prêt"}</button>
-        <button onClick={() => setLeft((l) => l + 15)} className="w-full rounded-2xl py-2.5 text-sm font-bold" style={{ backgroundColor: "rgba(255,255,255,0.18)", color: "#fff" }}>+15 s</button>
+        <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={{ backgroundColor: "rgba(255,255,255,0.22)", color: "#fff" }}><SkipForward size={17} /> Passer le repos</button>
+        <button onClick={() => setLeft((l) => l + 15)} className="w-full rounded-2xl py-2.5 text-sm font-bold" style={{ backgroundColor: "rgba(255,255,255,0.14)", color: "#fff" }}>+15 s</button>
       </div>
     }>
-      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.9)" }}>{over ? "Repos terminé" : "Repos"}</p>
+      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.9)" }}>Repos</p>
       <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={120} color="#fff" /></div>
       {nextLabel && <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>Ensuite : {nextLabel}</p>}
     </ColorStage>

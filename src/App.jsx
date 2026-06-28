@@ -332,7 +332,7 @@ export default function PiocheRepas() {
     if (!sport.startDate || activeDate !== TODAY) return null;
     const week = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(sport.startDate);
     const sessionDays = sport.preferences?.sessionDays || { A: 2, B: 4, C: 6 };
-    const ids = getCatchUp(workouts, sessionDays, week);
+    const ids = getCatchUp(workouts, sessionDays, sport.startDate, week);
     if (!ids.length) return null;
     return ids.map((sid) => ({ sid, name: SESSIONS[sid]?.name, subtitle: SESSIONS[sid]?.subtitle, day: SESSIONS[sid]?.day }));
   }, [sport, activeDate, workouts]);

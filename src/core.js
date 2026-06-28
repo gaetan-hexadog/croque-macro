@@ -193,8 +193,11 @@ function weekStats(days, settings, refISO, span = 7) {
     const d = days[iso];
     const has = d && hasData(d);
     const t = has ? dayTotals(d) : null;
-    if (has) { consumedSum += t.kcal; protSum += t.p; logged++; deltaSum += target - t.kcal; }
-    perDay.push({ iso, kcal: has ? t.kcal : null, p: has ? t.p : null, delta: has ? target - t.kcal : null, logged: has });
+    // Le jour EN COURS (aujourd'hui) n'est pas terminé : ses repas pas encore passés ne sont
+    // pas une « marge ». On l'exclut des agrégats (solde, moyenne) — il reste dans perDay.
+    const isToday = iso === TODAY;
+    if (has && !isToday) { consumedSum += t.kcal; protSum += t.p; logged++; deltaSum += target - t.kcal; }
+    perDay.push({ iso, kcal: has ? t.kcal : null, p: has ? t.p : null, delta: (has && !isToday) ? target - t.kcal : null, logged: has, today: isToday });
   }
   return {
     target, span, logged,

@@ -101,12 +101,12 @@ export const SESSION_C = {
       tips: ["Mettre une serviette pliée sous la barre", "Pause de 1 sec en haut", "Ne pas hyper-étendre le bas du dos"]
     },
     {
-      name: "Curl kettlebell", sets: 3, reps: 12, rest: 60, type: "fixed", load: 12, loadLabel: "2×12 kg", superset: "bras",
-      tech: "Debout, une kettlebell dans chaque main, coudes collés au corps. Monter en contractant les biceps, descendre lentement.",
-      tips: ["En superset avec l'extension triceps : enchaîne sans repos, repose après les deux", "Pas d'élan avec le dos", "Quand 3×12 passent → 3×15"]
+      name: "Curl kettlebell", sets: 3, reps: 8, rest: 60, type: "fixed", load: 12, loadLabel: "2×12 kg", superset: "bras",
+      tech: "Debout, une kettlebell dans chaque main, coudes collés au corps. Les DEUX bras montent en même temps (pas en alternance). Monter en contractant les biceps, descendre lentement.",
+      tips: ["Les deux bras simultanément, pas en alternance", "En superset avec l'extension triceps : enchaîne sans repos, repose après les deux", "Pas d'élan avec le dos", "Objectif 8 reps propres à 2×12 kg ; quand 3×8 passent facile, ajoute des reps"]
     },
     {
-      name: "Extension triceps kettlebell", sets: 3, reps: 12, rest: 90, type: "fixed", load: 16, loadLabel: "1×16 kg", superset: "bras",
+      name: "Extension triceps kettlebell", sets: 3, reps: 12, rest: 90, type: "fixed", load: 12, loadLabel: "1×12 kg", superset: "bras",
       tech: "Une kettlebell tenue à deux mains derrière la tête (ou pompes diamant si gêne). Tendre les bras vers le haut, coudes serrés.",
       tips: ["Alternative sans gêne d'épaule : pompes diamant 3×max", "Coudes pointés vers l'avant, fixes", "Contrôle la descente"]
     },
@@ -374,17 +374,23 @@ export function getProlongedBreakDays(history) {
   return daysBetween(new Date(all[0].date), new Date());
 }
 
-// Séances « à rattraper » : prévues plus tôt cette semaine (jour déjà passé) et
-// pas encore faites. La semaine est lue lundi→dimanche pour qu'une séance du samedi
-// non faite s'affiche encore comme rattrapable le dimanche. Renvoie les ids dans
-// l'ordre du programme (la 1re = la plus ancienne à rattraper).
-export function getCatchUp(history, sessionDays = {}, currentWeek = 1, today = new Date()) {
-  const monFirst = (dow) => (dow + 6) % 7; // Lun=0 … Dim=6
-  const todayIdx = monFirst(today.getDay());
+// Séances « à rattraper » : leur jour de cette semaine est déjà PASSÉ, la séance
+// n'est pas faite, et ce jour tombe APRÈS le démarrage du programme (sinon elle
+// n'a jamais eu lieu — ex. tu démarres samedi : mardi/jeudi d'avant ne comptent pas).
+// Semaine lue lundi→dimanche. Renvoie les ids dans l'ordre du programme.
+export function getCatchUp(history, sessionDays = {}, startDate = null, currentWeek = 1, today = new Date()) {
+  const monIdx = (dow) => (dow + 6) % 7; // Lun=0 … Dim=6
+  const d0 = new Date(today); d0.setHours(0, 0, 0, 0);
+  const start = startDate ? new Date(startDate) : null;
+  if (start) start.setHours(0, 0, 0, 0);
+  const monday = new Date(d0); monday.setDate(d0.getDate() - monIdx(d0.getDay()));
   return SESSION_ORDER.filter((sid) => {
-    if (history?.[`W${currentWeek}-${sid}`]) return false; // déjà faite cette semaine
-    const dayIdx = monFirst(sessionDays?.[sid] ?? SESSIONS[sid].dayIndex);
-    return dayIdx < todayIdx; // son jour est déjà passé cette semaine
+    const wd = sessionDays?.[sid] ?? SESSIONS[sid].dayIndex;
+    const date = new Date(monday); date.setDate(monday.getDate() + monIdx(wd));
+    if (date >= d0) return false;                 // aujourd'hui ou à venir → pas (encore) raté
+    if (start && date < start) return false;      // avant le démarrage du programme
+    const wk = start ? calcCurrentWeekFromStart(start, date) : currentWeek;
+    return !history?.[`W${currentWeek}-${sid}`] && !history?.[`W${wk}-${sid}`]; // pas déjà faite
   });
 }
 

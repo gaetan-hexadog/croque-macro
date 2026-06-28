@@ -226,7 +226,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
 
         {/* Log rapide intégré au dashboard : habituels en 1 tap + entrée « Logger » */}
-        {isToday && (
+        {/* {isToday && (
           <div className="mt-4 border-t pt-3" style={{ borderColor: C.line }}>
             <span className="mb-2 block px-0.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Log rapide</span>
             <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
@@ -244,7 +244,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
               </button>
             </div>
           </div>
-        )}
+        )} */}
       </section>
 
       {/* Les repas — une carte distincte par repas */}

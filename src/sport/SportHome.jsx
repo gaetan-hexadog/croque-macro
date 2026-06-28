@@ -14,10 +14,10 @@ import { Sparkline } from "./components.jsx";
 // ── Accueil Sport (piste B : carte progression + timeline) ───────────────────
 // Pas de header local : le header global de l'app porte titre « Sport », sous-titre
 // (semaine/phase), badge (charge) et les actions (réglages). Ici, que du contenu.
-export function SportHome({ workouts, currentWeek, sessionDays, onOpen, onOpenDetail, onManualLog }) {
+export function SportHome({ workouts, currentWeek, sessionDays, startDate, onOpen, onOpenDetail, onManualLog }) {
   const todayDow = new Date().getDay();
   const gap = getGapWarning(workouts);
-  const catchUp = getCatchUp(workouts, sessionDays, currentWeek);
+  const catchUp = getCatchUp(workouts, sessionDays, startDate, currentWeek);
   const todaysSession = SESSION_ORDER.find((sid) => sessionDays[sid] === todayDow);
   const doneThisWeek = (sid) => !!workouts[`W${currentWeek}-${sid}`];
 

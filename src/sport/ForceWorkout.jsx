@@ -1,14 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Flame } from "lucide-react";
+import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Pause, RotateCcw, Flame } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
-import { NumberFlow, PrescriptionBadge, DIFFS, diffColor } from "./components.jsx";
+import { NumberFlow, DurationFlow, PrescriptionBadge, DIFFS, diffColor } from "./components.jsx";
 import { SessionShell, Stage, CountdownStage, PhaseStage, RestStage, IntervalStage } from "./SessionShell.jsx";
 import { SessionSummary } from "./SessionSummary.jsx";
+import { useCountdown } from "./timers.jsx";
 import { saveLive, clearLive } from "./liveSession.js";
 
 const FONT = "'Space Grotesk', system-ui";
 const PREP_SECONDS = 5; // « prépare-toi » avant chaque exercice / série (force)
+
+// Cible numérique de reps depuis "8", "8/jambe", "40s"… (pour préremplir le compteur
+// avec l'OBJECTIF plutôt qu'un 0 qu'il faudrait remonter à la main).
+const repsNum = (r) => {
+  if (typeof r === "number") return r;
+  if (typeof r === "string") { const m = r.match(/\d+/); if (m) return parseInt(m[0], 10); }
+  return null;
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 // ForceWorkout — séance de force PLEIN ÉCRAN (synthèse F) :
@@ -38,11 +47,11 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
   const [log, setLog] = useState(() => (isResume ? resume.log : exs.map((ex) => {
     const presc = getExercisePrescription(ex, week, workouts);
-    const targetReps = presc.mode === "reps" ? presc.value : (typeof ex.reps === "number" ? ex.reps : ex.reps);
+    const targetReps = presc.mode === "reps" ? presc.value : repsNum(ex.reps);
     const charge = presc.mode === "charge" ? presc.value : (ex.load ?? null);
     return {
       exercise: ex.name, presc, charge,
-      sets: Array.from({ length: ex.sets }, () => ({ weight: charge, repsTarget: typeof targetReps === "number" ? targetReps : null, repsDone: typeof targetReps === "number" ? targetReps : null, difficulty: null })),
+      sets: Array.from({ length: ex.sets }, () => ({ weight: charge, repsTarget: targetReps, repsDone: targetReps, difficulty: null })),
     };
   })));
 
@@ -72,7 +81,11 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   const rate = (exIdx, diff) => {
     const ex = exs[exIdx];
     setLog((prev) => prev.map((e, i) => i !== exIdx ? e : { ...e, sets: e.sets.map((s, j) => j !== setIdx ? s : { ...s, difficulty: diff }) }));
-    if (setIdx < ex.sets - 1) setPhase("rest"); else goNextStep();
+    const next = exs[exIdx + 1];
+    if (setIdx < ex.sets - 1) setPhase("rest");          // repos entre séries → série suivante
+    else if (next && ex.superset && next.superset === ex.superset) goNextStep(); // superset : enchaîne sans repos
+    else if (next) setPhase("restNext");                 // repos après la DERNIÈRE série → exo suivant
+    else goNextStep();                                   // dernier exo → finition / retour au calme
   };
 
   const totalSets = log.reduce((a, e) => a + e.sets.length, 0);
@@ -108,11 +121,12 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     );
   }
 
-  const colored = step.kind === "warmup" || step.kind === "cooldown" || (step.kind === "finishCardio" && phase === "run") || (step.kind === "exercise" && (phase === "countdown" || phase === "rest"));
+  const isRest = phase === "rest" || phase === "restNext";
+  const colored = step.kind === "warmup" || step.kind === "cooldown" || (step.kind === "finishCardio" && phase === "run") || (step.kind === "exercise" && (phase === "countdown" || isRest));
   const statusColor =
     step.kind === "warmup" || step.kind === "cooldown" ? C.weight
       : step.kind === "finishCardio" ? (phase === "run" ? null : C.bg)
-        : step.kind === "exercise" ? (phase === "countdown" ? C.protein : phase === "rest" ? C.weight : C.bg)
+        : step.kind === "exercise" ? (phase === "countdown" ? C.protein : isRest ? C.weight : C.bg)
           : C.bg;
 
   return (
@@ -145,6 +159,10 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
         if (phase === "rest") {
           return <RestStage seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("countdown"); }} />;
         }
+        if (phase === "restNext") {
+          const next = exs[exIdx + 1];
+          return <RestStage seconds={ex.rest} sound={sound} nextLabel={next ? next.name : "Suite"} onReady={goNextStep} />;
+        }
         // phase === "set"
         return (
           <Stage>
@@ -154,9 +172,9 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: C.muted }}>{isTime ? "Durée" : "Répétitions"}</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: C.muted }}>{isTime ? "Tenir" : "Répétitions"}</p>
               {isTime ? (
-                <p className="text-6xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{ex.reps}</p>
+                <HoldTimer key={`hold-${exIdx}-${setIdx}`} seconds={ex.repsSeconds || repsNum(ex.reps) || 30} sound={sound} perSide={ex.perSide} />
               ) : (
                 <>
                   <NumberFlow value={curSet.repsDone ?? curSet.repsTarget ?? 0} size={116} color={C.ink} />
@@ -199,26 +217,43 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   );
 }
 
-// Annonce d'un exercice (force) — hero énergique + infos + « Je suis prêt ».
+// Annonce d'un exercice (force) — hiérarchie nette, alignée sur le reste de l'app :
+// titre + 3 tuiles cible (séries / reps|durée / repos) + charge + technique.
 function PrepareExercise({ ex, entry, chargeLine, last, isTime, exIdx, total, onReady }) {
+  const presc = entry.presc;
+  const repsLabel = isTime ? `${ex.reps}` : (typeof ex.reps === "string" ? ex.reps : `${entry.sets[0].repsTarget ?? ex.reps}`);
+  const noteCol = presc.direction === "down" ? C.over : presc.direction === "up" ? C.green : C.sub;
   return (
     <Stage scroll>
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        {/* Hero */}
-        <div className="rounded-3xl p-5" style={cardStyle({ background: `radial-gradient(140% 110% at 0% 0%, ${C.accent}26, transparent 60%), ${C.cardGrad}` })}>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Dumbbell size={12} /> À suivre · {exIdx + 1}/{total}</span>
-            <PrescriptionBadge presc={entry.presc} ex={ex} />
+        {/* En-tête */}
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5">
+              <span className="rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}>Exo {exIdx + 1}/{total}</span>
+              {ex.superset && <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>Superset</span>}
+            </span>
+            <PrescriptionBadge presc={presc} ex={ex} />
           </div>
-          <p className="text-2xl font-extrabold leading-tight" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
-          <p className="mt-1 text-sm font-semibold" style={{ color: C.sub }}>{ex.sets} × {isTime ? ex.reps : `${entry.sets[0].repsTarget ?? ex.reps} reps`}{ex.perSide ? " / côté" : ""} · repos {ex.rest}s</p>
-          {chargeLine && (
-            <div className="mt-3 flex items-center gap-2.5 rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.ink }}>
-              <Dumbbell size={16} style={{ color: C.bg }} />
-              <span className="text-sm font-bold" style={{ color: C.bg }}>{chargeLine}</span>
-            </div>
-          )}
+          <p className="text-[26px] font-extrabold leading-tight" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
         </div>
+
+        {/* Cible : 3 tuiles */}
+        <div className="grid grid-cols-3 gap-2">
+          <PrepTile label="Séries" value={ex.sets} />
+          <PrepTile label={isTime ? "Tenir" : ex.perSide ? "Reps/côté" : "Reps"} value={repsLabel} />
+          <PrepTile label="Repos" value={`${ex.rest}s`} />
+        </div>
+
+        {/* Charge */}
+        {chargeLine && (
+          <div className="flex items-center gap-2.5 rounded-2xl px-4 py-3.5" style={{ backgroundColor: C.ink }}>
+            <Dumbbell size={17} style={{ color: C.bg }} />
+            <span className="text-base font-extrabold" style={{ color: C.bg, fontFamily: FONT }}>{chargeLine}</span>
+          </div>
+        )}
+
+        {presc.note && <p className="rounded-xl px-3 py-2 text-xs font-medium" style={{ backgroundColor: C.paper, color: noteCol }}>{presc.note}</p>}
 
         {last && (
           <div className="flex items-center gap-2.5 rounded-2xl p-3.5" style={cardStyle()}>
@@ -233,8 +268,38 @@ function PrepareExercise({ ex, entry, chargeLine, last, isTime, exIdx, total, on
           {ex.tips?.length > 0 && <ul className="mt-2 space-y-1.5">{ex.tips.map((t, i) => <li key={i} className="flex gap-1.5 text-sm" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span>{t}</li>)}</ul>}
         </div>
       </div>
-      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Je suis prêt</button>
+      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Commencer</button>
     </Stage>
+  );
+}
+
+// Tuile « cible » (séries / reps / repos) — cohérente avec les cartes de l'app.
+function PrepTile({ label, value }) {
+  return (
+    <div className="rounded-2xl px-2 py-3 text-center" style={cardStyle()}>
+      <p className="text-lg font-extrabold leading-none" style={{ color: C.ink, fontFamily: FONT }}>{value}</p>
+      <p className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: C.muted }}>{label}</p>
+    </div>
+  );
+}
+
+// Chrono de maintien pour les gainages (compte à rebours réel, bips, +15 s).
+function HoldTimer({ seconds, sound, perSide }) {
+  const [running, setRunning] = useState(false);
+  const [left, setLeft] = useCountdown(seconds, running, { sound });
+  const done = left <= 0;
+  const started = left < seconds;
+  return (
+    <div className="flex flex-col items-center">
+      <DurationFlow seconds={Math.max(0, left)} size={104} color={done ? C.green : C.ink} />
+      {perSide && <p className="mt-1 text-xs font-semibold" style={{ color: C.muted }}>par côté · refais de l'autre côté ensuite</p>}
+      <div className="mt-3 flex items-center gap-2.5">
+        <button onClick={() => { if (done) { setLeft(seconds); setRunning(true); } else setRunning((r) => !r); }} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: running ? C.weight : C.green }}>
+          {running ? <><Pause size={16} /> Pause</> : done ? <><RotateCcw size={16} /> Refaire</> : started ? <><Play size={16} /> Reprendre</> : <><Play size={16} /> Démarrer</>}
+        </button>
+        {started && !done && <button onClick={() => setLeft((l) => l + 15)} className="rounded-2xl px-4 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, color: C.sub }}>+15 s</button>}
+      </div>
+    </div>
   );
 }
 
