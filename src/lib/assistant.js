@@ -1,12 +1,14 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  assistant.js — client de l'assistant repas (appelle la Netlify Function).
+//  assistant.js — client de l'assistant repas (appelle la Supabase Edge Function).
 //  Le front construit le prompt (core.buildAssistantPrompt), la function ajoute
 //  la clé API. On envoie le token de session → la function vérifie qu'on est
-//  bien connecté avant tout appel payant.
+//  bien connecté avant tout appel payant. (Migré de Netlify : timeout 10 s → 502/504.)
 // ════════════════════════════════════════════════════════════════════════════
 import { supabase } from "./supabaseClient.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase.config.js";
 
-const ENDPOINT = "/.netlify/functions/assistant";
+// Assistant hébergé en Supabase Edge Function (Netlify coupait à 10 s → 502/504).
+const ENDPOINT = `${SUPABASE_URL}/functions/v1/assistant`;
 
 // Erreur typée pour distinguer « assistant pas déployé/configuré » du reste,
 // et afficher un message adapté dans l'UI (mode dev local, clé manquante…).
@@ -31,7 +33,7 @@ async function postAssistant(body, { signal, timeoutMs = 45000, authMsg } = {}) 
   if (signal) { if (signal.aborted) ctrl.abort(); else signal.addEventListener("abort", onAbort); }
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    return await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: ctrl.signal });
+    return await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: ctrl.signal });
   } catch (e) {
     if (ctrl.signal.aborted && !(signal && signal.aborted)) throw new AssistantError("L'assistant a mis trop de temps — réessaie (ou simplifie la demande).", { kind: "offline" });
     throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" });
@@ -118,7 +120,7 @@ export async function adaptWorkout({ workout, equipment, minutes }, { signal } =
   if (!token) throw new AssistantError("Connecte-toi pour utiliser l'assistant.", { kind: "auth" });
   let res;
   try {
-    res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ workout, equipment, minutes }), signal });
+    res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` }, body: JSON.stringify({ workout, equipment, minutes }), signal });
   } catch { throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" }); }
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
