@@ -479,6 +479,31 @@ function dietaryWarnings(meal) {
   return out;
 }
 
+// Recale les macros EXACTES : pour chaque ingrédient en g/ml qui matche un aliment du
+// frigo (densité /100 connue), on remplace l'estimation du modèle par le calcul réel,
+// puis on resomme le total. Nécessite des macros par ingrédient (sinon repas inchangé).
+function correctMacros(meal, knownFoods = [], pantry = []) {
+  const ings = meal && meal.ingredients;
+  if (!Array.isArray(ings) || !ings.length || ings.some((i) => typeof i.kcal !== "number")) return meal;
+  const db = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/s\b/g, "").trim();
+  const pan = (pantry || []).filter((x) => x && !x.out && (x.kcal100 || x.p100)).map((x) => ({ key: db(x.name), kcal100: x.kcal100 || 0, p100: x.p100 || 0 }));
+  if (!pan.length) return meal;
+  let changed = false;
+  const fixed = ings.map((i) => {
+    const unit = String(i.unit || "").toLowerCase(), qty = Number(i.qty) || 0;
+    if ((unit === "g" || unit === "ml") && qty > 0) {
+      const k = db(i.name);
+      const m = k && pan.find((x) => x.key && (k.includes(x.key) || x.key.includes(k)));
+      if (m && (m.kcal100 || m.p100)) { changed = true; return { ...i, kcal: Math.round(m.kcal100 * qty / 100), protein: Math.round(m.p100 * qty / 100) }; }
+    }
+    return i;
+  });
+  if (!changed) return meal;
+  const kcal = Math.round(fixed.reduce((a, i) => a + (Number(i.kcal) || 0), 0));
+  const protein = Math.round(fixed.reduce((a, i) => a + (Number(i.protein) || 0), 0));
+  return { ...meal, ingredients: fixed, kcal, protein };
+}
+
 // ── Assistant repas (API Claude) ─────────────────────────────────────────────
 // Construit { system, prompt, mode } pour la Netlify Function. Le system porte
 // les règles diététiques NON négociables ; le prompt porte le contexte du jour
@@ -525,11 +550,12 @@ function buildAssistantPrompt({
     "- Le frigo est une PRÉFÉRENCE, pas une contrainte : utilise en priorité ce qui est disponible (et indique la portion en g/ml d'après la densité /100, tu peux n'en prendre qu'une partie), MAIS complète et varie librement avec d'autres aliments courants. Ne te bride pas à ce que j'ai déjà loggé.",
     "- N'utilise JAMAIS un aliment listé comme à exclure.",
     "- CHAQUE ingrédient DOIT avoir une quantité CHIFFRÉE (qty + unit) — jamais d'ingrédient sans quantité. Pour les poudres/suppléments (protéine, all-in-one, Bulk…), exprime en DOSE/scoop (≈30 g), JAMAIS en grammes. Renvoie toujours via l'outil `propose`.",
+    "- Pour CHAQUE ingrédient, indique AUSSI sa contribution `kcal` et `protein`. La somme des ingrédients doit coller au total `kcal`/`protein` du repas (sinon corrige). Ça permet à l'app de recalculer exactement les ingrédients que j'ai au frigo.",
     "- Pour CHAQUE repas, ajoute 1 à 3 VARIANTES (remplacer/ajouter/retirer un ingrédient) avec leur impact macro signé (kcal + protéines, ex. « tofu → tempeh » +30/+4 ; « +30 g amandes » +180/+6 ; « +1 dose protéine » +110/+22 ; « sans fromage » −90/−6) et un label court avec la quantité dans la bonne unité (dose pour les poudres).",
     "FORMAT ATTENDU pour chaque option (respecte-le exactement, même style de quantités/unités) :",
     JSON.stringify({
-      title: "Bowl skyr amande & fruits rouges", emoji: "🫐", slot: "snack", kcal: 280, protein: 26,
-      ingredients: [{ qty: 150, unit: "g", name: "skyr nature" }, { qty: 80, unit: "g", name: "fruits rouges" }, { qty: 20, unit: "g", name: "amandes" }, { qty: 1, unit: "dose", name: "protéine vanille en poudre" }],
+      title: "Bowl skyr amande & fruits rouges", emoji: "🫐", slot: "snack", kcal: 355, protein: 42,
+      ingredients: [{ qty: 150, unit: "g", name: "skyr nature", kcal: 90, protein: 15 }, { qty: 80, unit: "g", name: "fruits rouges", kcal: 35, protein: 1 }, { qty: 20, unit: "g", name: "amandes", kcal: 120, protein: 4 }, { qty: 1, unit: "dose", name: "protéine vanille en poudre", kcal: 110, protein: 22 }],
       note: "Grab-and-go, riche en protéines.",
       variants: [{ label: "+1 dose protéine", kcal: 110, protein: 22 }, { label: "sans amandes", kcal: -120, protein: -4 }],
     }),
@@ -666,5 +692,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

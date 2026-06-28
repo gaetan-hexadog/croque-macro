@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, Lightbulb } from "lucide-react";
-import { C, buildAssistantPrompt } from "../core.js";
+import { C, buildAssistantPrompt, correctMacros } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
 import MealCard from "../components/MealCard.jsx";
@@ -76,7 +76,8 @@ export function MealSuggestSheet({
       });
       const { meals } = await askAssistant({ system, prompt, mode });
       if (!mounted.current) return;
-      setResults(meals);
+      // Macros EXACTES : recale les ingrédients du frigo (g/ml) depuis leurs vraies densités /100.
+      setResults(meals.map((m) => correctMacros(m, knownFoods, pantry)));
       setLocalOpen(false); // on replie « dans tes idées » pour montrer le résultat de l'assistant
     } catch (e) {
       if (mounted.current) setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));

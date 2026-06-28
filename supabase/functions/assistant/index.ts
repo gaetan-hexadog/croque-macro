@@ -54,7 +54,7 @@ const PROPOSE_TOOL = {
             ingredients: {
               type: "array",
               description: "CHAQUE ingrédient avec sa quantité chiffrée. Jamais d'ingrédient sans quantité.",
-              items: { type: "object", properties: { qty: { type: "number", description: "Quantité chiffrée (obligatoire)." }, unit: { type: "string", description: "g, ml, dose/scoop (poudres), pièce, càs, càc, pincée… (obligatoire)." }, name: { type: "string" } }, required: ["qty", "unit", "name"] },
+              items: { type: "object", properties: { qty: { type: "number", description: "Quantité chiffrée (obligatoire)." }, unit: { type: "string", description: "g, ml, dose/scoop (poudres), pièce, càs, càc, pincée… (obligatoire)." }, name: { type: "string" }, kcal: { type: "number", description: "kcal de CET ingrédient seul (sa contribution au total)." }, protein: { type: "number", description: "protéines (g) de CET ingrédient seul." } }, required: ["qty", "unit", "name"] },
             },
             steps: { type: "array", items: { type: "string" }, description: "Étapes de préparation, courtes." },
             note: { type: "string", description: "Pourquoi ce repas colle au budget/contraintes. Optionnel." },
