@@ -374,6 +374,20 @@ export function getProlongedBreakDays(history) {
   return daysBetween(new Date(all[0].date), new Date());
 }
 
+// Séances « à rattraper » : prévues plus tôt cette semaine (jour déjà passé) et
+// pas encore faites. La semaine est lue lundi→dimanche pour qu'une séance du samedi
+// non faite s'affiche encore comme rattrapable le dimanche. Renvoie les ids dans
+// l'ordre du programme (la 1re = la plus ancienne à rattraper).
+export function getCatchUp(history, sessionDays = {}, currentWeek = 1, today = new Date()) {
+  const monFirst = (dow) => (dow + 6) % 7; // Lun=0 … Dim=6
+  const todayIdx = monFirst(today.getDay());
+  return SESSION_ORDER.filter((sid) => {
+    if (history?.[`W${currentWeek}-${sid}`]) return false; // déjà faite cette semaine
+    const dayIdx = monFirst(sessionDays?.[sid] ?? SESSIONS[sid].dayIndex);
+    return dayIdx < todayIdx; // son jour est déjà passé cette semaine
+  });
+}
+
 export function getGapWarning(history) {
   const days = getProlongedBreakDays(history);
   if (days != null && days >= 10) return {

@@ -6,7 +6,7 @@ import {
 import { C, cardStyle } from "../core.js";
 import { SectionTitle } from "../components/ui.jsx";
 import {
-  SESSIONS, SESSION_ORDER, ADAPT_TIPS, getAdaptiveSuggestion, getGapWarning, daysBetween,
+  SESSIONS, SESSION_ORDER, ADAPT_TIPS, getAdaptiveSuggestion, getGapWarning, getCatchUp, daysBetween,
   strengthTrend, strengthSeries, assiduitySeries,
 } from "../lib/sport.js";
 import { Sparkline } from "./components.jsx";
@@ -17,6 +17,7 @@ import { Sparkline } from "./components.jsx";
 export function SportHome({ workouts, currentWeek, sessionDays, onOpen, onOpenDetail, onManualLog }) {
   const todayDow = new Date().getDay();
   const gap = getGapWarning(workouts);
+  const catchUp = getCatchUp(workouts, sessionDays, currentWeek);
   const todaysSession = SESSION_ORDER.find((sid) => sessionDays[sid] === todayDow);
   const doneThisWeek = (sid) => !!workouts[`W${currentWeek}-${sid}`];
 
@@ -24,6 +25,7 @@ export function SportHome({ workouts, currentWeek, sessionDays, onOpen, onOpenDe
     <div className="pb-2">
       <ProgressCard workouts={workouts} currentWeek={currentWeek} />
 
+      {catchUp.length > 0 && <CatchUpBanner sessions={catchUp} onOpen={onOpen} />}
       {gap && <Banner level={gap.level} title={gap.title} message={gap.message} />}
 
       {/* Timeline de la semaine */}
@@ -34,23 +36,28 @@ export function SportHome({ workouts, currentWeek, sessionDays, onOpen, onOpenDe
           const s = SESSIONS[sid];
           const done = doneThisWeek(sid);
           const isToday = todaysSession === sid;
+          const missed = catchUp.includes(sid);
           const sugg = getAdaptiveSuggestion(workouts, sid);
-          const dotCol = done ? C.green : isToday ? C.accent : C.muted;
+          const dotCol = done ? C.green : isToday ? C.accent : missed ? C.over : C.muted;
+          const filled = done || isToday || missed;
+          const edge = isToday && !done ? C.accent : missed ? C.over : null;
           return (
             <div key={sid} className="relative mb-3">
-              <span className="absolute -left-7 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full" style={{ backgroundColor: done || isToday ? dotCol : C.paper, border: `2px solid ${done || isToday ? dotCol : C.line}` }}>
+              <span className="absolute -left-7 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full" style={{ backgroundColor: filled ? dotCol : C.paper, border: `2px solid ${filled ? dotCol : C.line}` }}>
                 {done && <Check size={11} color="#fff" />}
+                {missed && !done && <AlertTriangle size={11} color="#fff" />}
               </span>
-              <button onClick={() => onOpen(sid)} className="flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle(isToday && !done ? { border: `1px solid ${C.accent}`, borderTop: `1px solid ${C.accent}` } : undefined)}>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: done ? `${C.green}22` : C.paper, color: done ? C.green : C.sub }}>
+              <button onClick={() => onOpen(sid)} className="flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle(edge ? { border: `1px solid ${edge}`, borderTop: `1px solid ${edge}` } : undefined)}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: done ? `${C.green}22` : missed ? `${C.over}1a` : C.paper, color: done ? C.green : missed ? C.over : C.sub }}>
                   {done ? <Check size={18} /> : <Dumbbell size={17} />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 text-sm font-bold" style={{ color: C.ink }}>
                     {s.name} · {s.subtitle}
                     {isToday && !done && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: C.accent }}>Aujourd'hui</span>}
+                    {missed && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: C.over }}>À rattraper</span>}
                   </p>
-                  <p className="truncate text-xs" style={{ color: C.sub }}>{s.day} · {s.duration}{done ? " · fait ✓" : ""}{sugg ? " · ⚠︎ à retenter" : ""}</p>
+                  <p className="truncate text-xs" style={{ color: C.sub }}>{s.day} · {s.duration}{done ? " · fait ✓" : missed ? " · jour passé" : ""}{sugg ? " · ⚠︎ à retenter" : ""}</p>
                 </div>
                 <ChevronRight size={18} style={{ color: C.muted }} />
               </button>
@@ -101,6 +108,36 @@ function ProgressCard({ workouts, currentWeek }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Bannière de rattrapage : une ou plusieurs séances dont le jour est passé sans
+// qu'elles soient faites. Le bouton ouvre la plus ancienne ; la faire la logge sur
+// la semaine en cours (rien ne se décale, c'est juste un jour différent).
+export function CatchUpBanner({ sessions, onOpen }) {
+  const col = C.over;
+  const first = sessions[0];
+  const s = SESSIONS[first];
+  const multi = sessions.length > 1;
+  return (
+    <div className="mb-4 rounded-2xl cm-card" style={{ backgroundColor: `${col}14`, border: `1px solid ${col}44` }}>
+      <div className="flex gap-3">
+        <AlertTriangle size={18} style={{ color: col, flexShrink: 0, marginTop: 2 }} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold" style={{ color: C.ink }}>
+            {multi ? `${sessions.length} séances à rattraper` : `${s.name} pas encore faite`}
+          </p>
+          <p className="mt-0.5 text-xs" style={{ color: C.sub }}>
+            {multi
+              ? `${sessions.map((id) => SESSIONS[id].name).join(", ")} : leur jour est passé cette semaine. Rattrape-les aujourd'hui, ça compte pour la semaine en cours.`
+              : `Son jour (${s.day.toLowerCase()}) est passé. Rattrape-la aujourd'hui — ça compte pour cette semaine, rien ne se décale.`}
+          </p>
+        </div>
+      </div>
+      <button onClick={() => onOpen(first)} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: col }}>
+        <Dumbbell size={15} /> Rattraper {s.name} maintenant
+      </button>
     </div>
   );
 }
