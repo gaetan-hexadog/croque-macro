@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Plus, Pencil, BookmarkPlus, Check } from "lucide-react";
+import { Sparkles, Send, Plus, Pencil, BookmarkPlus, Check, ImagePlus, X } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { chatAssistant, AssistantError } from "../lib/assistant.js";
+import { compressImage } from "../lib/image.js";
 
 const STARTERS = [
   "Que manger ce soir avec ce qu'il me reste ?",
@@ -51,21 +52,35 @@ export function ChatSheet({ system, onAction, onClose }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [acts, setActs] = useState({}); // `${i}-${ai}` → { done?: string, err?: string }
+  const [img, setImg] = useState(null); // photo en attente : { dataUrl, base64, mediaType }
+  const fileRef = useRef(null);
   const scrollRef = useRef(null);
   useEffect(() => { scrollRef.current && scrollRef.current.scrollTo({ top: 1e9, behavior: "smooth" }); }, [msgs, busy]);
+
+  const pickImg = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    setErr("");
+    try { setImg(await compressImage(f)); } catch { setErr("Image illisible — réessaie."); }
+  };
 
   // Met à jour le contenu de la bulle assistant en cours de stream (la dernière flaggée).
   const patchStream = (fn) => setMsgs((m) => { const c = m.slice(); for (let k = c.length - 1; k >= 0; k--) { if (c[k].streaming) { c[k] = fn(c[k]); break; } } return c; });
 
   const send = async (text) => {
     const content = (text != null ? text : input).trim();
-    if (!content || busy) return;
+    if ((!content && !img) || busy) return;
     setInput(""); setErr("");
-    const next = [...msgs, { role: "user", content }];
+    // Avec une photo : message multimodal (texte + image base64) pour l'API ; on garde le
+    // dataUrl à part pour l'afficher dans la bulle.
+    const api = img
+      ? [{ type: "text", text: content || "Analyse cette photo (repas ou produit) : estime les macros et dis-moi si ça colle à mes objectifs." }, { type: "image", source: { type: "base64", media_type: img.mediaType, data: img.base64 } }]
+      : content;
+    const next = [...msgs, { role: "user", content, img: img?.dataUrl || null, api }];
+    setImg(null);
     setMsgs([...next, { role: "assistant", content: "", actions: [], streaming: true }]); // placeholder qui se remplit
     setBusy(true);
     try {
-      const apiMsgs = next.map((m) => ({ role: m.role, content: m.content || "(proposition d'action)" }));
+      const apiMsgs = next.map((m) => ({ role: m.role, content: m.api != null ? m.api : (m.content || "(proposition d'action)") }));
       const { text: reply, actions } = await chatAssistant({ system, messages: apiMsgs }, { onToken: (t) => patchStream((x) => ({ ...x, content: t })) });
       patchStream(() => ({ role: "assistant", content: reply, actions }));
     } catch (e) {
@@ -90,7 +105,7 @@ export function ChatSheet({ system, onAction, onClose }) {
         <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto pb-2" style={{ scrollbarWidth: "none" }}>
           {msgs.length === 0 && !busy && (
             <div className="space-y-3 py-2">
-              <p className="text-sm leading-relaxed" style={{ color: C.sub }}>Pose-moi une question — je connais ton budget du jour, ta semaine, ton frigo et tes recettes, et je peux enregistrer/logger/modifier (tu valides toujours).</p>
+              <p className="text-sm leading-relaxed" style={{ color: C.sub }}>Pose-moi une question — je connais ton budget du jour, ta semaine, ton frigo et tes recettes, et je peux enregistrer/logger/modifier (tu valides toujours). Tu peux aussi m'envoyer une <b style={{ color: C.ink }}>photo</b> d'un plat ou d'un produit.</p>
               <div className="flex flex-col gap-1.5">
                 {STARTERS.map((s) => (
                   <button key={s} onClick={() => send(s)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
@@ -102,7 +117,10 @@ export function ChatSheet({ system, onAction, onClose }) {
           )}
           {msgs.map((m, i) => m.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: `${C.accent}22`, border: `1px solid ${C.accent}3a`, color: C.ink }}>{m.content}</div>
+              <div className="max-w-[82%] overflow-hidden rounded-2xl rounded-br-md text-sm leading-relaxed" style={{ backgroundColor: `${C.accent}22`, border: `1px solid ${C.accent}3a`, color: C.ink }}>
+                {m.img && <img src={m.img} alt="photo envoyée" className="block max-h-52 w-full object-cover" />}
+                {m.content && <div className="whitespace-pre-wrap px-3.5 py-2.5">{m.content}</div>}
+              </div>
             </div>
           ) : (
             <div key={i} className="flex items-start gap-2">
@@ -131,16 +149,31 @@ export function ChatSheet({ system, onAction, onClose }) {
           {err && <p className="px-1 text-xs" style={{ color: C.over }}>{err}</p>}
         </div>
 
-        <div className="flex shrink-0 items-end gap-2 pt-2" style={{ borderTop: `1px solid ${C.line}` }}>
-          <textarea
-            value={input} onChange={(e) => setInput(e.target.value)} rows={1}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder="Écris ta question…"
-            className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl px-3.5 py-3 text-sm outline-none"
-            style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-          <button onClick={() => send()} disabled={!input.trim() || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.accent, color: "#1a1208" }} aria-label="Envoyer">
-            <Send size={18} />
-          </button>
+        <div className="shrink-0 pt-2" style={{ borderTop: `1px solid ${C.line}` }}>
+          {img && (
+            <div className="mb-2 flex items-center gap-2">
+              <div className="relative">
+                <img src={img.dataUrl} alt="à envoyer" className="h-14 w-14 rounded-xl object-cover" style={{ border: `1px solid ${C.line}` }} />
+                <button onClick={() => setImg(null)} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.over, color: "#fff" }} aria-label="Retirer la photo"><X size={12} /></button>
+              </div>
+              <span className="text-xs" style={{ color: C.sub }}>Photo prête — ajoute une question (ou envoie).</span>
+            </div>
+          )}
+          <div className="flex items-end gap-2">
+            <input ref={fileRef} type="file" accept="image/*" onChange={pickImg} className="hidden" />
+            <button onClick={() => fileRef.current?.click()} disabled={busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Ajouter une photo">
+              <ImagePlus size={18} />
+            </button>
+            <textarea
+              value={input} onChange={(e) => setInput(e.target.value)} rows={1}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder="Écris ta question…"
+              className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl px-3.5 py-3 text-sm outline-none"
+              style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
+            <button onClick={() => send()} disabled={(!input.trim() && !img) || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.accent, color: "#1a1208" }} aria-label="Envoyer">
+              <Send size={18} />
+            </button>
+          </div>
         </div>
       </div>
     </Sheet>

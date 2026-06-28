@@ -257,7 +257,16 @@ async function explainText(body: any, apiKey: string) {
 async function chatText(body: any, apiKey: string) {
   const { system } = body;
   if (!Array.isArray(body.messages) || !body.messages.length) return json(400, { error: "Messages manquants." });
-  const messages = body.messages.slice(-20).map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 4000) })).filter((m: any) => m.content);
+  // content = string OU tableau de blocs {text} / {image base64} (chat multimodal).
+  const norm = (c: any) => {
+    if (Array.isArray(c)) return c.map((b: any) => {
+      if (b?.type === "image" && b?.source?.data) return { type: "image", source: { type: "base64", media_type: String(b.source.media_type || "image/jpeg"), data: String(b.source.data) } };
+      if (b?.type === "text") return { type: "text", text: String(b.text || "").slice(0, 4000) };
+      return null;
+    }).filter(Boolean);
+    return String(c || "").slice(0, 4000);
+  };
+  const messages = body.messages.slice(-20).map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: norm(m.content) })).filter((m: any) => (Array.isArray(m.content) ? m.content.length : m.content));
   if (!messages.length) return json(400, { error: "Messages vides." });
   let res: Response;
   try {

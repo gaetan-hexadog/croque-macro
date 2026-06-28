@@ -3,21 +3,10 @@ import { Camera, Type, Loader2, AlertCircle, Plus, Image as ImageIcon } from "lu
 import { C, cardStyle, buildAssistantPrompt } from "../core.js";
 import { askAssistant, AssistantError, analyzePhotoMeal } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
+import { compressImage } from "../lib/image.js";
 
 const SLOTS = [["pdj", "Petit-déj"], ["dej", "Déj"], ["diner", "Dîner"], ["snack", "En-cas"]];
 const ingLine = (i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim());
-
-// Compresse une image (max 1024 px, JPEG) → { dataUrl, base64 } pour l'envoi.
-async function compressImage(file, max = 1024, quality = 0.72) {
-  const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl; });
-  const scale = Math.min(1, max / Math.max(img.width, img.height));
-  const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-  const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
-  canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-  const out = canvas.toDataURL("image/jpeg", quality);
-  return { dataUrl: out, base64: out.split(",")[1] };
-}
 
 // Log rapide d'un repas : par PHOTO (IA vision) ou DESCRIPTION (langage naturel).
 export function QuickLogSheet({ onLog, onClose, favorites = [], knownFoods = [] }) {
