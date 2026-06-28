@@ -131,7 +131,7 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
   const calc = selected && macros
     ? {
         kcal: Math.round(pf(macros.kcal) * g / 100),
-        p: Math.round(pf(macros.p) * g / 10) / 10,
+        p: Math.round(pf(macros.p) * g / 100),
         c: macros.c !== "" && macros.c != null ? Math.round(pf(macros.c) * g / 10) / 10 : null,
         f: macros.f !== "" && macros.f != null ? Math.round(pf(macros.f) * g / 10) / 10 : null,
       }

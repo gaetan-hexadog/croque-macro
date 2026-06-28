@@ -17,7 +17,7 @@ export function FrigoPick({ pantry = [], accent = C.weight, onPick }) {
     const unit = sel.unit || "g";
     const q = Math.max(0, parseFloat(String(qty).replace(",", ".")) || 0);
     const kcal = Math.round((sel.kcal100 || 0) * q / 100);
-    const p = Math.round((sel.p100 || 0) * q / 10) / 10;
+    const p = Math.round((sel.p100 || 0) * q / 100);
     const add = () => { if (q > 0) onPick({ name: `${sel.name} (${q} ${unit})`, kcal, p }); };
     return (
       <div>

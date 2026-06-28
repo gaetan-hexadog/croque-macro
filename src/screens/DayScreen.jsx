@@ -235,7 +235,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[it.slot].color}1f`, color: SLOT_UI[it.slot].color }}><Plus size={15} /></span>
                   <span className="min-w-0">
                     <span className="block max-w-34 truncate text-xs font-bold" style={{ color: C.ink }}>{it.name}</span>
-                    <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{it.kcal} kcal · {it.p} g</span>
+                    <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{r0(it.kcal)} kcal · {r0(it.p)} g</span>
                   </span>
                 </button>
               ))}
@@ -340,7 +340,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
             {has && <span className="text-[11px]" style={{ color: C.muted }}>· {meals.length} item{meals.length > 1 ? "s" : ""}</span>}
           </span>
         </div>
-        {has && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: planned ? C.muted : C.sub }}>{sub.kcal} · {sub.p} g</span>}
+        {has && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: planned ? C.muted : C.sub }}>{r0(sub.kcal)} · {r0(sub.p)} g</span>}
         {onSkip && <button onClick={onSkip} className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={skipped ? { backgroundColor: C.ink, color: C.bg } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}>{skipped ? "Sauté" : "Sauter"}</button>}
         {!skipped && onIdea && <button onClick={onIdea} aria-label="Assistant pour ce repas" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={14} /></button>}
         {!skipped && <button onClick={onAdd} aria-label="Ajouter / piocher" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: ui.color }}><Plus size={15} /></button>}
@@ -394,7 +394,7 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
             {has && <span className="text-[11px]" style={{ color: C.muted }}>· {items.length} item{items.length > 1 ? "s" : ""}</span>}
           </span>
         </div>
-        {has && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: C.sub }}>{sub.kcal} · {sub.p} g</span>}
+        {has && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: C.sub }}>{r0(sub.kcal)} · {r0(sub.p)} g</span>}
         {onIdea && <button onClick={onIdea} aria-label="Assistant" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1a`, color: C.accent }}><Wand2 size={14} /></button>}
         <button onClick={onAdd} aria-label="Ajouter" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color }}><Plus size={15} /></button>
       </div>

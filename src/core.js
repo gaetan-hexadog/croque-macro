@@ -147,7 +147,7 @@ const normPicks = (p = {}) => ({ pdj: toList(p.pdj), dej: toList(p.dej), diner: 
 const normDay = (d = {}) => ({ picks: normPicks(d.picks), skipBreakfast: !!d.skipBreakfast, training: !!d.training });
 const normDays = (obj = {}) => { const o = {}; for (const k in obj) o[k] = normDay(obj[k]); return o; };
 
-const sumItems = (arr) => arr.reduce((a, m) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 });
+const sumItems = (arr) => { const t = arr.reduce((a, m) => ({ kcal: a.kcal + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { kcal: 0, p: 0 }); return { kcal: Math.round(t.kcal), p: Math.round(t.p) }; };
 const allItems = (day) => { const pk = (day && day.picks) || {}; return [...toList(pk.pdj), ...toList(pk.dej), ...toList(pk.diner), ...(pk.snacks || []), ...(pk.extras || [])].filter(Boolean); };
 // Totaux RÉELS (consommés) : on exclut les repas seulement PLANIFIÉS (forecast).
 function dayTotals(day) {
@@ -193,11 +193,12 @@ function weekStats(days, settings, refISO, span = 7) {
     const d = days[iso];
     const has = d && hasData(d);
     const t = has ? dayTotals(d) : null;
-    // Le jour EN COURS (aujourd'hui) n'est pas terminé : ses repas pas encore passés ne sont
-    // pas une « marge ». On l'exclut des agrégats (solde, moyenne) — il reste dans perDay.
+    // Le jour EN COURS (aujourd'hui) n'est pas terminé : ses repas pas encore passés ne
+    // sont PAS une « marge ». On l'exclut du SOLDE (deltaSum) — mais il compte dans la
+    // moyenne/le nb de jours loggés.
     const isToday = iso === TODAY;
-    if (has && !isToday) { consumedSum += t.kcal; protSum += t.p; logged++; deltaSum += target - t.kcal; }
-    perDay.push({ iso, kcal: has ? t.kcal : null, p: has ? t.p : null, delta: (has && !isToday) ? target - t.kcal : null, logged: has, today: isToday });
+    if (has) { consumedSum += t.kcal; protSum += t.p; logged++; if (!isToday) deltaSum += target - t.kcal; }
+    perDay.push({ iso, kcal: has ? t.kcal : null, p: has ? t.p : null, delta: has ? target - t.kcal : null, logged: has, today: isToday });
   }
   return {
     target, span, logged,
