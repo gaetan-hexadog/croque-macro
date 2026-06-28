@@ -22,8 +22,10 @@ export class AssistantError extends Error {
 }
 
 // POST vers l'Edge Function, avec session + offline + TIMEOUT/abort (filet anti-blocage
-// réseau : on coupe au bout de timeoutMs si rien ne revient). Renvoie la Response.
-async function postAssistant(body, { signal, timeoutMs = 45000, authMsg } = {}) {
+// réseau : on coupe au bout de timeoutMs si rien ne revient). 90 s : sur Supabase Edge il n'y
+// a plus le plafond 10 s de Netlify, un gros appel Claude (jour/semaine, macros par ingrédient)
+// peut légitimement durer ~30-60 s. Renvoie la Response.
+async function postAssistant(body, { signal, timeoutMs = 90000, authMsg } = {}) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) throw new AssistantError("Hors-ligne — l'assistant a besoin d'une connexion.", { kind: "offline" });
   const { data } = await supabase.auth.getSession();
   const token = data?.session?.access_token;
@@ -94,10 +96,11 @@ export async function chatAssistant({ system, messages }, { onToken, ...opts } =
   let buf = "", text = "", tool = null, toolJson = "";
   const actions = [];
   // Timeout d'INACTIVITÉ : le timeout global de postAssistant est levé dès les headers reçus ;
-  // sans ça, un flux figé laisserait l'UI bloquée (busy) indéfiniment.
+  // sans ça, un flux figé laisserait l'UI bloquée (busy) indéfiniment. 60 s : si Supabase
+  // bufferise le SSE (pas de streaming temps réel), le 1er morceau peut arriver tard.
   const readNext = () => { let t; return Promise.race([
     reader.read(),
-    new Promise((_, rej) => { t = setTimeout(() => rej(new AssistantError("L'assistant s'est interrompu — réessaie.", { kind: "offline" })), 30000); }),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new AssistantError("L'assistant s'est interrompu — réessaie.", { kind: "offline" })), 60000); }),
   ]).finally(() => clearTimeout(t)); };
   try {
     for (;;) {
