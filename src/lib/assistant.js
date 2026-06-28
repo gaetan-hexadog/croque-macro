@@ -21,8 +21,8 @@ export class AssistantError extends Error {
   }
 }
 
-// POST vers la function, avec session + offline + TIMEOUT/abort (filet anti-blocage :
-// la function Netlify peut timeouter silencieusement ~10-26 s). Renvoie la Response.
+// POST vers l'Edge Function, avec session + offline + TIMEOUT/abort (filet anti-blocage
+// réseau : on coupe au bout de timeoutMs si rien ne revient). Renvoie la Response.
 async function postAssistant(body, { signal, timeoutMs = 45000, authMsg } = {}) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) throw new AssistantError("Hors-ligne — l'assistant a besoin d'une connexion.", { kind: "offline" });
   const { data } = await supabase.auth.getSession();
@@ -47,7 +47,7 @@ async function postAssistant(body, { signal, timeoutMs = 45000, authMsg } = {}) 
 export async function askAssistant(payload, opts = {}) {
   const res = await postAssistant(payload, { ...opts, authMsg: "Connecte-toi pour utiliser l'assistant." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   let out;
@@ -62,7 +62,7 @@ export async function askAssistant(payload, opts = {}) {
 export async function explainWeight({ system, prompt }, opts = {}) {
   const res = await postAssistant({ explain: true, system, prompt }, { ...opts, authMsg: "Connecte-toi pour l'analyse." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   let out;
@@ -79,7 +79,7 @@ export async function explainWeight({ system, prompt }, opts = {}) {
 export async function chatAssistant({ system, messages }, { onToken, ...opts } = {}) {
   const res = await postAssistant({ chat: true, system, messages }, { ...opts, authMsg: "Connecte-toi pour discuter avec l'assistant." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   const ct = (res.headers.get("content-type") || "").toLowerCase();
@@ -137,7 +137,7 @@ export async function chatAssistant({ system, messages }, { onToken, ...opts } =
 export async function importRecipeFromUrl(url, opts = {}) {
   const res = await postAssistant({ url }, { ...opts, authMsg: "Connecte-toi pour importer." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError((out?.error || `Import impossible (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
@@ -149,7 +149,7 @@ export async function importRecipeFromUrl(url, opts = {}) {
 export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", opts = {}) {
   const res = await postAssistant({ image: base64, media_type: mediaType }, { ...opts, authMsg: "Connecte-toi pour analyser une photo." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   let out;
   try { out = await res.json(); } catch { out = null; }
   if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
@@ -169,7 +169,7 @@ export async function adaptWorkout({ workout, equipment, minutes }, { signal } =
     res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` }, body: JSON.stringify({ workout, equipment, minutes }), signal });
   } catch { throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" }); }
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (clé API à ajouter dans Netlify).", { status: 503, kind: "unconfigured" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
   let out;

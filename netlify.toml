@@ -5,10 +5,8 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Assistant repas : function serverless (clé Anthropic en variable d'env Netlify)
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
+# Netlify héberge le FRONT (build Vite). L'assistant IA tourne en Supabase Edge Function
+# (supabase/functions/assistant) — plus de function serverless Netlify.
 
 # SPA : toutes les routes renvoient vers index.html
 [[redirects]]

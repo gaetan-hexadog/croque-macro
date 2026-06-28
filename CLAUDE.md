@@ -6,10 +6,13 @@
 ## Projet
 Croque·Macro — PWA de planification de repas végétariens (pioche adaptative, suivi
 kcal/protéines/poids, historique, graphiques, écran recettes). Usage perso, mono-utilisateur,
-installée en **PWA standalone sur iPhone iOS**.
+installée en **PWA standalone sur Android** (Chrome → « Installer l'application »). Implications :
+`navigator.share` natif dispo, `<input capture>` et `BarcodeDetector` fonctionnent.
 
 - **Stack** : Vite 6 + React 18 (JSX) + Tailwind v4 (`@tailwindcss/vite`) + `vite-plugin-pwa`.
-- **Icônes** : `lucide-react`. **Gestionnaire** : `pnpm`. **Déploiement** : Netlify.
+- **Icônes** : `lucide-react`. **Gestionnaire** : `pnpm`.
+- **Déploiement** : **front** sur Netlify ; **assistant IA** sur Supabase Edge Function
+  (`supabase/functions/assistant`, voir section Supabase). Plus de Netlify Functions.
 - **Build** : `pnpm build`. Toujours vérifier que le build passe après une modif.
 
 ## Interlocuteur
@@ -70,6 +73,11 @@ Organisée en sous-dossiers. À la **racine de `src/`** : `App.jsx`, `main.jsx`,
   `supabase/002_personal.sql` (day_logs/weight_logs/app_state), `supabase/003_seed_library.sql`
   (seed généré depuis `library.snapshot.js`). Voir `supabase/README.md`.
 - Auth activée : **email/mot de passe + magic link**. Site URL + Redirect URLs = domaine Netlify.
+- **Edge Function** `supabase/functions/assistant` (Deno/TS) = **l'assistant IA** (appels API Claude :
+  suggestions repas, chat agentique multimodal photo/texte, import URL, analyse poids, scan produit).
+  Le front bâtit le prompt (`core.buildAssistantPrompt`/`buildChatSystem`), la function ajoute la clé.
+  Secret **`ANTHROPIC_API_KEY`** côté Supabase (jamais dans le repo). Le chat est en **streaming** (SSE
+  relayé). Déploiement : `supabase functions deploy assistant`. (Migré des Netlify Functions : cap 10 s → 502/504.)
 
 ## Modèle de données local (payload localStorage, clé `croque-macro:v1`)
 `{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases,

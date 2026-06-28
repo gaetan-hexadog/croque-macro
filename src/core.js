@@ -510,7 +510,7 @@ function correctMacros(meal, knownFoods = [], pantry = []) {
 }
 
 // ── Assistant repas (API Claude) ─────────────────────────────────────────────
-// Construit { system, prompt, mode } pour la Netlify Function. Le system porte
+// Construit { system, prompt, mode } pour l'Edge Function (Supabase). Le system porte
 // les règles diététiques NON négociables ; le prompt porte le contexte du jour
 // (budget réel, frigo, favoris, macros exactes des produits connus).
 const SLOT_LABELS = { pdj: "petit-déjeuner", dej: "déjeuner", diner: "dîner", snack: "en-cas" };

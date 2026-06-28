@@ -83,7 +83,7 @@ export default function PlanScreen({
 
   // Génère UNE journée, créneau par créneau EN SÉQUENCE : chaque repas connaît les
   // précédents (déjà loggés + déjà générés) → cohérence ; chaque appel reste petit
-  // (1 créneau, 2 options concises) → sous le timeout Netlify. Apparition progressive.
+  // (1 créneau, 2 options concises) → réponse rapide. Apparition progressive.
   const genDay = async (di) => {
     const iso = mode === "week" ? addDays(date, di) : date;
     const sl = emptySlots(iso);
@@ -233,7 +233,7 @@ export default function PlanScreen({
           <AlertCircle size={16} style={{ color: C.over, flexShrink: 0, marginTop: 1 }} />
           <div className="text-xs" style={{ color: C.sub }}>
             <p className="font-semibold" style={{ color: C.ink }}>{error.message}</p>
-            {error.kind === "unconfigured" && <p className="mt-1">Ajoute <code>ANTHROPIC_API_KEY</code> dans Netlify.</p>}
+            {error.kind === "unconfigured" && <p className="mt-1">Ajoute <code>ANTHROPIC_API_KEY</code> dans Supabase.</p>}
             {error.kind === "offline" && <p className="mt-1">L'assistant ne marche que sur l'app déployée.</p>}
           </div>
         </div>
