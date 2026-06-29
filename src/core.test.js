@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros, catOf, protStock } from "./core.js";
+import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros, catOf, protStock, varietyProfile } from "./core.js";
 import { mergeAppState } from "./lib/sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
@@ -208,6 +208,24 @@ describe("protStock", () => {
   it("0 sur liste vide ou nulle", () => {
     expect(protStock([])).toBe(0);
     expect(protStock()).toBe(0);
+  });
+});
+
+describe("varietyProfile", () => {
+  const meal = (name) => ({ name, kcal: 300, p: 20 });
+  it("compte les aliments récurrents (1×/repas) et garde ceux vus ≥ 2 fois", () => {
+    const days = {
+      [TODAY]: { picks: { pdj: [meal("Bowl skyr amande")], dej: [meal("Tofu sauté")], diner: [], snacks: [], extras: [] } },
+      [addDays(TODAY, -1)]: { picks: { pdj: [meal("Skyr fruits")], dej: [meal("Curry tofu")], diner: [], snacks: [], extras: [] } },
+      [addDays(TODAY, -2)]: { picks: { pdj: [], dej: [meal("Tofu grillé")], diner: [], snacks: [], extras: [] } },
+    };
+    const map = Object.fromEntries(varietyProfile(days, TODAY, 10).map((x) => [x.name, x.n]));
+    expect(map["tofu"]).toBe(3);
+    expect(map["skyr"]).toBe(2);
+  });
+  it("ignore les repas seulement planifiés", () => {
+    const days = { [TODAY]: { picks: { pdj: [{ name: "Tofu", kcal: 1, p: 1, planned: true }], dej: [], diner: [], snacks: [], extras: [] } } };
+    expect(varietyProfile(days, TODAY)).toEqual([]);
   });
 });
 

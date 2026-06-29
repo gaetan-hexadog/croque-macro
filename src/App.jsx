@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach, varietyProfile,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, recompSignal } from "./lib/sport.js";
 import { loadLive } from "./sport/liveSession.js";
@@ -821,7 +821,7 @@ export default function PiocheRepas() {
       {ideaSlot && (
         <MealSuggestSheet
           slot={ideaSlot} remKcal={slotMargin(ideaSlot).kcal} remP={slotMargin(ideaSlot).p}
-          targetKcal={settings.kcal} targetP={settings.protein} training={training} workout={sportInfo?.name} trend={observedTrend(days, weights, activeDate)}
+          targetKcal={settings.kcal} targetP={settings.protein} training={training} workout={sportInfo?.name} trend={observedTrend(days, weights, activeDate)} overused={varietyProfile(days, activeDate)}
           dayRemKcal={remKcal} dayRemP={remP} reserveKcal={Math.max(0, remKcal - slotMargin(ideaSlot).kcal)} weekBalance={weekBalance}
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           localIdeas={[...customRecipes, ...library.recipes]}

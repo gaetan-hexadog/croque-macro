@@ -544,6 +544,33 @@ function protStock(items = []) {
 // (budget réel, frigo, favoris, macros exactes des produits connus).
 const SLOT_LABELS = { pdj: "petit-déjeuner", dej: "déjeuner", diner: "dîner", snack: "en-cas" };
 
+// Aliments « traçables » pour le profil de variété (sources de protéine, légumes, féculents).
+const TRACK_FOODS = [
+  ["tofu", /tofu/], ["tempeh", /tempeh/], ["seitan", /seitan/], ["skyr", /skyr/],
+  ["œufs", /oeuf|œuf/], ["fromage blanc", /fromage blanc/], ["feta", /feta/], ["fromage", /fromage(?! blanc)/],
+  ["pois chiches", /pois chiche/], ["lentilles", /lentille/], ["haricots", /haricot/], ["edamame", /edamame/],
+  ["protéine en poudre", /proteine|whey|all.?in.?one/], ["quinoa", /quinoa/], ["riz", /\briz\b/], ["pâtes", /pates|pasta|spaghetti/],
+  ["avoine", /avoine|flocon/], ["patate douce", /patate douce/], ["pomme de terre", /pomme de terre|\bpatate(?! douce)/],
+  ["épinards", /epinard/], ["courgette", /courgette/], ["brocoli", /brocoli/], ["tomate", /tomate/],
+  ["poivron", /poivron/], ["champignons", /champignon/], ["avocat", /avocat/], ["banane", /banane/], ["amandes", /amande/],
+];
+// Compte, sur les ~n derniers jours, combien de fois reviennent ces aliments (1× par repas max).
+// → permet de dire au modèle « tu as déjà fait tofu 5× cette semaine, varie ».
+function varietyProfile(days = {}, refISO = TODAY, n = 10) {
+  const counts = {};
+  for (let i = 0; i <= n; i++) {
+    const d = days[addDays(refISO, -i)];
+    if (!d || !d.picks) continue;
+    const items = ["pdj", "dej", "diner", "snacks", "extras"].flatMap((k) => d.picks[k] || []).filter((it) => it && !it.planned);
+    items.forEach((it) => {
+      const hay = (it.name + " " + (it.ingredients || []).map((x) => (typeof x === "string" ? x : x && x.name)).join(" ")).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const seen = new Set();
+      TRACK_FOODS.forEach(([label, re]) => { if (!seen.has(label) && re.test(hay)) { seen.add(label); counts[label] = (counts[label] || 0) + 1; } });
+    });
+  }
+  return Object.entries(counts).filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([name, c]) => ({ name, n: c }));
+}
+
 function buildAssistantPrompt({
   mode = "meal",            // "meal" | "day" | "week"
   slot,                      // créneau visé (mode meal)
@@ -568,6 +595,7 @@ function buildAssistantPrompt({
   indulge,                   // mode meal : « je me fais plaisir » → budget = restant du jour entier, prévenir de l'impact
   dateLabel, startLabel,
   training = false, workout, trend, // jour de sport (ajuster glucides/protéines) + tendance poids observée
+  overused = [],            // [{name,n}] aliments revenus souvent ces derniers jours → varier
 } = {}) {
   const sys = [
     "Tu es l'assistant nutrition personnel de Bob. Tu proposes des repas végétariens, simples et réalistes. Réponds en français.",
@@ -677,6 +705,7 @@ function buildAssistantPrompt({
   if (!dining) L.push("UTILISE EN PRIORITÉ les aliments listés dans mon frigo/placard ci-dessus : base au moins une PARTIE de chaque repas dessus quand c'est pertinent (indique la portion en g/ml). Tu PEUX compléter avec d'autres aliments courants pour varier et atteindre les cibles, mais ne fais pas comme si mon frigo n'existait pas.");
   if (training) L.push(`Aujourd'hui = JOUR D'ENTRAÎNEMENT${workout ? ` (${workout})` : ""} : vise le HAUT de la fourchette protéines et inclus des GLUCIDES complexes (avoine, riz, patate douce, légumineuses, pain complet) autour de la séance pour la récup — en restant dans le budget.`);
   if (trend && Number.isFinite(trend.maintenance) && Number.isFinite(trend.ratePerWeek)) L.push(`Repère d'après mon poids réel : maintenance estimée ~${r0(trend.maintenance)} kcal/j, évolution ${trend.ratePerWeek <= 0 ? "" : "+"}${(Math.round(trend.ratePerWeek * 100) / 100).toString().replace(".", ",")} kg/sem. Tiens-en compte dans le ton de tes conseils (sans changer le budget chiffré donné).`);
+  if (overused.length) L.push(`VARIÉTÉ — sur mes ~10 derniers jours reviennent souvent : ${overused.map((o) => `${o.name} (${o.n}×)`).join(", ")}. Privilégie d'AUTRES sources de protéines / légumes / féculents que celles-là pour ne pas que je mange toujours pareil (sauf si je le demande explicitement).`);
 
   return { mode, system: sys, prompt: L.join("\n") };
 }
@@ -730,5 +759,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };
