@@ -17,7 +17,9 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptaWxrdmZ6andoendzdGViaWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMDg2NDMsImV4cCI6MjA3Njc4NDY0M30.gW0DszeiFFt4i5m6ubGJ5d_FfayAtrT2xDw4zgzV4CQ";
 
 const MODEL = Deno.env.get("ASSISTANT_MODEL") || "claude-sonnet-4-6";
-const MAX_TOKENS: Record<string, number> = { meal: 1800, day: 2400, week: 4000 };
+// Généreux : 3 options de repas avec macros PAR ingrédient (#4) + étapes + variantes dépassaient
+// 1800 → réponse tronquée → tool `propose` invalide → « réponse inattendue ». Marge confortable.
+const MAX_TOKENS: Record<string, number> = { meal: 4000, day: 6000, week: 8000 };
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
 
 const CORS: Record<string, string> = {
@@ -410,6 +412,6 @@ async function proposeMeals(body: any, apiKey: string): Promise<Response> {
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
   const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "propose");
   const meals = tool?.input?.meals;
-  if (!Array.isArray(meals)) return json(502, { error: "Réponse inattendue de Claude." });
+  if (!Array.isArray(meals)) return json(502, { error: "Réponse inattendue de Claude.", detail: `stop=${data?.stop_reason || "?"}` });
   return json(200, { meals, model: MODEL });
 }
