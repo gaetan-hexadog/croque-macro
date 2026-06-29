@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, Clock, BookOpen, ChevronRight, Refrigerator, Sparkles, PencilLine } from "lucide-react";
+import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, Clock, BookOpen, ChevronRight, Refrigerator, Sparkles, PencilLine, ClipboardPaste } from "lucide-react";
 import { C, cardStyle, oneEmoji, protStock } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
-import { importRecipeFromUrl } from "../lib/assistant.js";
+import { importRecipeFromUrl, importRecipeFromText } from "../lib/assistant.js";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
 import { RecipeDetailSheet, kindMeta, kindColor, SLOT_CHOICES } from "../components/RecipeDetailSheet.jsx";
 
@@ -53,24 +53,33 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   const [importBusy, setImportBusy] = useState(false);
   const [importErr, setImportErr] = useState("");
   const [imported, setImported] = useState(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteErr, setPasteErr] = useState("");
   const nq = deburr(q);
   const favSet = new Set(favorites);
 
   useEffect(() => { if (autoAdd) { setAdding(true); onAutoAddDone && onAutoAddDone(); } }, [autoAdd]);
 
+  // Mappe une recette extraite (URL ou texte) vers le préremplissage de AddRecipeSheet.
+  const prefillFrom = (r) => ({
+    name: r.name || "Recette importée", cat: r.slot || "dej", emoji: r.emoji || "",
+    kcal: Math.round(r.kcal || 0), p: Math.round(r.protein || 0),
+    ingredients: (r.ingredients || []).map((i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim()).filter(Boolean),
+    steps: r.steps || [],
+  });
   const doImport = async () => {
     if (!url.trim()) return;
     setImportBusy(true); setImportErr("");
-    try {
-      const r = await importRecipeFromUrl(url.trim());
-      setImported({
-        name: r.name || "Recette importée", cat: r.slot || "dej", emoji: r.emoji || "",
-        kcal: Math.round(r.kcal || 0), p: Math.round(r.protein || 0),
-        ingredients: (r.ingredients || []).map((i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim()).filter(Boolean),
-        steps: r.steps || [],
-      });
-      setImportOpen(false); setUrl("");
-    } catch (e) { setImportErr(e?.message || "Import impossible."); } finally { setImportBusy(false); }
+    try { setImported(prefillFrom(await importRecipeFromUrl(url.trim()))); setImportOpen(false); setUrl(""); }
+    catch (e) { setImportErr(e?.message || "Import impossible."); } finally { setImportBusy(false); }
+  };
+  const doPaste = async () => {
+    if (pasteText.trim().length < 20) { setPasteErr("Colle une recette (ingrédients + étapes)."); return; }
+    setPasteBusy(true); setPasteErr("");
+    try { setImported(prefillFrom(await importRecipeFromText(pasteText.trim()))); setPasteOpen(false); setPasteText(""); }
+    catch (e) { setPasteErr(e?.message || "Extraction impossible."); } finally { setPasteBusy(false); }
   };
 
   const matches = (m) => !nq || deburr(m.name + " " + (m.ingredients || []).join(" ") + " " + (m.items || []).map((i) => i.name).join(" ")).includes(nq);
@@ -91,6 +100,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   const ADD = [
     { i: Plus, l: "Créer une recette", d: "Saisir nom, ingrédients, macros", c: C.green, act: () => setAdding(true) },
     { i: Globe, l: "Importer depuis une URL", d: "L'assistant extrait la recette", c: C.protein, act: () => { setImportErr(""); setImportOpen(true); } },
+    { i: ClipboardPaste, l: "Coller une recette", d: "Texte brut → recette structurée", c: C.weight, act: () => { setPasteErr(""); setPasteOpen(true); } },
     { i: ScanLine, l: "Scanner un produit", d: "Code-barres Open Food Facts", c: C.accent, act: onScan },
   ];
 
@@ -203,6 +213,17 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
           {importErr && <p className="mb-2 text-xs" style={{ color: C.over }}>{importErr}</p>}
           <button onClick={doImport} disabled={importBusy || !url.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: url.trim() ? C.protein : C.line }}>
             {importBusy ? <><Loader2 size={16} className="animate-spin" /> Lecture de la page…</> : <><Globe size={16} /> Importer</>}
+          </button>
+        </Sheet>
+      )}
+
+      {pasteOpen && (
+        <Sheet open onClose={() => setPasteOpen(false)} title="Coller une recette" subtitle="Texte → recette structurée" icon={<ClipboardPaste size={18} />} iconColor={C.weight}>
+          <p className="mb-3 text-xs leading-relaxed" style={{ color: C.sub }}>Colle une recette (ingrédients, quantités, étapes — n'importe quel format). L'assistant en extrait les ingrédients normalisés pour 1 portion et estime kcal/protéines. Tu pourras tout ajuster avant d'enregistrer.</p>
+          <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={7} placeholder={"Ex.\nPancakes protéinés (2 pers.)\n- 2 œufs\n- 60 g flocons d'avoine\n- 1 banane\n1. Mixer. 2. Cuire à la poêle…"} className="mb-2 w-full resize-none rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+          {pasteErr && <p className="mb-2 text-xs" style={{ color: C.over }}>{pasteErr}</p>}
+          <button onClick={doPaste} disabled={pasteBusy || pasteText.trim().length < 20} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: C.weight }}>
+            {pasteBusy ? <><Loader2 size={16} className="animate-spin" /> Extraction…</> : <><ClipboardPaste size={16} /> Extraire la recette</>}
           </button>
         </Sheet>
       )}

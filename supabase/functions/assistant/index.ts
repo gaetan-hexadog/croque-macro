@@ -222,6 +222,23 @@ async function importRecipe(url: string, apiKey: string) {
   return json(200, { recipe });
 }
 
+// Même extraction, mais depuis un TEXTE collé par l'utilisateur (pas de fetch de page).
+async function importRecipeText(text: string, apiKey: string) {
+  const content = String(text || "").slice(0, 20000);
+  if (content.trim().length < 20) return json(400, { error: "Texte trop court pour une recette." });
+  const sys = "Tu extrais une recette depuis un TEXTE collé par l'utilisateur (format libre : liste d'ingrédients + étapes). Détecte d'abord le NOMBRE DE PORTIONS (`servings`) si le texte l'indique (sinon considère 1). NORMALISE TOUT pour UNE SEULE portion (1 personne) : divise par ce nombre de portions À LA FOIS les QUANTITÉS de chaque ingrédient ET les kcal/protéines. Le résultat doit être COHÉRENT : ingrédients ET macros pour 1 personne. Renseigne le nom, les ingrédients NORMALISÉS (quantité + unité + nom), les étapes (texte fidèle), et estime les macros de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Choisis le slot le plus probable (pdj/dej/diner/snack). Si le texte ne contient pas de recette identifiable, mets found=false. Réponds en français via l'outil import_recipe.";
+  let data: any;
+  try {
+    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Texte de la recette :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }) });
+    if (!res.ok) return json(502, { error: "Extraction impossible pour le moment." });
+    data = await res.json();
+  } catch { return json(502, { error: "Extraction impossible pour le moment." }); }
+  const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "import_recipe");
+  const recipe = tool?.input;
+  if (!recipe || !recipe.found) return json(422, { error: "Aucune recette identifiable dans ce texte." });
+  return json(200, { recipe });
+}
+
 async function analyzePhoto(dataB64: string, mediaType: string, apiKey: string) {
   if (typeof dataB64 !== "string" || dataB64.length > 7_000_000) return json(413, { error: "Image absente ou trop volumineuse." });
   const ok = ["image/jpeg", "image/png", "image/webp"].includes(mediaType);
@@ -298,6 +315,7 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return json(400, { error: "JSON invalide." }); }
 
   if (body && typeof body.url === "string" && body.url.trim()) return importRecipe(body.url.trim(), apiKey);
+  if (body && typeof body.recipeText === "string" && body.recipeText.trim()) return importRecipeText(body.recipeText, apiKey);
   if (body && typeof body.image === "string") return analyzePhoto(body.image, body.media_type, apiKey);
   if (body && body.workout) return adaptWorkoutAI(body, apiKey);
   if (body && body.explain) return explainText(body, apiKey);

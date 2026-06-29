@@ -148,6 +148,18 @@ export async function importRecipeFromUrl(url, opts = {}) {
   return out.recipe;
 }
 
+// Extrait une recette structurée depuis un TEXTE collé (ingrédients, quantités, macros, étapes).
+export async function importRecipeFromText(text, opts = {}) {
+  const res = await postAssistant({ recipeText: text }, { ...opts, authMsg: "Connecte-toi pour importer." });
+  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
+  let out;
+  try { out = await res.json(); } catch { out = null; }
+  if (!res.ok) throw new AssistantError((out?.error || `Extraction impossible (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
+  if (!out || !out.recipe) throw new AssistantError("Aucune recette trouvée dans ce texte.", { kind: "server" });
+  return out.recipe;
+}
+
 // Analyse une photo de repas (base64 sans préfixe data:) → repas estimé (meals[0]).
 export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", opts = {}) {
   const res = await postAssistant({ image: base64, media_type: mediaType }, { ...opts, authMsg: "Connecte-toi pour analyser une photo." });
