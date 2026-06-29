@@ -731,6 +731,31 @@ function buildShoppingPrompt({ pantry = [], overused = [], favorites = [], known
   return { system, prompt: L.join("\n") };
 }
 
+// Bilan NUTRITION de la semaine (au-delà des macros : variété, légumes, fibres, fromage…).
+// { system, prompt } → texte via le endpoint explain. Court, concret, 2 conseils.
+function buildWeeklyReviewPrompt({ days = {}, settings = {}, refISO = TODAY, overused = [] } = {}) {
+  const lines = [];
+  for (let i = 0; i < 7; i++) {
+    const iso = addDays(refISO, -i), d = days[iso];
+    if (!d || !d.picks) continue;
+    const items = ["pdj", "dej", "diner", "snacks", "extras"].flatMap((k) => d.picks[k] || []).filter((it) => it && it.name && !it.planned);
+    if (items.length) lines.push(`${fmtShort(iso)} : ${items.map((it) => it.name).join(", ")}`);
+  }
+  let stats = null; try { stats = weekStats(days, settings, refISO, 7); } catch (_) {}
+  const system = [
+    "Tu es l'assistant nutrition personnel de Bob. Tu fais un BILAN de sa semaine, en français, court et concret (zéro blabla). Objectif : perte de gras, repas végétariens.",
+    "Va AU-DELÀ des kcal/protéines : commente la VARIÉTÉ (sources de protéines, légumes et couleurs, féculents, cuisines), l'équilibre (assez de légumes verts et de fibres ? trop de fromage / sodium / transformés ?) et la régularité.",
+    "Format : 2-3 phrases de constat (ce qui va, ce qui manque), PUIS 2 conseils CONCRETS et actionnables pour la semaine prochaine. Bienveillant mais honnête. ~5-7 lignes max, pas de Markdown lourd.",
+  ].join("\n");
+  const L = [];
+  if (stats && stats.logged) L.push(`Cette semaine : ${stats.logged} jours loggés, moyenne ~${r0(stats.avgKcal)} kcal / ${r0(stats.avgProt)} g protéines par jour (cible ${r0(settings.kcal || 1850)}/${r0(settings.protein || 150)}).`);
+  if (overused.length) L.push(`Aliments qui reviennent souvent : ${overused.map((o) => `${o.name} (${o.n}×)`).join(", ")}.`);
+  if (lines.length) { L.push("Mes repas des 7 derniers jours :"); lines.forEach((m) => L.push(`- ${m}`)); }
+  else L.push("Peu de repas loggés cette semaine.");
+  L.push("Fais-moi un bilan nutrition de la semaine + 2 conseils pour varier et mieux équilibrer.");
+  return { system, prompt: L.join("\n") };
+}
+
 // Prompt « explique mon poids » : repas + pesées des ~10 derniers jours → texte libre
 // qui distingue l'eau (sel/fibres/glucides/transit) du gras réel, en citant ses repas.
 function buildWeightExplainPrompt({ days = {}, weights = {}, settings = {}, refISO = TODAY }) {
@@ -780,5 +805,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

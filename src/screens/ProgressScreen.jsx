@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Dumbbell, Flame, Beef } from "lucide-react";
+import { Dumbbell, Flame, Beef, Sparkles } from "lucide-react";
 import {
   C, TODAY, parseISO, addDays, r0, dayTotals, hasData, cardStyle, weekStats, weekCoach,
 } from "../core.js";
@@ -11,7 +11,7 @@ const grotesk = { fontFamily: "'Space Grotesk', ui-sans-serif, system-ui", fontV
 //  Héro trajectoire poids + verdict semaine · chips macro · courbe de poids.
 //  L'historique jour par jour est rendu par JournalScreen, juste en dessous.
 // ════════════════════════════════════════════════════════════════════════════
-export function ProgressScreen({ days, weights, settings }) {
+export function ProgressScreen({ days, weights, settings, onReview }) {
   const stats = useMemo(() => weekStats(days, settings, TODAY, 7), [days, settings]);
   const coach = useMemo(() => weekCoach(stats, settings, weights, TODAY), [stats, settings, weights]);
 
@@ -68,6 +68,10 @@ export function ProgressScreen({ days, weights, settings }) {
         <Chip icon={Beef} value={stats.logged ? r0(stats.avgProt) : "—"} unit={stats.logged ? " g" : ""} label="protéines / j" tint={C.protein} />
         <Chip icon={Dumbbell} value={sessions} unit="" label="séances / 7 j" tint={C.weight} />
       </div>
+
+      {onReview && (
+        <button onClick={onReview} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.accent}14`, color: C.accent, border: `1px solid ${C.accent}33` }}><Sparkles size={16} /> Bilan nutrition de la semaine</button>
+      )}
 
       {/* Trajectoire du poids */}
       <section className="rounded-3xl p-4" style={cardStyle()}>

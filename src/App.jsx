@@ -18,6 +18,7 @@ import { MealSuggestSheet } from "./sheets/MealSuggestSheet.jsx";
 import { QuickLogSheet } from "./sheets/QuickLogSheet.jsx";
 import { PantrySheet } from "./sheets/PantrySheet.jsx";
 import { ShoppingSheet } from "./sheets/ShoppingSheet.jsx";
+import { ReviewSheet } from "./sheets/ReviewSheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./screens/JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./screens/ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
@@ -61,6 +62,7 @@ export default function PiocheRepas() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
   const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
   const [targetDismissed, setTargetDismissed] = useState(null); // poids pour lequel la suggestion de cible a été masquée
@@ -96,6 +98,7 @@ export default function PiocheRepas() {
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openChat = useCallback(() => { pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
   const openShop = useCallback(() => { pushNav(() => setShopOpen(false)); setShopOpen(true); }, [pushNav]);
+  const openReview = useCallback(() => { pushNav(() => setReviewOpen(false)); setReviewOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
   const openIdea = useCallback((slot) => { pushNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [pushNav]);
@@ -770,7 +773,7 @@ export default function PiocheRepas() {
         )}
         {(view === "journal" || view === "progres") && (
           <div className="space-y-5">
-            <ProgressScreen days={days} weights={weights} settings={settings} />
+            <ProgressScreen days={days} weights={weights} settings={settings} onReview={openReview} />
             <JournalScreen days={days} weights={weights} settings={settings} onOpen={goToDay} activeDate={activeDate} />
           </div>
         )}
@@ -844,6 +847,9 @@ export default function PiocheRepas() {
       </Suspense>
       {shopOpen && (
         <ShoppingSheet pantry={pantry} overused={varietyProfile(days, TODAY)} favorites={assistFavorites} knownFoods={assistKnownFoods} settings={settings} recipes={[...customRecipes, ...library.recipes]} onAddPantry={addPantry} onClose={navBack} />
+      )}
+      {reviewOpen && (
+        <ReviewSheet days={days} settings={settings} overused={varietyProfile(days, TODAY)} refISO={TODAY} onClose={navBack} />
       )}
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
