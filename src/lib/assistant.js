@@ -171,6 +171,20 @@ export async function importRecipeFromText(text, opts = {}) {
   return out.recipe;
 }
 
+// Conseil COURSES pour varier. payload = { system, prompt }. Renvoie { intro, items:[{name,category,why,unlocks}] }.
+export async function shoppingAdvice({ system, prompt }, opts = {}) {
+  const res = await postAssistant({ shopping: true, system, prompt }, { ...opts, authMsg: "Connecte-toi pour les idées courses." });
+  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
+  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
+  if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
+  if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie.", { status: res.status, kind: "offline" });
+  let out;
+  try { out = await res.json(); } catch { out = null; }
+  if (!res.ok) throw new AssistantError(out?.error || `Idées courses impossibles (${res.status}).`, { status: res.status, kind: "server" });
+  if (!out || !Array.isArray(out.items)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+  return { intro: out.intro || "", items: out.items };
+}
+
 // Analyse une photo de repas (base64 sans préfixe data:) → repas estimé (meals[0]).
 export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", opts = {}) {
   const res = await postAssistant({ image: base64, media_type: mediaType }, { ...opts, authMsg: "Connecte-toi pour analyser une photo." });

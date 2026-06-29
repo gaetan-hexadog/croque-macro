@@ -17,6 +17,7 @@ import { AuthGate } from "./screens/AuthGate.jsx";
 import { MealSuggestSheet } from "./sheets/MealSuggestSheet.jsx";
 import { QuickLogSheet } from "./sheets/QuickLogSheet.jsx";
 import { PantrySheet } from "./sheets/PantrySheet.jsx";
+import { ShoppingSheet } from "./sheets/ShoppingSheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./screens/JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./screens/ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
@@ -59,6 +60,7 @@ export default function PiocheRepas() {
   const [sessionChecked, setSessionChecked] = useState(false); // getSession résolu → on peut décider gate vs app
   const [accountOpen, setAccountOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
   const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
   const [targetDismissed, setTargetDismissed] = useState(null); // poids pour lequel la suggestion de cible a été masquée
@@ -93,6 +95,7 @@ export default function PiocheRepas() {
   const openSettings = useCallback(() => go("reglages"), [go]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openChat = useCallback(() => { pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
+  const openShop = useCallback(() => { pushNav(() => setShopOpen(false)); setShopOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
   const openIdea = useCallback((slot) => { pushNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [pushNav]);
@@ -810,7 +813,7 @@ export default function PiocheRepas() {
         </Sheet>
       )}
       {frigoOpen && (
-        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} />
+        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} onShop={openShop} />
       )}
       {quickLogOpen && (
         <QuickLogSheet
@@ -839,6 +842,9 @@ export default function PiocheRepas() {
           <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} onAction={chatAction} onClose={navBack} />
         )}
       </Suspense>
+      {shopOpen && (
+        <ShoppingSheet pantry={pantry} overused={varietyProfile(days, TODAY)} favorites={assistFavorites} knownFoods={assistKnownFoods} settings={settings} recipes={[...customRecipes, ...library.recipes]} onAddPantry={addPantry} onClose={navBack} />
+      )}
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );

@@ -106,6 +106,32 @@ const IMPORT_TOOL = {
   },
 };
 
+const SHOPPING_TOOL = {
+  name: "shopping",
+  description: "Liste de courses pour VARIER les repas et combler les manques, selon le frigo, l'historique et l'objectif.",
+  input_schema: {
+    type: "object",
+    properties: {
+      intro: { type: "string", description: "1-2 phrases : pourquoi cette sélection (ce qui revient trop souvent, ce qui manque)." },
+      items: {
+        type: "array",
+        description: "8 à 12 aliments à acheter pour varier.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Aliment à acheter (végétarien, règles respectées)." },
+            category: { type: "string", description: "protéine | légume | féculent | fruit | autre" },
+            why: { type: "string", description: "Pourquoi cet achat : varie quelle source / comble quel manque." },
+            unlocks: { type: "string", description: "Idée(s) de repas que ça débloque (court)." },
+          },
+          required: ["name", "why"],
+        },
+      },
+    },
+    required: ["intro", "items"],
+  },
+};
+
 const CHAT_TOOLS = [
   { name: "save_recipe", description: "Proposer d'enregistrer une recette dans la cuisine de Bob (quand tu proposes une recette qu'il pourrait vouloir garder).", input_schema: { type: "object", properties: { name: { type: "string" }, emoji: { type: "string" }, cat: { type: "string", enum: ["pdj", "dej", "diner", "snack"] }, kcal: { type: "number" }, p: { type: "number", description: "protéines en g" }, ingredients: { type: "array", items: { type: "string" } }, steps: { type: "array", items: { type: "string" } }, desc: { type: "string" } }, required: ["name", "kcal", "p"] } },
   { name: "log_meal", description: "Proposer d'ajouter un repas/aliment au journal du JOUR de Bob, dans un créneau.", input_schema: { type: "object", properties: { slot: { type: "string", enum: ["pdj", "dej", "diner", "snack"] }, name: { type: "string" }, kcal: { type: "number" }, p: { type: "number" } }, required: ["slot", "name", "kcal", "p"] } },
@@ -351,9 +377,26 @@ Deno.serve(async (req: Request) => {
   if (body && typeof body.image === "string") return keepAlive(analyzePhoto(body.image, body.media_type, apiKey));
   if (body && body.workout) return keepAlive(adaptWorkoutAI(body, apiKey));
   if (body && body.explain) return keepAlive(explainText(body, apiKey));
+  if (body && body.shopping) return keepAlive(shoppingList(body, apiKey));
   if (body && body.chat) return chatText(body, apiKey);
   return keepAlive(proposeMeals(body, apiKey));
 });
+
+// Conseil courses : liste pour varier, à partir du frigo + historique + objectif (prompt côté client).
+async function shoppingList(body: any, apiKey: string): Promise<Response> {
+  const { system, prompt } = body || {};
+  if (!prompt || typeof prompt !== "string") return json(400, { error: "Contexte manquant." });
+  let data: any;
+  try {
+    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" } }) });
+    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+    data = await res.json();
+  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
+  const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "shopping");
+  const out = tool?.input;
+  if (!out || !Array.isArray(out.items)) return json(502, { error: "Réponse inattendue de Claude." });
+  return json(200, { intro: out.intro || "", items: out.items });
+}
 
 // Repas (meal/day/week) : un appel Claude via l'outil propose.
 async function proposeMeals(body: any, apiKey: string): Promise<Response> {

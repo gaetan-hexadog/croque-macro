@@ -710,6 +710,27 @@ function buildAssistantPrompt({
   return { mode, system: sys, prompt: L.join("\n") };
 }
 
+// Conseil COURSES pour varier : { system, prompt } → l'assistant renvoie une liste d'aliments à
+// acheter (frigo + ce qui revient trop + objectif). Sortie via l'outil shopping côté Edge.
+function buildShoppingPrompt({ pantry = [], overused = [], favorites = [], knownFoods = [], settings = {}, recipes = [] } = {}) {
+  const have = pantry.filter((x) => x && !x.out && x.name).map((x) => x.name).slice(0, 50);
+  const recNames = (recipes || []).map((r) => r && r.name).filter(Boolean).slice(0, 40);
+  const system = [
+    "Tu es l'assistant nutrition personnel de Bob. Tu proposes une liste de COURSES pour VARIER ses repas végétariens. Réponds en français via l'outil shopping.",
+    "Règles diététiques STRICTES : végétarien (œufs/fromages au lait de VACHE uniquement, jamais chèvre/brebis) ; Bob ne boit pas de lait de vache (lait végétal = amande non sucré) ; les protéines viennent des aliments protéinés et de la poudre. Objectif : perte de gras.",
+    `Cibles ~${r0(settings.kcal || 1850)} kcal / ~${r0(settings.protein || 150)} g de protéines par jour.`,
+    "Propose 8 à 12 aliments À ACHETER (des aliments, pas des plats cuisinés), en priorité ceux qui DÉBLOQUENT de nouvelles recettes et VARIENT les sources de protéines, légumes, féculents et cuisines. Vise simple, courant, et utile pour des repas protéinés et perte de gras.",
+    "NE repropose PAS ce que Bob a déjà au frigo. Ne renforce pas ce qu'il mange déjà trop souvent. Pour chaque aliment : `category`, `why` (ce que ça varie/comble) et `unlocks` (1 idée de repas que ça débloque).",
+  ].join("\n");
+  const L = [];
+  if (overused.length) L.push(`Ces ~10 derniers jours je tourne beaucoup sur : ${overused.map((o) => `${o.name} (${o.n}×)`).join(", ")}. Aide-moi à SORTIR de cette routine.`);
+  if (have.length) L.push(`J'ai DÉJÀ au frigo/placard (ne le repropose pas) : ${have.join(", ")}.`);
+  if (favorites.length) L.push(`Quelques aliments que j'aime (inspiration, varie quand même) : ${favorites.slice(0, 10).join(", ")}.`);
+  if (recNames.length) L.push(`Mes recettes enregistrées (repère ce que je cuisine déjà) : ${recNames.join(", ")}.`);
+  L.push("Donne-moi une liste de courses pour varier mes repas de la semaine à venir, dans l'objectif et les règles.");
+  return { system, prompt: L.join("\n") };
+}
+
 // Prompt « explique mon poids » : repas + pesées des ~10 derniers jours → texte libre
 // qui distingue l'eau (sel/fibres/glucides/transit) du gras réel, en citant ses repas.
 function buildWeightExplainPrompt({ days = {}, weights = {}, settings = {}, refISO = TODAY }) {
@@ -759,5 +780,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
 };

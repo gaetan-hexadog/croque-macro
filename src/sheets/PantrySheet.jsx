@@ -24,7 +24,7 @@ function parsePkg(s, baseUnit) {
 // Frigo/placard — PAGE plein écran, façon « tableau de bord stock » (design lab, variante C) :
 // hero (protéines en stock + barre dispo/rupture), « à racheter » en avant, aliments rangés
 // en CATÉGORIES repliables. Rupture en 1 tap (chip), édition/suppression au tap → bottom-sheet.
-export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, onClose }) {
+export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, onClose, onShop }) {
   const blank = { name: "", unit: "g", qty: "", kcal100: "", p100: "" };
   const [f, setF] = useState(blank);
   const [addOpen, setAddOpen] = useState(false);   // sélecteur d'ajout (chercher vs main)
@@ -131,6 +131,9 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
           <button onClick={() => { setFlash(null); setScanDirect(true); }} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ background: `linear-gradient(150deg, ${C.weight}, ${C.weight}cc)` }}><ScanLine size={17} /> Scanner</button>
           <button onClick={() => setAddOpen(true)} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}><Plus size={17} /> Ajouter</button>
         </div>
+        {onShop && (
+          <button onClick={onShop} className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.weight}14`, color: C.weight, border: `1px solid ${C.weight}33` }}><ShoppingCart size={16} /> Idées courses pour varier</button>
+        )}
 
         {pantry.length === 0 ? (
           <p className="py-8 text-center text-sm" style={{ color: C.muted }}>Aucun aliment pour l'instant — ajoute ce que tu as sous la main.</p>
