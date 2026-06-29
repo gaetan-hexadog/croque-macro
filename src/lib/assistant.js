@@ -21,11 +21,11 @@ export class AssistantError extends Error {
   }
 }
 
-// POST vers l'Edge Function, avec session + offline + TIMEOUT/abort (filet anti-blocage
-// réseau : on coupe au bout de timeoutMs si rien ne revient). 90 s : sur Supabase Edge il n'y
-// a plus le plafond 10 s de Netlify, un gros appel Claude (jour/semaine, macros par ingrédient)
-// peut légitimement durer ~30-60 s. Renvoie la Response.
-async function postAssistant(body, { signal, timeoutMs = 90000, authMsg } = {}) {
+// POST vers l'Edge Function, avec session + offline + TIMEOUT/abort (filet anti-blocage réseau).
+// L'Edge enveloppe les appels longs dans un flux keepAlive (heartbeats) pour ne pas se faire
+// couper à ~30 s par le gateway Supabase → on le draine ici de façon TRANSPARENTE (les appelants
+// continuent d'utiliser res.status / res.json()). 120 s de garde-fou (le heartbeat tient la ligne).
+async function postAssistant(body, { signal, timeoutMs = 120000, authMsg } = {}) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) throw new AssistantError("Hors-ligne — l'assistant a besoin d'une connexion.", { kind: "offline" });
   const { data } = await supabase.auth.getSession();
   const token = data?.session?.access_token;
@@ -35,7 +35,18 @@ async function postAssistant(body, { signal, timeoutMs = 90000, authMsg } = {}) 
   if (signal) { if (signal.aborted) ctrl.abort(); else signal.addEventListener("abort", onAbort); }
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    return await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: ctrl.signal });
+    const res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` }, body: JSON.stringify(body), signal: ctrl.signal });
+    // Flux keepAlive (heartbeats + JSON final) → on le draine et on reconstruit une réponse
+    // « classique » pour que les appelants restent inchangés. Le chat (event-stream) passe tel quel.
+    if ((res.headers.get("content-type") || "").toLowerCase().includes("text/plain")) {
+      const txt = await res.text();
+      let parsed = null; try { parsed = JSON.parse(txt); } catch (_) {}
+      if (parsed && typeof parsed === "object") {
+        const status = parsed.__status || 200;
+        return { ok: status >= 200 && status < 300, status, headers: res.headers, json: async () => parsed };
+      }
+    }
+    return res;
   } catch (e) {
     if (ctrl.signal.aborted && !(signal && signal.aborted)) throw new AssistantError("L'assistant a mis trop de temps — réessaie (ou simplifie la demande).", { kind: "offline" });
     throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" });
@@ -175,14 +186,8 @@ export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", opts = 
 // Affine une séance de sport selon le matériel/temps dispo (mode vacances).
 // payload = { workout:{name,type,exercises:[{name,sets,reps,rest,loadLabel}]}, equipment:{...}, minutes? }
 // Renvoie { exercises:[{name,sets,reps,rest,load,tech,tips}], note }.
-export async function adaptWorkout({ workout, equipment, minutes }, { signal } = {}) {
-  const { data } = await supabase.auth.getSession();
-  const token = data?.session?.access_token;
-  if (!token) throw new AssistantError("Connecte-toi pour utiliser l'assistant.", { kind: "auth" });
-  let res;
-  try {
-    res = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", apikey: SUPABASE_ANON_KEY, authorization: `Bearer ${token}` }, body: JSON.stringify({ workout, equipment, minutes }), signal });
-  } catch { throw new AssistantError("Assistant indisponible (hors-ligne ou non déployé).", { kind: "offline" }); }
+export async function adaptWorkout({ workout, equipment, minutes }, opts = {}) {
+  const res = await postAssistant({ workout, equipment, minutes }, { ...opts, authMsg: "Connecte-toi pour utiliser l'assistant." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });

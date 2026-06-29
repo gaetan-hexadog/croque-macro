@@ -303,6 +303,26 @@ async function chatText(body: any, apiKey: string) {
   return new Response(res.body, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", ...CORS } });
 }
 
+// Enveloppe un appel long (Claude) dans un flux qui envoie un battement (espace) toutes les 10 s
+// → la connexion reste active, le gateway Supabase ne la coupe pas (~30 s sur réponse non-streamée).
+// Le client lit tout le flux puis JSON.parse (les espaces de heartbeat sont ignorés par JSON.parse).
+// Statut applicatif réel renvoyé dans `__status` (le statut HTTP du flux est toujours 200).
+function keepAlive(work: Promise<Response>): Response {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(c) {
+      const iv = setInterval(() => { try { c.enqueue(enc.encode(" ")); } catch (_) {} }, 10000);
+      let status = 200; let payload: any = {};
+      try { const r = await work; status = r.status; payload = await r.json().catch(() => ({})); }
+      catch (e) { status = 502; payload = { error: "Erreur interne.", detail: String(e).slice(0, 200) }; }
+      clearInterval(iv);
+      try { c.enqueue(enc.encode("\n" + JSON.stringify({ __status: status, ...payload }))); } catch (_) {}
+      try { c.close(); } catch (_) {}
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-cache", ...CORS } });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "Méthode non autorisée." });
@@ -324,25 +344,29 @@ Deno.serve(async (req: Request) => {
   let body: any;
   try { body = await req.json(); } catch { return json(400, { error: "JSON invalide." }); }
 
-  if (body && typeof body.url === "string" && body.url.trim()) return importRecipe(body.url.trim(), apiKey);
-  if (body && typeof body.recipeText === "string" && body.recipeText.trim()) return importRecipeText(body.recipeText, apiKey);
-  if (body && typeof body.image === "string") return analyzePhoto(body.image, body.media_type, apiKey);
-  if (body && body.workout) return adaptWorkoutAI(body, apiKey);
-  if (body && body.explain) return explainText(body, apiKey);
+  // Appels Claude longs → keepAlive (flux + heartbeat) pour ne pas se faire couper à ~30 s par
+  // le gateway. Le chat est déjà streamé. Auth/clé/JSON (erreurs rapides) restent directes au-dessus.
+  if (body && typeof body.url === "string" && body.url.trim()) return keepAlive(importRecipe(body.url.trim(), apiKey));
+  if (body && typeof body.recipeText === "string" && body.recipeText.trim()) return keepAlive(importRecipeText(body.recipeText, apiKey));
+  if (body && typeof body.image === "string") return keepAlive(analyzePhoto(body.image, body.media_type, apiKey));
+  if (body && body.workout) return keepAlive(adaptWorkoutAI(body, apiKey));
+  if (body && body.explain) return keepAlive(explainText(body, apiKey));
   if (body && body.chat) return chatText(body, apiKey);
+  return keepAlive(proposeMeals(body, apiKey));
+});
 
+// Repas (meal/day/week) : un appel Claude via l'outil propose.
+async function proposeMeals(body: any, apiKey: string): Promise<Response> {
   const { system, prompt, mode = "meal" } = body || {};
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
-
   let data: any;
   try {
     const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }) });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 400) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
-
   const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "propose");
   const meals = tool?.input?.meals;
   if (!Array.isArray(meals)) return json(502, { error: "Réponse inattendue de Claude." });
   return json(200, { meals, model: MODEL });
-});
+}
