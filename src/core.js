@@ -567,6 +567,7 @@ function buildAssistantPrompt({
   reserveKcal,               // mode meal : budget réservé aux repas pas encore décidés (le budget ci-dessus = marge réelle)
   indulge,                   // mode meal : « je me fais plaisir » → budget = restant du jour entier, prévenir de l'impact
   dateLabel, startLabel,
+  training = false, workout, trend, // jour de sport (ajuster glucides/protéines) + tendance poids observée
 } = {}) {
   const sys = [
     "Tu es l'assistant nutrition personnel de Bob. Tu proposes des repas végétariens, simples et réalistes. Réponds en français.",
@@ -574,7 +575,7 @@ function buildAssistantPrompt({
     "- Végétarien. Œufs et fromages au lait de VACHE uniquement (jamais chèvre ni brebis).",
     "- Bob ne boit pas de lait de vache. Lait végétal par défaut = lait d'AMANDE non sucré (~1 g de protéines/250 ml).",
     "- La protéine vient des aliments protéinés et de la poudre de protéine, pas du lait.",
-    "- Objectif : perte de gras. Cibles ~1850 kcal / ~150 g de protéines par jour. Repas protéinés.",
+    `- Objectif : perte de gras. Cibles ~${r0(targetKcal)} kcal / ~${r0(targetP)} g de protéines par jour. Repas protéinés.`,
     "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker, portable).",
     "- Bob suit son poids et n'aime pas que la balance soit brouillée par la rétention d'eau. Pour limiter ça : VARIE les sources de protéines et évite d'EMPILER au même repas / sur la même journée un fort SODIUM (aliments transformés type jambon ou lardons végétaux, charcuterie veggie, condiments salés, sauce soja, cornichons, miso, feta) ET de TRÈS grosses charges de fibres/légumineuses (lentilles + pois chiches + edamame + maïs au même repas). Ce n'est PAS une interdiction — ces aliments sont bons ; juste ne pas tout cumuler, et équilibrer avec des options plus légères en sel/fibres dans la journée.",
     "VARIÉTÉ (important) : sois créatif et propose des repas VARIÉS et appétissants — explore différentes cuisines (méditerranéenne, indienne, mexicaine, asiatique, levantine…), légumineuses, céréales, façons de cuisiner. NE te limite PAS aux mêmes plats classiques ni à ce que Bob mange déjà d'habitude. Si on régénère, propose autre chose.",
@@ -674,6 +675,8 @@ function buildAssistantPrompt({
     L.push(treat);
   }
   if (!dining) L.push("UTILISE EN PRIORITÉ les aliments listés dans mon frigo/placard ci-dessus : base au moins une PARTIE de chaque repas dessus quand c'est pertinent (indique la portion en g/ml). Tu PEUX compléter avec d'autres aliments courants pour varier et atteindre les cibles, mais ne fais pas comme si mon frigo n'existait pas.");
+  if (training) L.push(`Aujourd'hui = JOUR D'ENTRAÎNEMENT${workout ? ` (${workout})` : ""} : vise le HAUT de la fourchette protéines et inclus des GLUCIDES complexes (avoine, riz, patate douce, légumineuses, pain complet) autour de la séance pour la récup — en restant dans le budget.`);
+  if (trend && Number.isFinite(trend.maintenance) && Number.isFinite(trend.ratePerWeek)) L.push(`Repère d'après mon poids réel : maintenance estimée ~${r0(trend.maintenance)} kcal/j, évolution ${trend.ratePerWeek <= 0 ? "" : "+"}${(Math.round(trend.ratePerWeek * 100) / 100).toString().replace(".", ",")} kg/sem. Tiens-en compte dans le ton de tes conseils (sans changer le budget chiffré donné).`);
 
   return { mode, system: sys, prompt: L.join("\n") };
 }

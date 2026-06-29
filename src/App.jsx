@@ -821,6 +821,7 @@ export default function PiocheRepas() {
       {ideaSlot && (
         <MealSuggestSheet
           slot={ideaSlot} remKcal={slotMargin(ideaSlot).kcal} remP={slotMargin(ideaSlot).p}
+          targetKcal={settings.kcal} targetP={settings.protein} training={training} workout={sportInfo?.name} trend={observedTrend(days, weights, activeDate)}
           dayRemKcal={remKcal} dayRemP={remP} reserveKcal={Math.max(0, remKcal - slotMargin(ideaSlot).kcal)} weekBalance={weekBalance}
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           localIdeas={[...customRecipes, ...library.recipes]}
