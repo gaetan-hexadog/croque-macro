@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { ChevronLeft, Share2, Check, ScanLine, Plus, Pencil, Trash2, RotateCcw, ChevronDown, ShoppingCart, Keyboard } from "lucide-react";
+import { ChevronLeft, Share2, Check, ScanLine, Plus, Pencil, Trash2, RotateCcw, ChevronDown, ShoppingCart, Keyboard, Search } from "lucide-react";
 import { C, cardStyle, catOf, catMeta, CAT_ORDER, protStock } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import OffSearch from "../components/OffSearch.jsx";
+import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
+import { fetchProductByBarcode } from "../lib/openfoodfacts.js";
 import { formatPantryText, shareOrCopy } from "../lib/share.js";
 
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
@@ -25,8 +27,10 @@ function parsePkg(s, baseUnit) {
 export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, onClose }) {
   const blank = { name: "", unit: "g", qty: "", kcal100: "", p100: "" };
   const [f, setF] = useState(blank);
-  const [addOpen, setAddOpen] = useState(false);   // sélecteur d'ajout (scan vs main)
-  const [scanning, setScanning] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);   // sélecteur d'ajout (chercher vs main)
+  const [scanning, setScanning] = useState(false); // recherche OFF (texte) avec scan intégré
+  const [scanDirect, setScanDirect] = useState(false); // scan code-barres DIRECT (1 tap)
+  const [flash, setFlash] = useState(null);        // feedback transitoire après scan
   const [adding, setAdding] = useState(false);      // form « à la main »
   const [shared, setShared] = useState("");
   const [action, setAction] = useState(null);       // aliment dont la sheet d'actions est ouverte
@@ -41,6 +45,19 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   const startEdit = (it) => { setEditId(it.id); setE({ name: it.name, unit: it.unit || "g", qty: it.qty ?? "", kcal100: it.kcal100 ?? "", p100: it.p100 ?? "" }); };
   const saveEdit = () => { onUpdate && onUpdate(editId, { name: e.name.trim() || undefined, unit: e.unit, qty: Math.round(num(e.qty) * 10) / 10 || undefined, kcal100: Math.round(num(e.kcal100)) || undefined, p100: Math.round(num(e.p100) * 10) / 10 || undefined }); setEditId(null); setAction(null); };
   const closeAction = () => { setAction(null); setEditId(null); };
+  const showFlash = (text, ok = true) => { setFlash({ text, ok }); setTimeout(() => setFlash(null), 2600); };
+  // Scan DIRECT : code → produit OFF → ajout immédiat au frigo (éditable ensuite via tap).
+  const onScanCode = async (code) => {
+    setScanDirect(false);
+    try {
+      const p = await fetchProductByBarcode(code);
+      if (!p) { showFlash(`Code ${code} introuvable dans Open Food Facts.`, false); return; }
+      if (p.per100?.kcal == null) { setF({ ...blank, name: stripQty(p.name), unit: p.liquid ? "ml" : "g" }); setAdding(true); return; }
+      const u = p.liquid ? "ml" : "g";
+      onAdd(stripQty(p.name), { unit: u, qty: parsePkg(p.quantity, u), kcal100: p.per100.kcal, p100: p.per100.p });
+      showFlash(`« ${stripQty(p.name)} » ajouté ✓`);
+    } catch { showFlash("Lecture indisponible (réseau).", false); }
+  };
   const toggleCat = (k) => setCollapsed((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
@@ -107,6 +124,14 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
           <div className="mt-1.5 flex justify-between text-[10px]" style={{ color: C.muted }}><span>{dispo.length} dispo</span><span>{rupture.length} à racheter</span></div>
         </div>
 
+        {flash && <div className="rounded-2xl px-3 py-2.5 text-center text-sm font-semibold" style={{ backgroundColor: flash.ok ? `${C.green}1f` : `${C.over}1f`, color: flash.ok ? C.green : C.over }}>{flash.text}</div>}
+
+        {/* Ajout : scan DIRECT (1 tap) ou sélecteur (chercher / à la main) — toujours visible */}
+        <div className="flex gap-2">
+          <button onClick={() => { setFlash(null); setScanDirect(true); }} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ background: `linear-gradient(150deg, ${C.weight}, ${C.weight}cc)` }}><ScanLine size={17} /> Scanner</button>
+          <button onClick={() => setAddOpen(true)} className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}><Plus size={17} /> Ajouter</button>
+        </div>
+
         {pantry.length === 0 ? (
           <p className="py-8 text-center text-sm" style={{ color: C.muted }}>Aucun aliment pour l'instant — ajoute ce que tu as sous la main.</p>
         ) : (
@@ -125,9 +150,6 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
                 </div>
               </div>
             )}
-
-            {/* Ajouter (un seul point d'entrée → sélecteur) */}
-            <button onClick={() => setAddOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ background: `linear-gradient(150deg, ${C.green}, ${C.green}cc)` }}><Plus size={17} /> Ajouter un aliment</button>
 
             {/* Catégories repliables */}
             {groups.map((g) => {
@@ -169,7 +191,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
       <Sheet open onClose={() => setAddOpen(false)} title="Ajouter au frigo" subtitle="Comment ?" icon={<Plus size={18} />} iconColor={C.green} z={50}>
         <div className="space-y-2">
           <button onClick={() => { setAddOpen(false); setScanning(true); }} className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3.5 text-left active:scale-95" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}33` }}>
-            <ScanLine size={19} style={{ color: C.weight }} /><span><span className="block text-sm font-bold" style={{ color: C.ink }}>Chercher / scanner</span><span className="block text-[11px]" style={{ color: C.muted }}>Open Food Facts — macros reprises automatiquement</span></span>
+            <Search size={19} style={{ color: C.weight }} /><span><span className="block text-sm font-bold" style={{ color: C.ink }}>Chercher un produit</span><span className="block text-[11px]" style={{ color: C.muted }}>Par nom dans Open Food Facts (scan aussi dispo)</span></span>
           </button>
           <button onClick={() => { setAddOpen(false); setF(blank); setAdding(true); }} className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3.5 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
             <Keyboard size={19} style={{ color: C.sub }} /><span><span className="block text-sm font-bold" style={{ color: C.ink }}>À la main</span><span className="block text-[11px]" style={{ color: C.muted }}>Nom, quantité, densité /100</span></span>
@@ -216,6 +238,16 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
         <p className="mb-3 text-xs" style={{ color: C.sub }}>Cherche un produit ou scanne son code-barres, puis « Ajouter » — il rejoint directement ton frigo (nom, quantité du paquet et macros /100 repris automatiquement, éditables ensuite).</p>
         <OffSearch C={C} accent={C.weight} onChoose={(it) => { onAdd(stripQty(it.name), { unit: it.unit || "g", qty: parsePkg(it.pkgQty, it.unit), kcal100: it.per100?.kcal, p100: it.per100?.p }); setScanning(false); }} />
       </Sheet>
+    )}
+
+    {/* Scan code-barres DIRECT (1 tap depuis le frigo → ajout auto) */}
+    {scanDirect && (
+      <div style={{ position: "fixed", inset: 0, zIndex: 55, background: C.bg, backgroundImage: C.bgImage, display: "flex", flexDirection: "column", justifyContent: "center", padding: 16, paddingTop: "calc(env(safe-area-inset-top) + 16px)" }}>
+        <div className="mx-auto w-full max-w-md">
+          <p className="mb-3 text-center text-xs" style={{ color: C.sub }}>Scanne un produit — il rejoint ton frigo avec ses macros /100. Tu ajusteras la quantité ensuite (tap sur l'aliment).</p>
+          <BarcodeScanner onDetect={onScanCode} onClose={() => setScanDirect(false)} />
+        </div>
+      </div>
     )}
     </>
   );
