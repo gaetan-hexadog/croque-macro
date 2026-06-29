@@ -201,6 +201,16 @@ async function adaptWorkoutAI(body: any, apiKey: string) {
   return json(200, { exercises, note: tool.input.note, model: MODEL });
 }
 
+// Règles d'extraction partagées (import URL + texte collé). Gère le RENDEMENT : pièces
+// (cookies/muffins → garder la fournée, macros par pièce) vs personnes (diviser pour 1 portion).
+const EXTRACT_RULES = [
+  "Détermine d'abord le RENDEMENT de la recette :",
+  "- PIÈCES (ex. « 6 cookies », « 12 muffins », « 4 pancakes », « 8 barres », « 10 boules ») : GARDE les quantités d'ingrédients EXACTEMENT comme écrites — ce sont les quantités de la FOURNÉE, nécessaires pour cuisiner : ne les divise SURTOUT PAS. Donne kcal/protein PAR PIÈCE (1 cookie, 1 muffin…). Si l'utilisateur indique déjà les macros par pièce (ex. « ~275 kcal / 15 g par cookie »), REPRENDS EXACTEMENT ces valeurs. Sinon estime le total puis divise par le nombre de pièces. Mets le rendement dans la note (ex. « Fournée de 6 cookies — quantités pour la fournée, macros par cookie »).",
+  "- PERSONNES / PORTIONS (ex. « pour 4 personnes », « 2 parts ») : normalise pour UNE portion — divise par N À LA FOIS les quantités de chaque ingrédient ET les kcal/protéines (résultat cohérent pour 1 personne).",
+  "- Aucun rendement indiqué : garde la recette telle quelle (considère 1 portion).",
+  "Dans tous les cas : chaque ingrédient avec une quantité CHIFFRÉE (qty + unit + name), étapes fidèles au texte, macros réalistes et plutôt conservatrices (arrondis les kcal vers le haut), choisis le slot le plus probable (pdj/dej/diner/snack). Réponds en français via l'outil import_recipe. Si pas de recette identifiable, mets found=false.",
+].join("\n");
+
 async function importRecipe(url: string, apiKey: string) {
   let html: string;
   try { html = await fetchPageSafe(url); }
@@ -209,7 +219,7 @@ async function importRecipe(url: string, apiKey: string) {
     return json(502, { error: "Impossible de charger cette page (inaccessible ou trop volumineuse)." });
   }
   const content = extractRecipeText(html);
-  const sys = "Tu extrais une recette depuis le contenu d'une page web. Détecte d'abord le NOMBRE DE PORTIONS de la recette d'origine (`servings`). Puis NORMALISE TOUT pour UNE SEULE portion (1 personne) : divise par ce nombre de portions À LA FOIS les QUANTITÉS de chaque ingrédient ET les kcal/protéines (ex. recette pour 4 → tout divisé par 4). Le résultat doit être COHÉRENT : ingrédients ET macros pour 1 personne. Renseigne le nom, les ingrédients NORMALISÉS (quantité + unité + nom), les étapes (texte inchangé), et estime les macros de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Choisis le slot le plus probable (pdj/dej/diner/snack). Si la page ne contient pas de recette identifiable, mets found=false. Réponds en français via l'outil import_recipe.";
+  const sys = "Tu extrais une recette depuis le contenu d'une page web. " + EXTRACT_RULES;
   let data: any;
   try {
     const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }) });
@@ -226,7 +236,7 @@ async function importRecipe(url: string, apiKey: string) {
 async function importRecipeText(text: string, apiKey: string) {
   const content = String(text || "").slice(0, 20000);
   if (content.trim().length < 20) return json(400, { error: "Texte trop court pour une recette." });
-  const sys = "Tu extrais une recette depuis un TEXTE collé par l'utilisateur (format libre : liste d'ingrédients + étapes). Détecte d'abord le NOMBRE DE PORTIONS (`servings`) si le texte l'indique (sinon considère 1). NORMALISE TOUT pour UNE SEULE portion (1 personne) : divise par ce nombre de portions À LA FOIS les QUANTITÉS de chaque ingrédient ET les kcal/protéines. Le résultat doit être COHÉRENT : ingrédients ET macros pour 1 personne. Renseigne le nom, les ingrédients NORMALISÉS (quantité + unité + nom), les étapes (texte fidèle), et estime les macros de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Choisis le slot le plus probable (pdj/dej/diner/snack). Si le texte ne contient pas de recette identifiable, mets found=false. Réponds en français via l'outil import_recipe.";
+  const sys = "Tu extrais une recette depuis un TEXTE collé par l'utilisateur (format libre : liste d'ingrédients + étapes). " + EXTRACT_RULES;
   let data: any;
   try {
     const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Texte de la recette :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }) });
