@@ -122,7 +122,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
       {/* Touche coach — idée de saison / pour varier (ouvre le coach) */}
       {!nq && onCoachPrompt && (
         <button onClick={() => onCoachPrompt(`Propose-moi 2-3 idées de recettes végétariennes de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), protéinées avec de vrais aliments (pas de poudre) et qui changent de mes habitudes.`)} className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left active:scale-95" style={cardStyle({ borderTop: `1px solid ${C.green}55` })}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08" }}><Sprout size={19} /></span>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: C.bg }}><Sprout size={19} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold" style={{ color: C.ink }}>Une idée de saison&nbsp;?</span>
             <span className="block text-[11px]" style={{ color: C.muted }}>Ton coach · {season.all.slice(0, 3).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}… pour varier, sans poudre</span>
