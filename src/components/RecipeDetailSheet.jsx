@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Wand2, Pencil, Trash2, ChefHat, Share2, Check, BookmarkPlus, SlidersHorizontal } from "lucide-react";
+import { Wand2, Pencil, Trash2, ChefHat, Share2, Check, BookmarkPlus, SlidersHorizontal, Star } from "lucide-react";
 import { C, oneEmoji } from "../core.js";
 import { Sheet } from "./Sheet.jsx";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
@@ -18,7 +18,7 @@ const nowSlot = () => { const h = new Date().getHours(); return h < 11 ? "pdj" :
 // Fiche recette/repas UNIFIÉE (Cuisine + Suivi journalier). Actions optionnelles selon le
 // contexte : onUse → « Ajouter à un créneau » (+ variantes) ; onAdapt → assistant ;
 // onEdit / onDelete → gestion. Bouton « Partager » dispo partout (texte propre → feuille Android).
-export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete, onSave, saved, onApplyVariant }) {
+export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete, onSave, saved, onApplyVariant, isFav, onToggleFav }) {
   const [varSel, setVarSel] = useState(() => new Set());
   const [shared, setShared] = useState(null); // "shared" | "copied" | "fail"
   const [savedLocal, setSavedLocal] = useState(false);
@@ -41,7 +41,12 @@ export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete
   const shareLabel = shared === "copied" ? "Copié !" : shared === "fail" ? "Échec — réessaie" : shared === "shared" ? "Partagé" : "Partager la recette";
 
   return (
-    <Sheet open onClose={onClose} title={m.name} subtitle={`${eff.kcal} kcal · ${eff.p} g prot.${varSel.size ? " · ajusté" : ""}`} icon={m.emoji ? <span className="text-lg leading-none">{oneEmoji(m.emoji)}</span> : <ChefHat size={18} />} iconColor={meta.color}>
+    <Sheet open onClose={onClose} title={m.name} subtitle={`${eff.kcal} kcal · ${eff.p} g prot.${varSel.size ? " · ajusté" : ""}`} icon={m.emoji ? <span className="text-lg leading-none">{oneEmoji(m.emoji)}</span> : <ChefHat size={18} />} iconColor={meta.color}
+      headerRight={onToggleFav && (
+        <button onClick={onToggleFav} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }} aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}>
+          <Star size={16} fill={isFav ? C.protein : "none"} color={isFav ? C.protein : C.muted} />
+        </button>
+      )}>
       <button onClick={share} className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: shared && shared !== "fail" ? C.green : C.sub }}>
         {shared && shared !== "fail" ? <Check size={16} /> : <Share2 size={16} />} {shareLabel}
       </button>

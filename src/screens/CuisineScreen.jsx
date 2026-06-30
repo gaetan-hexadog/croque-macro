@@ -1,53 +1,50 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, Clock, BookOpen, ChevronRight, Refrigerator, Sparkles, PencilLine, ClipboardPaste, Sprout } from "lucide-react";
+import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, BookOpen, ChevronRight, Refrigerator, ClipboardPaste, Sprout, ArrowDownUp } from "lucide-react";
 import { C, cardStyle, oneEmoji, protStock, seasonalProduce, TODAY } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
 import { importRecipeFromUrl, importRecipeFromText } from "../lib/assistant.js";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
-import { RecipeDetailSheet, kindMeta, kindColor, SLOT_CHOICES } from "../components/RecipeDetailSheet.jsx";
+import { RecipeDetailSheet, kindMeta, kindColor } from "../components/RecipeDetailSheet.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-// Carte recette compacte (carrousel). Tap → fiche détail.
-function MiniCard({ m, onOpen }) {
+// Carte recette (grille 2 colonnes) — titre LISIBLE en entier, badge type, macros, ⭐ favori.
+function Tile({ m, fav, onToggleFav, onOpen }) {
   const c = kindColor(m.kind);
   return (
-    <button onClick={() => onOpen(m)} className="flex w-36 shrink-0 flex-col rounded-2xl px-3 py-3 text-left active:scale-95" style={cardStyle()}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: `${c}1a` }}>{oneEmoji(m.emoji) || "🍽️"}</span>
-      <span className="mt-2 line-clamp-2 text-xs font-bold leading-tight" style={{ color: C.ink, minHeight: 28 }}>{m.name}</span>
-      <span className="mt-1 text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>
-    </button>
-  );
-}
-
-// Section = en-tête (icône + label + count) + carrousel horizontal.
-function Section({ icon: I, label, color, items, onOpen }) {
-  if (!items.length) return null;
-  return (
-    <div>
-      <div className="mb-2 flex items-center gap-1.5 px-1">
-        <I size={13} style={{ color }} />
-        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.sub }}>{label}</span>
-        <span className="ml-auto text-[11px] font-semibold" style={{ color: C.muted }}>{items.length}</span>
-      </div>
-      <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-        {items.map((m) => <MiniCard key={`${m.kind}-${m.id}`} m={m} onOpen={onOpen} />)}
-      </div>
+    <div className="relative">
+      <button onClick={() => onOpen(m)} className="flex w-full flex-col rounded-2xl p-3 text-left active:scale-95" style={cardStyle()}>
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: `${c}1a` }}>{oneEmoji(m.emoji) || "🍽️"}</span>
+        <span className="mt-2 pr-7 text-sm font-bold leading-tight" style={{ color: C.ink }}>{m.name}</span>
+        <span className="mt-1 flex items-center gap-1.5">
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${c}22`, color: c }}>{kindMeta[m.kind].label}</span>
+          <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>
+        </span>
+      </button>
+      {onToggleFav && (
+        <button onClick={() => onToggleFav(m.id)} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }} aria-label={fav ? "Retirer des favoris" : "Ajouter aux favoris"}>
+          <Star size={13} fill={fav ? C.protein : "none"} color={fav ? C.protein : C.muted} />
+        </button>
+      )}
     </div>
   );
 }
 
+const FILTERS = [{ k: "all", l: "Tous" }, { k: "recette", l: "Recettes" }, { k: "combo", l: "Repas" }, { k: "aliment", l: "Aliments" }, { k: "fav", l: "Favoris", icon: Star }];
+const SORTS = [{ k: "recent", l: "Récents" }, { k: "az", l: "A→Z" }, { k: "prot", l: "Protéines" }];
+
 // « Ma cuisine » — hub condensé (recherche + « + » → Créer/Importer/Scanner, Frigo en carte)
 // + contenu rangé en carrousels par type. Recherche active → liste à plat tous types.
-export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], knownFoods = [], onCoachPrompt }) {
+export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], favs = [], onToggleFav, knownFoods = [], onCoachPrompt }) {
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [sort, setSort] = useState("recent");
   const [addMenu, setAddMenu] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [adapting, setAdapting] = useState(null);
   const [detail, setDetail] = useState(null);
-  const [slotPick, setSlotPick] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [importBusy, setImportBusy] = useState(false);
@@ -59,7 +56,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   const [pasteErr, setPasteErr] = useState("");
   const nq = deburr(q);
   const season = seasonalProduce(TODAY);
-  const favSet = new Set(favorites);
+  const favSet = new Set(favs); // favoris par id (toggle UI)
 
   useEffect(() => { if (autoAdd) { setAdding(true); onAutoAddDone && onAutoAddDone(); } }, [autoAdd]);
 
@@ -84,17 +81,10 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   };
 
   const matches = (m) => !nq || deburr(m.name + " " + (m.ingredients || []).join(" ") + " " + (m.items || []).map((i) => i.name).join(" ")).includes(nq);
-  const found = meals.filter(matches);
-  // Carrousels par type (navigation par défaut)
-  const recents = meals
-    .map((m) => ({ m, last: usage[m.name]?.last || 0, fav: favSet.has(m.name) }))
-    .filter((x) => x.last > 0 || x.fav)
-    .sort((a, b) => (b.last - a.last) || (Number(b.fav) - Number(a.fav)))
-    .slice(0, 10)
-    .map((x) => x.m);
-  const recettes = meals.filter((m) => m.kind === "recette");
-  const repas = meals.filter((m) => m.kind === "combo");
-  const aliments = meals.filter((m) => m.kind === "aliment");
+  // Liste UNIFIÉE (fini les carrousels horizontaux) : recherche + filtre (chip) + tri.
+  const items = meals.filter(matches)
+    .filter((m) => filter === "all" || (filter === "fav" ? favSet.has(m.id) : m.kind === filter))
+    .sort((a, b) => sort === "az" ? a.name.localeCompare(b.name) : sort === "prot" ? (b.p || 0) - (a.p || 0) : (usage[b.name]?.last || 0) - (usage[a.name]?.last || 0));
   const empty = meals.length === 0;
   const dispo = pantry.filter((x) => !x.out);
 
@@ -148,39 +138,29 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
           <p className="mt-1 mb-4 max-w-xs text-xs leading-relaxed" style={{ color: C.muted }}>Crée ta première recette, importe-la depuis une URL, ou enregistre un aliment via la pioche / un repas depuis une journée.</p>
           {onAddRecipe && <button onClick={() => setAdding(true)} className="flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Plus size={16} /> Ajouter une recette</button>}
         </div>
-      ) : nq ? (
-        /* Recherche active → liste à plat, tous types */
-        found.length === 0 ? (
-          <p className="py-10 text-center text-sm" style={{ color: C.muted }}>Rien ne correspond.</p>
-        ) : (
-          <div className="space-y-2.5">
-            {found.map((m) => {
-              const c = kindColor(m.kind);
-              return (
-                <div key={`${m.kind}-${m.id}`} className="flex items-center gap-3 rounded-2xl px-4 py-3" style={cardStyle()}>
-                  <button onClick={() => setDetail(m)} className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-70">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg" style={{ background: `${c}1a` }}>{oneEmoji(m.emoji) || "🍽️"}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5"><span className="truncate text-sm font-bold" style={{ color: C.ink }}>{m.name}</span>{favSet.has(m.name) && <Star size={11} fill={C.protein} color={C.protein} />}</span>
-                      <span className="mt-0.5 flex items-center gap-1.5">
-                        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${c}22`, color: c }}>{kindMeta[m.kind].label}</span>
-                        <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g{m.variants?.length ? " · variantes" : ""}</span>
-                      </span>
-                    </span>
-                  </button>
-                  <button onClick={() => setSlotPick(m)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Ajouter au jour"><Plus size={16} /></button>
-                </div>
-              );
-            })}
-          </div>
-        )
       ) : (
-        /* Navigation par défaut → carrousels par type */
-        <div className="space-y-5">
-          <Section icon={Clock} label="Récents & favoris" color={C.accent} items={recents} onOpen={setDetail} />
-          <Section icon={Sparkles} label="Recettes" color={C.protein} items={recettes} onOpen={setDetail} />
-          <Section icon={Refrigerator} label="Repas express" color={C.green} items={repas} onOpen={setDetail} />
-          <Section icon={PencilLine} label="Aliments" color={C.weight} items={aliments} onOpen={setDetail} />
+        /* Liste unifiée VERTICALE : barre filtre + tri, puis grille 2 colonnes lisible */
+        <div className="space-y-3">
+          <div className="rounded-2xl p-2.5" style={cardStyle()}>
+            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              {FILTERS.map(({ k, l, icon: I }) => {
+                const on = filter === k;
+                return <button key={k} onClick={() => setFilter(k)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={on ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.card, color: C.sub, border: `1px solid ${C.line}` }}>{I && <I size={12} />} {l}</button>;
+              })}
+            </div>
+            <div className="mt-2 flex items-center gap-1.5">
+              <ArrowDownUp size={12} style={{ color: C.muted }} />
+              {SORTS.map(({ k, l }) => <button key={k} onClick={() => setSort(k)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={sort === k ? { backgroundColor: `${C.accent}1f`, color: C.accent, border: `1px solid ${C.accent}55` } : { color: C.muted }}>{l}</button>)}
+              <span className="ml-auto text-[11px] font-semibold" style={{ color: C.muted }}>{items.length}</span>
+            </div>
+          </div>
+          {items.length === 0 ? (
+            <p className="py-10 text-center text-sm" style={{ color: C.muted }}>{nq ? "Rien ne correspond." : "Aucun élément dans ce filtre."}</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5">
+              {items.map((m) => <Tile key={`${m.kind}-${m.id}`} m={m} fav={favSet.has(m.id)} onToggleFav={onToggleFav} onOpen={setDetail} />)}
+            </div>
+          )}
         </div>
       )}
 
@@ -210,10 +190,10 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
         </Sheet>
       )}
       {detail && <RecipeDetailSheet m={detail} onClose={() => setDetail(null)} onUse={onUse}
+        isFav={favSet.has(detail.id)} onToggleFav={onToggleFav ? () => onToggleFav(detail.id) : undefined}
         onAdapt={detail.kind === "recette" ? () => { const m = detail; setDetail(null); setAdapting(m); } : undefined}
         onEdit={(detail.kind === "recette" && onEditRecipe) ? () => { const m = detail; setDetail(null); setEditing(m); } : undefined}
         onDelete={detail.lib ? undefined : () => { onDelete(detail); setDetail(null); }} />}
-      {slotPick && <SlotPickSheet m={slotPick} onClose={() => setSlotPick(null)} onUse={onUse} />}
       {adding && <AddRecipeSheet onClose={() => setAdding(false)} onAdd={(r) => { onAddRecipe(r); setAdding(false); }} />}
       {editing && <AddRecipeSheet initial={editing} onClose={() => setEditing(null)} onAdd={(r) => { onEditRecipe(editing.id, r); setEditing(null); }} />}
       {imported && <AddRecipeSheet prefill={imported} onClose={() => setImported(null)} onAdd={(r) => { onAddRecipe(r); setImported(null); }} />}
@@ -241,18 +221,5 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
         </Sheet>
       )}
     </div>
-  );
-}
-
-
-// Ajout rapide depuis le « + » d'une ligne : choix direct du créneau.
-function SlotPickSheet({ m, onClose, onUse }) {
-  const c = kindColor(m.kind);
-  return (
-    <Sheet open onClose={onClose} title={`Ajouter ${m.name}`} subtitle={`${m.kcal} kcal · ${m.p} g · à quel repas ?`} icon={m.emoji ? <span className="text-lg leading-none">{oneEmoji(m.emoji)}</span> : <Plus size={18} />} iconColor={c}>
-      <div className="grid grid-cols-2 gap-2">
-        {SLOT_CHOICES.map(([k, l]) => <button key={k} onClick={() => { onUse(m, k); onClose(); }} className="rounded-2xl py-3.5 text-sm font-bold active:scale-95" style={{ backgroundColor: `${c}1a`, color: c }}>{l}</button>)}
-      </div>
-    </Sheet>
   );
 }
