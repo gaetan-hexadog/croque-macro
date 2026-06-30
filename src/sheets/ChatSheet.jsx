@@ -25,7 +25,7 @@ const META = {
 
 // Identité du coach : pastille « pousse » (croissance / saison / vivant), vert → bleu.
 const Avatar = ({ size = 32 }) => (
-  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08", boxShadow: `0 3px 10px -3px ${C.green}80, inset 0 0 0 1px rgba(255,255,255,0.25)` }}><Sprout size={Math.round(size * 0.5)} /></span>
+  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: C.bg, boxShadow: `0 3px 10px -3px ${C.green}80, inset 0 0 0 1px rgba(255,255,255,0.25)` }}><Sprout size={Math.round(size * 0.5)} /></span>
 );
 
 // Points animés « le coach écrit ».
@@ -187,7 +187,7 @@ export function ChatSheet({ system, opening, initialPrompt, onAction, onClose })
                       const Icon = meta.icon;
                       if (st?.done) return <span key={ai} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Check size={13} className="shrink-0" /> <span className="truncate">{st.done}</span></span>;
                       if (st?.err) return <span key={ai} className="inline-flex max-w-full items-center rounded-full px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: `${C.over}1f`, color: C.over }}><span className="truncate">{st.err}</span></span>;
-                      return <button key={ai} onClick={() => runAction(key, action)} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.green, color: "#0c0a08" }}><Icon size={13} className="shrink-0" /> <span className="truncate">{meta.chip}</span></button>;
+                      return <button key={ai} onClick={() => runAction(key, action)} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.green, color: C.bg }}><Icon size={13} className="shrink-0" /> <span className="truncate">{meta.chip}</span></button>;
                     })}
                   </div>
                 )}
@@ -233,7 +233,7 @@ export function ChatSheet({ system, opening, initialPrompt, onAction, onClose })
               placeholder="Réponds à ton coach…"
               className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl px-3.5 py-3 text-sm outline-none"
               style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-            <button onClick={() => send()} disabled={(!input.trim() && !img) || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.green, color: "#0c0a08" }} aria-label="Envoyer">
+            <button onClick={() => send()} disabled={(!input.trim() && !img) || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.green, color: C.bg }} aria-label="Envoyer">
               <Send size={18} />
             </button>
           </div>

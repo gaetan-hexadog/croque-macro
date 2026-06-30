@@ -11,7 +11,7 @@ import { C, cardStyle, TODAY, fmtFull, coachSignals, coachGreeting } from "../co
 // ════════════════════════════════════════════════════════════════════════════
 
 const CoachHead = ({ size = 40 }) => (
-  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08" }}><Sprout size={Math.round(size * 0.52)} /></span>
+  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: C.bg }}><Sprout size={Math.round(size * 0.52)} /></span>
 );
 
 export function CoachPanel({ days = {}, weights = {}, settings = {}, onCoachPrompt, onOpenChat }) {
@@ -52,7 +52,7 @@ export function CoachPanel({ days = {}, weights = {}, settings = {}, onCoachProm
         {variety && (
           <button onClick={() => onCoachPrompt(variety.chip.prompt)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: `${C.extra}1f`, color: C.extra, border: `1px solid ${C.extra}40` }}><Salad size={13} /> {variety.chip.label}</button>
         )}
-        <button onClick={onOpenChat} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08" }}><MessageCircle size={13} /> Parler à mon coach</button>
+        <button onClick={onOpenChat} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: C.bg }}><MessageCircle size={13} /> Parler à mon coach</button>
       </div>
     </section>
   );

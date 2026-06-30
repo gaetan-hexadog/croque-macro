@@ -27,7 +27,7 @@ const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0
 
 // Identité du coach : pastille « pousse » (croissance / saison / vivant), vert → bleu.
 const CoachHead = ({ size = 34 }) => (
-  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08" }}><Sprout size={Math.round(size * 0.52)} /></span>
+  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: C.bg }}><Sprout size={Math.round(size * 0.52)} /></span>
 );
 
 
