@@ -16,13 +16,16 @@ function Tile({ m, fav, onToggleFav, onOpen }) {
   return (
     <div className="relative h-full">
       <button onClick={() => onOpen(m)} className="flex h-full w-full flex-col rounded-2xl p-3 text-left active:scale-95" style={cardStyle()}>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: `${c}1a` }}>{oneEmoji(m.emoji) || "🍽️"}</span>
-        <span className="mt-2 line-clamp-2 pr-7 text-sm font-bold leading-tight" style={{ color: C.ink }}>{m.name}</span>
-        {/* Bloc bas poussé en pied (mt-auto) → toutes les cartes d'une ligne s'alignent et ont la même hauteur */}
-        <span className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${c}22`, color: c }}>{kindMeta[m.kind].label}</span>
-          <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>
-          <ProteinFlag kcal={m.kcal} p={m.p} />
+        {/* Rangée du haut : emoji + badge type (l'espace avant était vide) ; l'étoile flotte à droite (pr-8) */}
+        <div className="mb-2 flex items-center gap-2 pr-8">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: `${c}1a` }}>{oneEmoji(m.emoji) || "🍽️"}</span>
+          <span className="truncate rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${c}22`, color: c }}>{kindMeta[m.kind].label}</span>
+        </div>
+        <span className="line-clamp-2 text-sm font-bold leading-tight" style={{ color: C.ink }}>{m.name}</span>
+        {/* Bloc bas poussé en pied (mt-auto) → cartes d'une même ligne alignées et de même hauteur */}
+        <span className="mt-auto flex items-center gap-1.5 pt-2">
+          <ProteinFlag kcal={m.kcal} p={m.p} dotOnly />
+          <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} kcal · {m.p} g</span>
         </span>
       </button>
       {onToggleFav && (
