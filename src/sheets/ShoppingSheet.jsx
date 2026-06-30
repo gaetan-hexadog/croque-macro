@@ -35,7 +35,7 @@ export function ShoppingSheet({ pantry = [], overused = [], favorites = [], know
   };
 
   return (
-    <Sheet open onClose={onClose} title="Courses pour varier" subtitle="Pour sortir de la routine" icon={<ShoppingCart size={18} />} iconColor={C.weight}>
+    <Sheet open onClose={onClose} title="Courses pour varier" subtitle="Pour sortir de la routine" icon={<ShoppingCart size={18} />} iconColor={C.weight} z={50}>
       {busy ? (
         <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" style={{ color: C.weight }} /> L'assistant compose ta liste…</div>
       ) : error ? (

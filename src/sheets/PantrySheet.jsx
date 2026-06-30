@@ -7,6 +7,7 @@ import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
 import { fetchProductByBarcode } from "../lib/openfoodfacts.js";
 import { estimateFoodMacros } from "../lib/assistant.js";
 import { formatPantryText, shareOrCopy } from "../lib/share.js";
+import { ProteinFlag } from "../components/ProteinFlag.jsx";
 
 // Form partagé (ajout « à la main » + édition) avec ESTIMATION auto des macros /100 depuis
 // le nom (vrac sans étiquette/code-barres). Composant module-level → l'état de chargement
@@ -187,7 +188,10 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
                         <div key={it.id} onClick={() => setAction(it)} className="flex cursor-pointer items-center gap-2 py-2" style={{ borderBottom: `1px solid ${C.line}` }}>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm" style={{ color: C.ink }}>{it.name}</span>
-                            {dens(it) && <span className="block text-[11px] tabular-nums" style={{ color: C.muted }}>{dens(it)}</span>}
+                            <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                              {dens(it) && <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{dens(it)}</span>}
+                              <ProteinFlag kcal={it.kcal100} p={it.p100} />
+                            </span>
                           </span>
                           <button onClick={(ev) => { ev.stopPropagation(); onToggle(it.id); }} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }} aria-label="Passer en rupture">
                             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.green }} /> Dispo

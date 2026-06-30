@@ -4,6 +4,7 @@ import { C, oneEmoji } from "../core.js";
 import { Sheet } from "./Sheet.jsx";
 import { VariantChips, applyVariants, variantLabels } from "./VariantChips.jsx";
 import { formatRecipeText, shareOrCopy } from "../lib/share.js";
+import { proteinFlag } from "./ProteinFlag.jsx";
 
 export const kindMeta = {
   recette: { label: "Recette", color: C.weight },
@@ -47,9 +48,19 @@ export function RecipeDetailSheet({ m, onClose, onUse, onAdapt, onEdit, onDelete
           <Star size={16} fill={isFav ? C.protein : "none"} color={isFav ? C.protein : C.muted} />
         </button>
       )}>
-      <button onClick={share} className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: shared && shared !== "fail" ? C.green : C.sub }}>
+      <button onClick={share} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: shared && shared !== "fail" ? C.green : C.sub }}>
         {shared && shared !== "fail" ? <Check size={16} /> : <Share2 size={16} />} {shareLabel}
       </button>
+
+      {(() => {
+        const f = proteinFlag({ kcal: eff.kcal, p: eff.p });
+        return f && (
+          <div className="mb-4 flex items-center justify-between rounded-xl px-3 py-2" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+            <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.sub }}><span className="h-2 w-2 rounded-full" style={{ backgroundColor: f.color }} /> Densité protéique</span>
+            <span className="text-xs font-bold" style={{ color: f.color }}>{f.label} · {f.ratio.toFixed(1).replace(".", ",")} kcal/g</span>
+          </div>
+        );
+      })()}
 
       <div className="space-y-5">
         {m.desc && <p className="text-sm leading-relaxed" style={{ color: C.sub }}>{m.desc}</p>}

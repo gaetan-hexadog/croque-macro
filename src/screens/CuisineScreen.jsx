@@ -6,6 +6,7 @@ import { Sheet } from "../components/Sheet.jsx";
 import { importRecipeFromUrl, importRecipeFromText } from "../lib/assistant.js";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
 import { RecipeDetailSheet, kindMeta, kindColor } from "../components/RecipeDetailSheet.jsx";
+import { ProteinFlag } from "../components/ProteinFlag.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -13,13 +14,15 @@ const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/
 function Tile({ m, fav, onToggleFav, onOpen }) {
   const c = kindColor(m.kind);
   return (
-    <div className="relative">
-      <button onClick={() => onOpen(m)} className="flex w-full flex-col rounded-2xl p-3 text-left active:scale-95" style={cardStyle()}>
+    <div className="relative h-full">
+      <button onClick={() => onOpen(m)} className="flex h-full w-full flex-col rounded-2xl p-3 text-left active:scale-95" style={cardStyle()}>
         <span className="flex h-9 w-9 items-center justify-center rounded-xl text-xl" style={{ backgroundColor: `${c}1a` }}>{oneEmoji(m.emoji) || "🍽️"}</span>
-        <span className="mt-2 pr-7 text-sm font-bold leading-tight" style={{ color: C.ink }}>{m.name}</span>
-        <span className="mt-1 flex items-center gap-1.5">
+        <span className="mt-2 line-clamp-2 pr-7 text-sm font-bold leading-tight" style={{ color: C.ink }}>{m.name}</span>
+        {/* Bloc bas poussé en pied (mt-auto) → toutes les cartes d'une ligne s'alignent et ont la même hauteur */}
+        <span className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
           <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${c}22`, color: c }}>{kindMeta[m.kind].label}</span>
           <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{m.kcal} · {m.p} g</span>
+          <ProteinFlag kcal={m.kcal} p={m.p} />
         </span>
       </button>
       {onToggleFav && (
