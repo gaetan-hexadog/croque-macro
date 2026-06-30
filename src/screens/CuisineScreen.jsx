@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, Clock, BookOpen, ChevronRight, Refrigerator, Sparkles, PencilLine, ClipboardPaste } from "lucide-react";
-import { C, cardStyle, oneEmoji, protStock } from "../core.js";
+import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, Clock, BookOpen, ChevronRight, Refrigerator, Sparkles, PencilLine, ClipboardPaste, Sprout } from "lucide-react";
+import { C, cardStyle, oneEmoji, protStock, seasonalProduce, TODAY } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
 import { importRecipeFromUrl, importRecipeFromText } from "../lib/assistant.js";
@@ -40,7 +40,7 @@ function Section({ icon: I, label, color, items, onOpen }) {
 
 // « Ma cuisine » — hub condensé (recherche + « + » → Créer/Importer/Scanner, Frigo en carte)
 // + contenu rangé en carrousels par type. Recherche active → liste à plat tous types.
-export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], knownFoods = [] }) {
+export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], knownFoods = [], onCoachPrompt }) {
   const [q, setQ] = useState("");
   const [addMenu, setAddMenu] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -58,6 +58,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   const [pasteBusy, setPasteBusy] = useState(false);
   const [pasteErr, setPasteErr] = useState("");
   const nq = deburr(q);
+  const season = seasonalProduce(TODAY);
   const favSet = new Set(favorites);
 
   useEffect(() => { if (autoAdd) { setAdding(true); onAutoAddDone && onAutoAddDone(); } }, [autoAdd]);
@@ -123,6 +124,18 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold" style={{ color: C.ink }}>Mon frigo</span>
             <span className="block text-[11px]" style={{ color: C.muted }}>{dispo.length ? `${dispo.length} aliments · ~${protStock(dispo)} g prot. dispo` : "Vide — ajoute ce que tu as"}</span>
+          </span>
+          <ChevronRight size={16} style={{ color: C.muted }} />
+        </button>
+      )}
+
+      {/* Touche coach — idée de saison / pour varier (ouvre le coach) */}
+      {!nq && onCoachPrompt && (
+        <button onClick={() => onCoachPrompt(`Propose-moi 2-3 idées de recettes végétariennes de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), protéinées avec de vrais aliments (pas de poudre) et qui changent de mes habitudes.`)} className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left active:scale-95" style={cardStyle({ borderTop: `1px solid ${C.green}55` })}>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08" }}><Sprout size={19} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold" style={{ color: C.ink }}>Une idée de saison&nbsp;?</span>
+            <span className="block text-[11px]" style={{ color: C.muted }}>Ton coach · {season.all.slice(0, 3).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}… pour varier, sans poudre</span>
           </span>
           <ChevronRight size={16} style={{ color: C.muted }} />
         </button>

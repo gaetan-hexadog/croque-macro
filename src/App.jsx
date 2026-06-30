@@ -22,7 +22,7 @@ import { ReviewSheet } from "./sheets/ReviewSheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./screens/JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./screens/ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
-const CoachScreen = lazy(() => import("./screens/CoachScreen.jsx").then((m) => ({ default: m.CoachScreen })));
+const CoachPanel = lazy(() => import("./screens/CoachScreen.jsx").then((m) => ({ default: m.CoachPanel })));
 const GuideScreen = lazy(() => import("./screens/GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
 const PlanScreen = lazy(() => import("./screens/PlanScreen.jsx"));
 const CuisineScreen = lazy(() => import("./screens/CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
@@ -752,7 +752,7 @@ export default function PiocheRepas() {
           screenHeader { title, subtitle, badge, onSettings, onBack } selon l'écran. */}
       <div ref={headerRef} className="fixed inset-x-0 top-0 z-30" style={{ background: C.nav, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: `1px solid ${C.line}`, paddingTop: "env(safe-area-inset-top)" }}>
         {(() => {
-          const TITLES = { coach: "Ton coach", journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" };
+          const TITLES = { journal: "Coach", progres: "Coach", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" };
           const h = screenHeader;
           const onBack = h?.onBack || ((view === "guide" || view === "reglages") ? navBack : null);
           const badge = h?.badge;
@@ -808,11 +808,9 @@ export default function PiocheRepas() {
             savedRecipeNames={savedRecipeNames}
           />
         )}
-        {view === "coach" && (
-          <CoachScreen days={days} weights={weights} settings={settings} onCoachPrompt={openChatWith} onOpenChat={openChat} onGoWeek={() => go("journal")} onReview={openReview} />
-        )}
         {(view === "journal" || view === "progres") && (
           <div className="space-y-5">
+            <CoachPanel days={days} weights={weights} settings={settings} onCoachPrompt={openChatWith} onOpenChat={openChat} />
             <ProgressScreen days={days} weights={weights} settings={settings} onReview={openReview} />
             <JournalScreen days={days} weights={weights} settings={settings} onOpen={goToDay} activeDate={activeDate} />
           </div>
@@ -821,7 +819,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} />
+          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} knownFoods={assistKnownFoods} onCoachPrompt={openChatWith} />
         )}
         {view === "sport" && (
           <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} />
@@ -909,13 +907,12 @@ function ScreenFallback() {
 }
 
 function TabBar({ view, setView }) {
-  // 5 onglets. Coach en dernier ; Progrès vit dans le header (icône en haut).
+  // 4 onglets. Le coach vit dans Jour + Suivi + le chat ; Progrès dans le header.
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
-    { k: "journal", l: "Suivi", icon: TrendingUp },
+    { k: "journal", l: "Coach", icon: Sprout },
     { k: "cuisine", l: "Cuisine", icon: Soup },
     { k: "sport", l: "Sport", icon: Dumbbell },
-    { k: "coach", l: "Coach", icon: Sprout },
   ];
   const Tab = ({ t }) => {
     const Icon = t.icon, active = view === t.k;
@@ -933,7 +930,6 @@ function TabBar({ view, setView }) {
         <Tab t={tabs[1]} />
         <Tab t={tabs[2]} />
         <Tab t={tabs[3]} />
-        <Tab t={tabs[4]} />
       </div>
     </div>
   );
