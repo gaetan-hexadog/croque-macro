@@ -8,3 +8,6 @@ pnpm-lock.yaml.bak
 
 # PWA generated
 dev-dist
+
+# Design lab (scaffolding temporaire — ne jamais committer)
+.claude-design/
