@@ -810,8 +810,7 @@ export default function PiocheRepas() {
         )}
         {(view === "journal" || view === "progres") && (
           <div className="space-y-5">
-            <CoachPanel days={days} weights={weights} settings={settings} onCoachPrompt={openChatWith} onOpenChat={openChat} />
-            <ProgressScreen days={days} weights={weights} settings={settings} onReview={openReview} />
+            <ProgressScreen days={days} weights={weights} settings={settings} onReview={openReview} belowHero={<CoachPanel days={days} weights={weights} settings={settings} onCoachPrompt={openChatWith} onOpenChat={openChat} />} />
             <JournalScreen days={days} weights={weights} settings={settings} onOpen={goToDay} activeDate={activeDate} />
           </div>
         )}

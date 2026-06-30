@@ -11,7 +11,7 @@ const grotesk = { fontFamily: "'Space Grotesk', ui-sans-serif, system-ui", fontV
 //  Héro trajectoire poids + verdict semaine · chips macro · courbe de poids.
 //  L'historique jour par jour est rendu par JournalScreen, juste en dessous.
 // ════════════════════════════════════════════════════════════════════════════
-export function ProgressScreen({ days, weights, settings, onReview }) {
+export function ProgressScreen({ days, weights, settings, onReview, belowHero }) {
   const stats = useMemo(() => weekStats(days, settings, TODAY, 7), [days, settings]);
   const coach = useMemo(() => weekCoach(stats, settings, weights, TODAY), [stats, settings, weights]);
 
@@ -61,6 +61,8 @@ export function ProgressScreen({ days, weights, settings, onReview }) {
           </div>
         </div>
       </section>
+
+      {belowHero}
 
       {/* Chips macro de la semaine */}
       <div className="flex gap-2.5">
