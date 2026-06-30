@@ -381,6 +381,170 @@ function computeAdaptiveTarget({ profile, days, weights, currentTarget, refISO =
   return mk(kcal, tone, tone === "stall" ? "Ta perte stagne — on recale sur tes données" : "Cible recalée sur ta maintenance réelle");
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// COACHING — saisonnalité (France) + signaux proactifs conscients de l'heure
+// ════════════════════════════════════════════════════════════════════════════
+
+// Fruits & légumes de saison par mois (France métropole). Sert au coach ET aux
+// prompts (l'assistant proposait jusqu'ici des aliments hors-saison).
+const SEASONAL_FR = [
+  { veg: ["🥬 poireau", "🥕 carotte", "🧅 oignon", "🥗 endive", "🎃 courge", "🥬 chou"], fruit: ["🍎 pomme", "🍐 poire", "🍊 orange", "🥝 kiwi", "🍊 clémentine"] }, // janv
+  { veg: ["🥬 poireau", "🥕 carotte", "🥗 endive", "🧅 oignon", "🫜 betterave", "🥬 chou"], fruit: ["🍎 pomme", "🍐 poire", "🍊 orange", "🥝 kiwi"] }, // févr
+  { veg: ["🥬 poireau", "🥬 épinard", "🫜 betterave", "🥕 carotte", "🌱 radis"], fruit: ["🍎 pomme", "🍐 poire", "🥝 kiwi"] }, // mars
+  { veg: ["🌿 asperge", "🌱 radis", "🥬 épinard", "🟢 petit pois", "🥬 blette"], fruit: ["🍓 fraise", "🌿 rhubarbe"] }, // avril
+  { veg: ["🌿 asperge", "🌱 radis", "🟢 petit pois", "🥒 concombre", "🥬 épinard"], fruit: ["🍓 fraise", "🍒 cerise", "🌿 rhubarbe"] }, // mai
+  { veg: ["🥒 courgette", "🍅 tomate", "🥒 concombre", "🫛 haricot vert", "🟢 petit pois", "🍆 aubergine"], fruit: ["🍓 fraise", "🍒 cerise", "🍑 abricot", "🫐 framboise", "🍈 melon"] }, // juin
+  { veg: ["🥒 courgette", "🍅 tomate", "🍆 aubergine", "🫑 poivron", "🥒 concombre", "🫛 haricot vert"], fruit: ["🍑 abricot", "🍑 pêche", "🍈 melon", "🫐 framboise", "🍒 cerise"] }, // juillet
+  { veg: ["🍅 tomate", "🥒 courgette", "🍆 aubergine", "🫑 poivron", "🫛 haricot vert", "🌽 maïs"], fruit: ["🍑 pêche", "🍑 prune", "🍈 melon", "🍇 raisin", "🫐 mûre"] }, // août
+  { veg: ["🍅 tomate", "🥒 courgette", "🫑 poivron", "🥬 épinard", "🥦 brocoli", "🍄 champignon"], fruit: ["🍇 raisin", "🍑 prune", "🍎 pomme", "🍐 poire", "🌰 noisette"] }, // sept
+  { veg: ["🎃 potimarron", "🥬 poireau", "🥬 épinard", "🥦 brocoli", "🍄 champignon", "🥕 carotte"], fruit: ["🍎 pomme", "🍐 poire", "🍇 raisin", "🌰 châtaigne", "🍐 coing"] }, // oct
+  { veg: ["🎃 courge", "🥬 poireau", "🥬 chou", "🥕 carotte", "🥗 endive", "🥬 mâche"], fruit: ["🍎 pomme", "🍐 poire", "🥝 kiwi", "🌰 châtaigne", "🍊 clémentine"] }, // nov
+  { veg: ["🎃 courge", "🥬 poireau", "🥬 chou", "🥗 endive", "🥕 carotte", "🥬 mâche"], fruit: ["🍎 pomme", "🍐 poire", "🍊 orange", "🍊 clémentine", "🥝 kiwi"] }, // déc
+];
+const MONTHS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+// Vraies sources de protéines (hors poudre) — le coach les privilégie aux shakes.
+const REAL_PROTEIN_FOODS = "lentilles, pois chiches, haricots rouges, edamame, tofu, tempeh, seitan, œufs, fromage blanc / skyr (lait de vache), fromage au lait de vache, yaourt soja, pois cassés, oléagineux, beurre de cacahuète";
+
+// Produits de saison pour une date donnée (France). { month, label, veg[], fruit[], all[] }.
+function seasonalProduce(refISO = TODAY) {
+  const [, mo, da] = String(refISO).split("-").map(Number);
+  const m = ((mo || 1) - 1 + 12) % 12, day = da || 1;
+  const data = SEASONAL_FR[m];
+  const qual = day <= 10 ? "début " : day <= 20 ? "mi-" : "fin ";
+  return { month: m, label: `${qual}${MONTHS_FR[m]}`, veg: data.veg, fruit: data.fruit, all: [...data.veg, ...data.fruit] };
+}
+const stripEmoji = (s) => String(s).replace(/^[^\s]+\s/, "");
+
+// Phrase « de saison » prête à injecter dans un prompt (sans emoji).
+function seasonNote(refISO = TODAY) {
+  const s = seasonalProduce(refISO);
+  return `Produits de SAISON en ce moment (France, ${s.label}) — privilégie-les (meilleurs, moins chers, et ça varie) : légumes ${s.veg.map(stripEmoji).join(", ")} ; fruits ${s.fruit.map(stripEmoji).join(", ")}.`;
+}
+
+// Phase de la journée + fraction d'apport "normalement" atteinte à cette heure
+// (repère SOUPLE, pas une règle — sert à juger si la journée avance trop vite/lentement).
+function dayPhase(h) {
+  if (h < 6) return "nuit"; if (h < 11) return "matin"; if (h < 14) return "midi";
+  if (h < 18) return "après-midi"; if (h < 22) return "soir"; return "nuit";
+}
+function expectedFrac(h) {
+  if (h < 9) return 0.05; if (h < 11) return 0.18; if (h < 14) return 0.32;
+  if (h < 17) return 0.55; if (h < 20) return 0.68; if (h < 22) return 0.9; return 1;
+}
+
+// ── Signaux proactifs du coach ───────────────────────────────────────────────
+// Lit la journée EN COURS (selon l'heure) + la semaine + la saison et produit des
+// « interpellations » priorisées : rattrapage protéines si la journée avance,
+// réassurance si dépassement, alerte douce si la trajectoire dérive, anti-routine,
+// saison. Ton = compagnon bienveillant (suggère/rassure, n'ordonne jamais).
+// Renvoie { hour, phase, signals[], today, week, season }. nowHour injectable (tests).
+function coachSignals({ days = {}, weights = {}, settings = {}, refISO = TODAY, nowHour } = {}) {
+  const h = Number.isFinite(nowHour) ? nowHour : new Date().getHours();
+  const phase = dayPhase(h);
+  const kT = settings.kcal || 1850, pT = settings.protein || 150;
+  const tot = dayTotals(days[refISO]);
+  const kDone = tot.kcal, pDone = tot.p;
+  const kLeft = kT - kDone, pLeft = pT - pDone;
+  const logged = kDone > 0 || pDone > 0;
+  const ef = expectedFrac(h);
+  const isToday = refISO === TODAY;
+  const sig = [];
+
+  // 1) PROTÉINES — rattrapage si la journée avance et qu'on est en retard sur le rythme
+  if (isToday && pT > 0) {
+    if (logged && pLeft <= 0) {
+      sig.push({ id: "prot-ok", kind: "protein", tone: "win", title: "Protéines au top", text: `${r0(pDone)} g — objectif atteint 💪 Beau réflexe, et sans tout miser sur la poudre.` });
+    } else if (h >= 13 && logged && pDone < pT * ef * 0.8 && pLeft >= 15) {
+      const late = h >= 19;
+      sig.push({
+        id: "prot-late", kind: "protein", tone: late ? "alert" : "nudge",
+        title: late ? `Encore ${r0(pLeft)} g de protéines ce soir` : `Protéines à rattraper (${r0(pLeft)} g)`,
+        text: late
+          ? `La soirée est là et il te reste ${r0(pLeft)} g. Sans shaker : un plat de légumineuses + 2 œufs + un fromage blanc t'en rapprochent vite.`
+          : `On est en ${phase} et tu es un peu en retard côté protéines (${r0(pDone)}/${r0(pT)} g). Cale un repas riche d'ici ce soir — lentilles/pois chiches, œufs, tofu, fromage blanc — plutôt qu'une poudre.`,
+        chip: { label: "Finir sans poudre", prompt: `Il me reste ${r0(pLeft)} g de protéines et il est ${h}h. Donne-moi 2-3 façons concrètes de les atteindre aujourd'hui avec de VRAIS aliments (pas de poudre), de saison si possible.` },
+      });
+    }
+  }
+
+  // 2) KCAL — réassurance si déjà haut/dépassé, ou marge serrée avant le dîner
+  if (isToday && kT > 0 && logged) {
+    if (kDone > kT * 1.06) {
+      sig.push({
+        id: "kcal-over", kind: "kcal", tone: "reassure",
+        title: "Journée un peu au-dessus — c'est ok",
+        text: `Tu es à ~${r0(kDone)} kcal (cible ${r0(kT)}). Ça arrive, et ça se lisse sur la semaine — pas une dette à rembourser. On repart léger et protéiné demain, sans culpabiliser.`,
+      });
+    } else if (kLeft > 0 && kLeft < 280 && h < 20 && pLeft > 10) {
+      sig.push({
+        id: "kcal-tight", kind: "kcal", tone: "nudge",
+        title: "Marge serrée avant le dîner",
+        text: `Il te reste ${r0(kLeft)} kcal mais encore ${r0(pLeft)} g de protéines à caler. Vise un dîner léger ET protéiné : omelette + légumes de saison, ou dahl express.`,
+        chip: { label: "Un dîner léger & protéiné", prompt: `Il me reste ${r0(kLeft)} kcal et ${r0(pLeft)} g de protéines pour le dîner. Propose 2 dîners légers, protéinés et de saison, sans poudre.` },
+      });
+    }
+  }
+
+  // 3) TRAJECTOIRE de la semaine — alerte douce si on dérive, sinon encouragement
+  let wc = null; try { wc = weekCoach(weekStats(days, settings, refISO, 7), settings, weights, refISO); } catch {}
+  if (wc && wc.headline && wc.tone !== "start") {
+    const map = { behind: "alert", ahead: "win", low: "reassure", ontrack: "win" };
+    sig.push({ id: `week-${wc.tone}`, kind: "week", tone: map[wc.tone] || "info", title: wc.headline, text: wc.detail });
+  }
+
+  // 4) VARIÉTÉ — anti-routine
+  let overused = []; try { overused = varietyProfile(days, refISO) || []; } catch {}
+  if (overused.length) {
+    const top = overused[0];
+    sig.push({
+      id: "variety", kind: "variety", tone: "nudge",
+      title: "Un peu de variété ?",
+      text: `Tu reviens souvent sur ${top.name} (${top.n}× sur ~10 j). On change un peu, pour le plaisir et l'équilibre ?`,
+      chip: { label: `Une idée sans ${top.name}`, prompt: `Propose-moi une idée de repas de saison SANS ${top.name}, protéinée (vrais aliments, pas de poudre) et dans mon budget restant.` },
+    });
+  }
+
+  // 5) SAISON — toujours dispo, positif
+  const season = seasonalProduce(refISO);
+  sig.push({
+    id: "season", kind: "season", tone: "info",
+    title: `Pleine saison · ${season.label}`,
+    text: `${season.all.slice(0, 5).join("   ")} …`,
+    chip: { label: "Un repas de saison", prompt: `Propose-moi une idée de repas qui met en avant les produits de saison (${season.all.slice(0, 6).map(stripEmoji).join(", ")}), végétarienne et protéinée.` },
+  });
+
+  return { hour: h, phase, signals: sig, today: { kDone, pDone, kLeft, pLeft, kT, pT }, week: wc, season };
+}
+
+// Salutation selon l'heure.
+function coachGreeting(nowHour) {
+  const h = Number.isFinite(nowHour) ? nowHour : new Date().getHours();
+  if (h < 6) return "Encore debout, Bob ? 🌙";
+  if (h < 11) return "Salut Bob ☀️";
+  if (h < 18) return "Salut Bob 👋";
+  return "Bonsoir Bob 🌙";
+}
+
+// Compose l'OUVERTURE proactive du chat coach : { greeting, continuity, bubbles[], chips[] }.
+// Le coach « a lu la semaine » : accueil + signaux prioritaires + chips de réponse.
+function coachOpening({ days = {}, weights = {}, settings = {}, refISO = TODAY, nowHour } = {}) {
+  const cs = coachSignals({ days, weights, settings, refISO, nowHour });
+  const greeting = coachGreeting(cs.hour);
+  const rank = { alert: 0, nudge: 1, reassure: 2, win: 3, info: 4 };
+  const ordered = cs.signals.slice().sort((a, b) => (rank[a.tone] ?? 5) - (rank[b.tone] ?? 5));
+  const top = ordered.slice(0, 3);
+  const bubbles = top.map((s) => s.text);
+  const chips = [];
+  top.forEach((s) => { if (s.chip) chips.push(s.chip); });
+  if (Object.keys(weights || {}).length) chips.push({ label: "Mon bilan poids", prompt: "Analyse ma variation de poids récente et dis-moi si je suis sur la bonne voie." });
+  chips.push({ label: "Plus tard", dismiss: true });
+  // continuité légère : un mot sur hier si la veille a été chargée
+  let continuity = "";
+  const yTot = dayTotals(days[addDays(refISO, -1)]);
+  if (yTot.kcal > (settings.kcal || 1850) * 1.1) continuity = "Hier était un peu chargé — on repart tranquille aujourd'hui 🙂";
+  return { greeting, continuity, bubbles, chips, phase: cs.phase, hour: cs.hour, signals: cs };
+}
+
 // Correction rétroactive des macros Clear Protein dans l'historique (verre 34/8→30/7,
 // dose 86/20→75/18). CIBLÉE (nom + anciennes valeurs exactes) et IDEMPOTENTE : une
 // fois corrigé, ça ne matche plus → safe à relancer à chaque démarrage.
@@ -400,6 +564,63 @@ function fixClearProteinHistory(days = {}) {
     out[iso] = { ...d, picks: { pdj: fixArr(pk.pdj), dej: fixArr(pk.dej), diner: fixArr(pk.diner), snacks: fixArr(pk.snacks), extras: fixArr(pk.extras) } };
   }
   return changed ? out : days;
+}
+
+// Anti-doublon des recettes perso : garde la PREMIÈRE occurrence par nom normalisé
+// (la plus récente — addRecipe préfixe). Idempotent → à rejouer après chaque fusion sync
+// pour nettoyer les doublons créés par d'anciennes versions (la fusion `byId` les rejouait
+// car ils avaient des id différents). Les entrées sans nom sont toutes conservées.
+function dedupeRecipesByName(list = []) {
+  const seen = new Set();
+  const out = [];
+  for (const r of list || []) {
+    const k = (r && r.name ? String(r.name) : "").trim().toLowerCase();
+    if (k && seen.has(k)) continue;
+    if (k) seen.add(k);
+    out.push(r);
+  }
+  return out.length === (list || []).length ? list : out;
+}
+
+// Fusion « garde-manger » : unifie l'ANCIENNE base perso (customMeals, macros par
+// PORTION {kcal,p}) et le frigo (pantry, densité /100 {kcal100,p100}) en UN seul store.
+// Idempotent (rejouable à chaque hydratation/sync). Dédup par nom (insensible casse).
+// Réconcilie les DEUX faces sans rien inventer (aucune dérivation portion↔densité).
+// Les ex-customMeals → `out: false` (dispo) + `slots` par défaut. `slots` est REQUIS :
+// le pool de la pioche filtre sur `m.slots.includes(...)` → un item sans slots planterait.
+function mergePantryStore(pantry = [], customMeals = []) {
+  const ALL_SLOTS = ["pdj", "dej", "diner", "snack"];
+  const norm = (x) => String((x && x.name) || "").trim().toLowerCase();
+  const byName = new Map();
+  const order = [];
+  let mutated = false;
+  const ensure = (raw, fromCustom) => {
+    if (!raw) return;
+    const key = norm(raw);
+    if (!key) return; // pas de nom → ignoré (cohérent avec dedupeRecipesByName)
+    let it = byName.get(key);
+    if (!it) {
+      const slots = Array.isArray(raw.slots) && raw.slots.length ? raw.slots : ALL_SLOTS;
+      if (slots !== raw.slots) mutated = true;         // slots manquants → défaut appliqué
+      if (!raw.id || fromCustom) mutated = true;       // id généré, ou item venu de customMeals
+      it = { id: raw.id || newId("pan"), name: String(raw.name).trim(), out: fromCustom ? false : !!raw.out, slots };
+      byName.set(key, it); order.push(key);
+    } else {
+      mutated = true;                                  // doublon de nom fusionné
+      if (!raw.out) it.out = false;                    // un doublon dispo l'emporte sur rupture
+    }
+    if (raw.kcal != null && it.kcal == null) it.kcal = raw.kcal;        // face PORTION
+    if (raw.p != null && it.p == null) it.p = raw.p;
+    if (raw.kcal100 != null && it.kcal100 == null) it.kcal100 = raw.kcal100; // face DENSITÉ /100
+    if (raw.p100 != null && it.p100 == null) it.p100 = raw.p100;
+    if (raw.unit && !it.unit) it.unit = raw.unit;
+    if (raw.qty != null && it.qty == null) it.qty = raw.qty;
+    for (const k of ["c", "f", "tags", "desc", "custom", "off", "code"]) if (raw[k] != null && it[k] == null) it[k] = raw[k];
+  };
+  for (const x of pantry || []) ensure(x, false);       // frigo d'abord (garde out réel + densité)
+  for (const x of customMeals || []) ensure(x, true);   // base perso ensuite (complète la portion)
+  if (!mutated && !(customMeals && customMeals.length)) return pantry; // rien à faire → pas de churn
+  return order.map((k) => byName.get(k)).slice(0, 200);
 }
 
 // ── Verdict « courses » (feu vert/orange/rouge) ─────────────────────────────
@@ -596,15 +817,18 @@ function buildAssistantPrompt({
   dateLabel, startLabel,
   training = false, workout, trend, // jour de sport (ajuster glucides/protéines) + tendance poids observée
   overused = [],            // [{name,n}] aliments revenus souvent ces derniers jours → varier
+  directives = [],          // consignes actives de Bob (épinglées du bilan / saisies) → à respecter en priorité
+  refISO = TODAY,           // date de référence → produits de saison injectés
 } = {}) {
   const sys = [
     "Tu es l'assistant nutrition personnel de Bob. Tu proposes des repas végétariens, simples et réalistes. Réponds en français.",
     "Règles diététiques STRICTES, non négociables :",
     "- Végétarien. Œufs et fromages au lait de VACHE uniquement (jamais chèvre ni brebis).",
     "- Bob ne boit pas de lait de vache. Lait végétal par défaut = lait d'AMANDE non sucré (~1 g de protéines/250 ml).",
-    "- La protéine vient des aliments protéinés et de la poudre de protéine, pas du lait.",
+    `- La protéine vient D'ABORD de VRAIS aliments (${REAL_PROTEIN_FOODS}). La poudre de protéine est un DÉPANNAGE (petit-déj pressé), pas le réflexe par défaut à chaque repas. Jamais du lait.`,
     `- Objectif : perte de gras. Cibles ~${r0(targetKcal)} kcal / ~${r0(targetP)} g de protéines par jour. Repas protéinés.`,
-    "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker, portable).",
+    "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker OK ici, ou une option portable à base de vrais aliments).",
+    `- ${seasonNote(refISO)} Mets-les en avant quand c'est pertinent.`,
     "- Bob suit son poids et n'aime pas que la balance soit brouillée par la rétention d'eau. Pour limiter ça : VARIE les sources de protéines et évite d'EMPILER au même repas / sur la même journée un fort SODIUM (aliments transformés type jambon ou lardons végétaux, charcuterie veggie, condiments salés, sauce soja, cornichons, miso, feta) ET de TRÈS grosses charges de fibres/légumineuses (lentilles + pois chiches + edamame + maïs au même repas). Ce n'est PAS une interdiction — ces aliments sont bons ; juste ne pas tout cumuler, et équilibrer avec des options plus légères en sel/fibres dans la journée.",
     "VARIÉTÉ (important) : sois créatif et propose des repas VARIÉS et appétissants — explore différentes cuisines (méditerranéenne, indienne, mexicaine, asiatique, levantine…), légumineuses, céréales, façons de cuisiner. NE te limite PAS aux mêmes plats classiques ni à ce que Bob mange déjà d'habitude. Si on régénère, propose autre chose.",
     "Consignes de calcul :",
@@ -640,9 +864,15 @@ function buildAssistantPrompt({
       const macro = (h.kcal100 || h.p100) ? ` — ${r0(h.kcal100 || 0)} kcal, ${h.p100 ?? "?"} g prot. pour 100 ${u}` : "";
       L.push(`- ${h.name}${stock}${macro}`);
     });
+    L.push("CONTRAINTE FRIGO — la SOURCE DE PROTÉINES et toute LÉGUMINEUSE du repas doivent être choisies DANS cette liste, ou parmi mes incontournables toujours dispo (œufs, fromage au lait de vache, poudre de protéine). Ne propose PAS un plat dont la protéine ou la légumineuse principale n'y figure pas (ex. : pas de dahl de lentilles ni de chili si je n'ai ni lentilles ni haricots ; pas de tofu/tempeh si absents). Les ingrédients COURANTS (légumes, féculents, épices, huile, condiments), eux, peuvent être complétés librement.");
     L.push("");
   }
   if (avoid.length) { L.push(`À NE PAS utiliser aujourd'hui : ${avoid.slice(0, 40).join(", ")}.`); L.push(""); }
+  if (directives.length && (mode === "meal" || mode === "day" || mode === "week")) {
+    L.push("MES CONSIGNES ACTIVES (je les ai épinglées moi-même — tiens-en compte EN PRIORITÉ dans chaque proposition, sauf si elles contredisent une règle diététique) :");
+    directives.slice(0, 15).forEach((d) => { const t = typeof d === "string" ? d : d && d.text; if (t && String(t).trim()) L.push(`- ${String(t).trim()}`); });
+    L.push("");
+  }
 
   const budget = Number.isFinite(remKcal) && Number.isFinite(remP);
   if (mode === "week") {
@@ -686,7 +916,7 @@ function buildAssistantPrompt({
       if (weekBalance > 300) L.push(`Sur la semaine je suis SOUS mon budget (+${r0(weekBalance)} kcal de marge) → un petit plaisir gourmand raisonnable est OK s'il rentre dans la marge.`);
       else if (weekBalance < -300) L.push("Sur la semaine je suis AU-DESSUS de mon budget → reste sobre et protéiné.");
     }
-    if (dayContext.length) L.push(`Repas DÉJÀ prévus/mangés aujourd'hui : ${dayContext.join(" ; ")}. IMPORTANT — propose pour ce créneau quelque chose de DIFFÉRENT : ne RÉUTILISE PAS les ingrédients principaux déjà mangés aujourd'hui (même source de protéine, même légume, même féculent). Ex. : si courgettes + saucisse végé au déjeuner, choisis un AUTRE légume et une AUTRE protéine le soir. Complète la journée en variant, et équilibre les macros restantes.`);
+    if (dayContext.length) L.push(`DÉJÀ mangé ou prévu AUJOURD'HUI : ${dayContext.join(" ; ")}. CONTRAINTE FORTE : pour ce créneau, n'utilise AUCUNE des sources de protéines, légumineuses, féculents ni légumes principaux qui apparaissent ci-dessus. Si j'ai déjà mangé des lentilles, du tofu, des pois chiches (ou tel légume / féculent) plus tôt dans la journée, ne m'en repropose PAS au repas suivant — change de protéine ET de base. Donne quelque chose de franchement DIFFÉRENT et équilibre les macros restantes.`);
     if (recentMeals.length) L.push(`Ces DERNIERS JOURS j'ai déjà mangé : ${recentMeals.slice(0, 18).join(" ; ")}. ÉVITE de me reproposer ces plats ou des plats très proches — fais VARIER d'un jour à l'autre (autres sources de protéine, autres légumes/féculents, autres cuisines). Ne me fais pas manger deux fois la même chose à 1-2 jours d'intervalle.`);
     if (excludeTitles.length) L.push(`NE repropose AUCUN de ces plats déjà proposés : ${excludeTitles.slice(0, 12).join(" ; ")}. Donne des plats DIFFÉRENTS et nouveaux.`);
     if (concise) L.push("Reste CONCIS, mais chaque ingrédient AVEC sa quantité (qty + unit) ; 1-2 variantes. N'inclus PAS les étapes de préparation.");
@@ -745,7 +975,7 @@ function buildWeeklyReviewPrompt({ days = {}, settings = {}, refISO = TODAY, ove
   const system = [
     "Tu es l'assistant nutrition personnel de Bob. Tu fais un BILAN de sa semaine, en français, court et concret (zéro blabla). Objectif : perte de gras, repas végétariens.",
     "Va AU-DELÀ des kcal/protéines : commente la VARIÉTÉ (sources de protéines, légumes et couleurs, féculents, cuisines), l'équilibre (assez de légumes verts et de fibres ? trop de fromage / sodium / transformés ?) et la régularité.",
-    "Format : 2-3 phrases de constat (ce qui va, ce qui manque), PUIS 2 conseils CONCRETS et actionnables pour la semaine prochaine. Bienveillant mais honnête. ~5-7 lignes max, pas de Markdown lourd.",
+    "Format : 2-3 phrases de constat (ce qui va, ce qui manque), PUIS tes 2 conseils CONCRETS et actionnables pour la semaine prochaine, chacun sur SA PROPRE LIGNE commençant par « - » (une puce = un conseil autonome et compréhensible seul, car Bob pourra l'épingler comme consigne). Bienveillant mais honnête. ~5-7 lignes max, pas de Markdown lourd.",
   ].join("\n");
   const L = [];
   if (stats && stats.logged) L.push(`Cette semaine : ${stats.logged} jours loggés, moyenne ~${r0(stats.avgKcal)} kcal / ${r0(stats.avgProt)} g protéines par jour (cible ${r0(settings.kcal || 1850)}/${r0(settings.protein || 150)}).`);
@@ -788,9 +1018,12 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
   const have = pantry.filter((x) => !x.out && x.name).slice(0, 40).map((x) => `${x.name}${x.kcal100 ? ` (${x.kcal100} kcal/${x.p100 ?? "?"} g par 100${x.unit || "g"})` : ""}`);
   const recNames = (recipes || []).map((r) => r && r.name).filter(Boolean).slice(0, 60);
   return [
-    "Tu es l'assistant nutrition personnel de Bob, en mode CONVERSATION. Réponds en français, de façon concise, concrète et chaleureuse. Tu CONNAIS son contexte ci-dessous — utilise-le, ne redemande jamais ce que tu sais déjà.",
-    "Règles diététiques NON négociables : végétarien (œufs/fromages au lait de VACHE uniquement, jamais chèvre/brebis) ; Bob ne boit pas de lait de vache, lait végétal par défaut = AMANDE non sucré ; la protéine vient des aliments protéinés et de la poudre. Objectif : perte de gras.",
+    "Tu es le COACH nutrition personnel de Bob, en mode CONVERSATION. Réponds en français, de façon concise, concrète et chaleureuse. Tu CONNAIS son contexte ci-dessous — utilise-le, ne redemande jamais ce que tu sais déjà.",
+    "POSTURE DE COACH : encourage et rassure (un dépassement n'est pas une faute, ça se lisse sur la semaine — jamais de culpabilisation) ; sois proactif (propose une action concrète plutôt que d'attendre la demande) ; si la journée avance et qu'un objectif est menacé (protéines en retard, kcal déjà hautes), dis-le avec tact et propose un rattrapage réaliste.",
+    "Règles diététiques NON négociables : végétarien (œufs/fromages au lait de VACHE uniquement, jamais chèvre/brebis) ; Bob ne boit pas de lait de vache, lait végétal par défaut = AMANDE non sucré. Objectif : perte de gras.",
+    `PROTÉINES — privilégie de VRAIS aliments (${REAL_PROTEIN_FOODS}) pour atteindre la cible ; la poudre est un DÉPANNAGE (petit-déj pressé), pas le réflexe à chaque repas. Ne pousse pas un shake si un vrai aliment fait le job.`,
     `Cibles : ${settings.kcal || 1850} kcal / ${settings.protein || 150} g protéines par jour.`,
+    seasonNote(refISO),
     `AUJOURD'HUI (${fmtFull(refISO)}) : ${tot.kcal} kcal · ${tot.p} g prot. consommés → IL RESTE ${remK} kcal · ${remP} g prot.${todayItems.length ? ` Déjà mangé/prévu : ${todayItems.join(", ")}.` : " Rien loggé pour l'instant."}`,
     recent.length ? `Jours précédents : ${recent.join(" | ")}.` : "",
     week ? `Bilan semaine : ${week}` : "",
@@ -805,5 +1038,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, newId, scoreProduct,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
 };

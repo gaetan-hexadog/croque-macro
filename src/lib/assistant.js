@@ -6,6 +6,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { supabase } from "./supabaseClient.js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase.config.js";
+import { buildAssistantPrompt } from "../core.js";
 
 // Assistant hébergé en Supabase Edge Function (Netlify coupait à 10 s → 502/504).
 const ENDPOINT = `${SUPABASE_URL}/functions/v1/assistant`;
@@ -195,6 +196,24 @@ export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", opts = 
   if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
   if (!out || !Array.isArray(out.meals) || !out.meals.length) throw new AssistantError("Aucun repas reconnu.", { kind: "server" });
   return out.meals[0];
+}
+
+// Estime kcal/protéines POUR 100 g/ml d'un aliment brut depuis son NOM (vrac sans
+// code-barres : « riz basmati », « graines de courge »…). Réutilise le mode "parse"
+// existant de l'Edge Function (aucun déploiement requis) : on lui décrit 100 unités de
+// l'aliment cru/sec → meals[0].kcal/protein = les valeurs /100. Renvoie { kcal100, p100 }.
+export async function estimateFoodMacros(name, unit = "g", opts = {}) {
+  const n = String(name || "").trim();
+  if (!n) throw new AssistantError("Donne un nom d'aliment.", { kind: "server" });
+  const u = unit === "ml" ? "ml" : "g";
+  const { system, prompt, mode } = buildAssistantPrompt({
+    mode: "parse",
+    text: `100 ${u} de « ${n} », aliment BRUT cru/sec tel qu'acheté en vrac (riz/pâtes/légumineuses = à sec, oléagineux/graines = nature). Donne des valeurs nutritionnelles STANDARD réalistes (type Ciqual/USDA), kcal et protéines POUR 100 ${u}, conservateur.`,
+  });
+  const { meals } = await askAssistant({ system, prompt, mode }, opts);
+  const m = meals && meals[0];
+  if (!m || m.kcal == null) throw new AssistantError("Estimation indisponible — saisis à la main.", { kind: "server" });
+  return { kcal100: Math.round(m.kcal), p100: Math.round((m.protein ?? m.p ?? 0) * 10) / 10 };
 }
 
 // Affine une séance de sport selon le matériel/temps dispo (mode vacances).

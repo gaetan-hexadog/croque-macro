@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck, RefreshCw } from "lucide-react";
+import { Sparkles, Loader2, Refrigerator, AlertCircle, CalendarDays, Check, ChevronDown, BookmarkPlus, CalendarCheck, RefreshCw, Pin, X } from "lucide-react";
 import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, dayTotals, EMPTY_DAY, picksKey, weekStats } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { PantrySheet } from "../sheets/PantrySheet.jsx";
@@ -49,7 +49,7 @@ function OptionCard({ meal, selected, onSelect, onSave, saved, varSel, onToggleV
 // cours, tous sinon). On en sélectionne une par repas, puis « Planifier » valide tout.
 export default function PlanScreen({
   targetKcal = 1850, targetP = 150, days = {},
-  favorites = [], knownFoods = [],
+  favorites = [], knownFoods = [], directives = [], onRemoveDirective,
   pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
   onPlanDay, onSaveRecipe,
 }) {
@@ -105,7 +105,7 @@ export default function PlanScreen({
         const shareSum = remSlots.reduce((a, x) => a + (SLOT_SHARE[x] || 0.25), 0) || 1;
         const sk = Math.max(0, Math.round(remK * (SLOT_SHARE[s] || 0.25) / shareSum));
         const sp = Math.max(0, Math.round(remP * (SLOT_SHARE[s] || 0.25) / shareSum));
-        const { system, prompt, mode: m } = buildAssistantPrompt({ mode: "meal", slot: s, remKcal: sk, remP: sp, favorites, knownFoods, have, avoid, weekBalance, dayContext: ctx, count: 2, concise: true });
+        const { system, prompt, mode: m } = buildAssistantPrompt({ mode: "meal", slot: s, remKcal: sk, remP: sp, favorites, knownFoods, have, avoid, weekBalance, dayContext: ctx, directives, count: 2, concise: true });
         const { meals } = await askAssistant({ system, prompt, mode: m });
         const tagged = meals.map((mm) => ({ ...mm, slot: s, dayIndex: di }));
         setResults((rs) => [...(rs || []), ...tagged]); // apparition progressive
@@ -139,7 +139,7 @@ export default function PlanScreen({
       const { system, prompt, mode: m } = buildAssistantPrompt({
         mode: "meal", slot: s,
         remKcal: Math.round(targetKcal * (SLOT_SHARE[s] || 0.25)), remP: Math.round(targetP * (SLOT_SHARE[s] || 0.25)),
-        favorites, knownFoods, have, avoid, weekBalance, excludeTitles: prevTitles, count: 2, concise: true,
+        favorites, knownFoods, have, avoid, weekBalance, excludeTitles: prevTitles, directives, count: 2, concise: true,
       });
       const { meals } = await askAssistant({ system, prompt, mode: m });
       setResults((rs) => {
@@ -183,6 +183,21 @@ export default function PlanScreen({
   return (
     <div className="space-y-4">
       <p className="text-sm" style={{ color: C.sub }}>Génère des options par repas, choisis celles qui te plaisent, puis planifie-les. Sur le jour en cours, seuls les repas pas encore faits sont proposés.</p>
+
+      {/* Consignes actives — l'assistant en tient compte à la génération ; retrait rapide */}
+      {directives.length > 0 && (
+        <div className="rounded-2xl px-3 py-2.5" style={{ backgroundColor: `${C.accent}10`, border: `1px solid ${C.accent}33` }}>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}><Pin size={12} /> Tes consignes · prises en compte</p>
+          <div className="flex flex-wrap gap-1.5">
+            {directives.map((d) => (
+              <span key={d.id} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+                {d.text}
+                {onRemoveDirective && <button onClick={() => onRemoveDirective(d.id)} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Retirer la consigne"><X size={12} /></button>}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mode */}
       <div className="flex gap-1.5 rounded-2xl p-1" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>

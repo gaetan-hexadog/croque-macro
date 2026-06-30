@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles } from "lucide-react";
+import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles, Sprout } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, newId, weekStats, weekCoach, varietyProfile,
+  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, recompSignal } from "./lib/sport.js";
 import { loadLive } from "./sport/liveSession.js";
@@ -22,6 +22,7 @@ import { ReviewSheet } from "./sheets/ReviewSheet.jsx";
 // Écrans secondaires & modales lourdes : chargés à la demande (bundle initial allégé).
 const JournalScreen = lazy(() => import("./screens/JournalScreen.jsx").then((m) => ({ default: m.JournalScreen })));
 const ProgressScreen = lazy(() => import("./screens/ProgressScreen.jsx").then((m) => ({ default: m.ProgressScreen })));
+const CoachScreen = lazy(() => import("./screens/CoachScreen.jsx").then((m) => ({ default: m.CoachScreen })));
 const GuideScreen = lazy(() => import("./screens/GuideScreen.jsx").then((m) => ({ default: m.GuideScreen })));
 const PlanScreen = lazy(() => import("./screens/PlanScreen.jsx"));
 const CuisineScreen = lazy(() => import("./screens/CuisineScreen.jsx").then((m) => ({ default: m.CuisineScreen })));
@@ -35,7 +36,8 @@ export default function PiocheRepas() {
   const [days, setDays] = useState({});       // { iso: {picks, skipBreakfast} }
   const [weights, setWeights] = useState({});  // { iso: kg }
   const [templates, setTemplates] = useState([]); // [{id,name,picks,skipBreakfast}]
-  const [customMeals, setCustomMeals] = useState([]); // produits enregistrés (Open Food Facts / manuels)
+  // [Garde-manger unifié] customMeals (ancienne base perso) est FONDU dans `pantry`.
+  // Plus de state séparé : un aliment loggable et un aliment du frigo sont la même chose.
   const [usage, setUsage] = useState({});      // { name: { count, last } } — fréquents/récents
   const [combos, setCombos] = useState([]);    // [{ id, name, slot, items:[{name,kcal,p,qty}], created }]
   const [shakeBases, setShakeBases] = useState([]);     // bases shake perso
@@ -44,6 +46,7 @@ export default function PiocheRepas() {
   const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
   const [customRecipes, setCustomRecipes] = useState([]); // recettes perso (écran Idées), fusionnées à la bibliothèque
   const [pantry, setPantry] = useState([]);             // frigo/placard : [{ id, name, out }] — out=true = pas dispo aujourd'hui
+  const [directives, setDirectives] = useState([]);     // consignes actives [{ id, text, created }] : épinglées du bilan ou saisies, injectées dans les prompts assistant
   const [workouts, setWorkouts] = useState({});         // séances loggées : { id: { date, sessionId, week, data… } } — table workout_logs
   const [sport, setSport] = useState({});               // config sport (blob app_state.sport) : { startDate, currentWeek, preferences… }
   const [ideaSlot, setIdeaSlot] = useState(null);       // créneau pour lequel l'idée contextuelle est ouverte (écran Jour)
@@ -61,11 +64,13 @@ export default function PiocheRepas() {
   const [sessionChecked, setSessionChecked] = useState(false); // getSession résolu → on peut décider gate vs app
   const [accountOpen, setAccountOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatPrompt, setChatPrompt] = useState(null); // question pré-remplie quand on ouvre le coach depuis une carte
   const [shopOpen, setShopOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState("idle");  // idle | syncing | synced | error
   const [syncReady, setSyncReady] = useState(false);     // sync initiale terminée → push autorisé
-  const [targetDismissed, setTargetDismissed] = useState(null); // poids pour lequel la suggestion de cible a été masquée
+  // Le rejet de la suggestion de cible est PERSISTÉ dans settings (settings.targetDismissedKcal) :
+  // sinon « Plus tard » est oublié à chaque réouverture de la PWA et l'alerte revient sans cesse.
   const [screenHeader, setScreenHeader] = useState(null); // header dynamique fourni par l'écran courant : { title, subtitle, badge, onSettings, onBack }
   const headerRef = useRef(null);
   const [headerH, setHeaderH] = useState(60); // hauteur du header fixe (mesurée) → décalage du contenu
@@ -96,7 +101,8 @@ export default function PiocheRepas() {
   const openPicker = useCallback((slot, index) => { pushNav(() => setPicker(null)); setPicker({ slot, index }); }, [pushNav]);
   const openSettings = useCallback(() => go("reglages"), [go]);
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
-  const openChat = useCallback(() => { pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
+  const openChat = useCallback(() => { setChatPrompt(null); pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
+  const openChatWith = useCallback((prompt) => { setChatPrompt(prompt || null); pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
   const openShop = useCallback(() => { pushNav(() => setShopOpen(false)); setShopOpen(true); }, [pushNav]);
   const openReview = useCallback(() => { pushNav(() => setReviewOpen(false)); setReviewOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
@@ -113,7 +119,7 @@ export default function PiocheRepas() {
   const stateRef = useRef({});
   const lastSynced = useRef({ days: {}, weights: {}, workouts: {}, appState: "" });
   const syncTimer = useRef(null);
-  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, customMeals: s.customMeals, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes, pantry: s.pantry, sport: s.sport }; }, []);
+  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes, pantry: s.pantry, directives: s.directives, sport: s.sport }; }, []);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -125,7 +131,6 @@ export default function PiocheRepas() {
         if (d.days) setDays(fixClearProteinHistory(normDays(d.days)));
         if (d.weights) setWeights(d.weights);
         if (Array.isArray(d.templates)) setTemplates(d.templates.map((t) => ({ ...t, picks: normPicks(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training })));
-        if (Array.isArray(d.customMeals)) setCustomMeals(d.customMeals);
         if (d.usage && typeof d.usage === "object") setUsage(d.usage);
         if (Array.isArray(d.combos)) {
           let cs = d.combos;
@@ -139,8 +144,10 @@ export default function PiocheRepas() {
         if (Array.isArray(d.shakeBases)) setShakeBases(d.shakeBases);
         if (Array.isArray(d.shakeLiquids)) setShakeLiquids(d.shakeLiquids);
         if (Array.isArray(d.favs)) setFavs(d.favs);
-        if (Array.isArray(d.customRecipes)) setCustomRecipes(d.customRecipes);
-        if (Array.isArray(d.pantry)) setPantry(d.pantry);
+        if (Array.isArray(d.customRecipes)) setCustomRecipes(dedupeRecipesByName(d.customRecipes));
+        // Migration garde-manger : fond l'ancienne base perso (d.customMeals) dans le pantry.
+        if (Array.isArray(d.pantry) || Array.isArray(d.customMeals)) setPantry(mergePantryStore(d.pantry || [], d.customMeals || []));
+        if (Array.isArray(d.directives)) setDirectives(d.directives);
         if (d.workouts && typeof d.workouts === "object") setWorkouts(d.workouts);
         if (d.sport && typeof d.sport === "object") setSport(d.sport);
         if (d.theme) { applyTheme(d.theme); setTheme(d.theme); }
@@ -151,11 +158,11 @@ export default function PiocheRepas() {
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport }); }, [settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport }); }, [settings, days, weights, theme, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport, hydrated]);
 
   // ── Synchronisation Supabase (offline-first, local-first) ──────────────────
   // Miroir de l'état courant pour lire des valeurs fraîches dans les callbacks async
-  useEffect(() => { stateRef.current = { days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport }; });
+  useEffect(() => { stateRef.current = { days, weights, settings, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport }; });
 
   // Abonnement à la session Supabase
   useEffect(() => {
@@ -177,11 +184,20 @@ export default function PiocheRepas() {
       setWorkouts((l) => ({ ...l, ...remote.workouts }));
       // Fusion sans perte : on unionne local + remote (collections par id), on applique, on repousse.
       const merged = mergeAppState(appStateNow(), remote.appState);
+      // La fusion unionne customRecipes PAR ID → d'anciens doublons (même nom, id différent)
+      // ressortent. On déduplique le résultat fusionné AVANT de l'appliquer ET de le repousser :
+      // ça nettoie d'un coup le local ET la base (pushAppState réécrit la ligne app_state).
+      merged.customRecipes = dedupeRecipesByName(merged.customRecipes);
+      // Garde-manger : mergeAppState unionne encore customMeals ET pantry par id (rétro-compat
+      // d'appareils non migrés). On les FOND ici, on applique le pantry unifié ET on le repousse
+      // (en vidant customMeals) → la base se nettoie au fil des syncs sans rien perdre.
+      merged.pantry = mergePantryStore(merged.pantry, merged.customMeals);
+      delete merged.customMeals;
       if (merged.settings) setSettings(merged.settings);
       setTemplates(merged.templates);
-      setCustomMeals(merged.customMeals);
       setCustomRecipes(merged.customRecipes);
       setPantry(merged.pantry);
+      if (Array.isArray(merged.directives)) setDirectives(merged.directives);
       setUsage(merged.usage);
       setCombos(merged.combos);
       setShakeBases(merged.shakeBases);
@@ -235,7 +251,7 @@ export default function PiocheRepas() {
     clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => pushChanges(session.user.id), 2000);
     return () => clearTimeout(syncTimer.current);
-  }, [days, weights, settings, templates, customMeals, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, workouts, sport, session, syncReady, pushChanges]);
+  }, [days, weights, settings, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport, session, syncReady, pushChanges]);
 
   useEffect(() => {
     const onOnline = () => { if (session && syncReady) pushChanges(session.user.id); };
@@ -357,7 +373,8 @@ export default function PiocheRepas() {
     const favNames = favs.map((id) => (library.recipes.find((r) => r.id === id) || customRecipes.find((r) => r.id === id))?.name).filter(Boolean);
     return Array.from(new Set([...favNames, ...fromUsage]));
   }, [usage, favs, library.recipes, customRecipes]);
-  const assistKnownFoods = useMemo(() => customMeals.map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, unit: m.unit || m.qtyUnit })), [customMeals]);
+  // Aliments du garde-manger avec macros PAR PORTION connues → macros exactes pour l'assistant.
+  const assistKnownFoods = useMemo(() => pantry.filter((m) => m.kcal != null).map((m) => ({ name: m.name, kcal: m.kcal, p: m.p, unit: m.unit || m.qtyUnit })), [pantry]);
 
   // Ajustement adaptatif de la cible : ancré sur ta maintenance OBSERVÉE (pas une
   // formule figée), pour forcer la continuité de perte, avec garde-fous (BMI/BMR/rythme).
@@ -370,7 +387,8 @@ export default function PiocheRepas() {
     if (!targetSuggestion) return;
     setSettings((s) => ({ ...s, kcal: targetSuggestion.kcal, protein: targetSuggestion.protein, profile: { ...s.profile, weight: targetSuggestion.weightNow } }));
   }, [targetSuggestion]);
-  const showTargetSuggestion = !!targetSuggestion && targetDismissed !== targetSuggestion.kcal;
+  const showTargetSuggestion = !!targetSuggestion && settings.targetDismissedKcal !== targetSuggestion.kcal;
+  const dismissTarget = useCallback(() => { if (targetSuggestion) setSettings((s) => ({ ...s, targetDismissedKcal: targetSuggestion.kcal })); }, [targetSuggestion]);
 
   const emptyPlanned = useMemo(() => {
     const list = [];
@@ -456,7 +474,16 @@ export default function PiocheRepas() {
   };
   const deleteCombo = (id) => { const it = combos.find((x) => x.id === id); setCombos((c) => c.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimé`, () => setCombos((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   const toggleFav = (id) => setFavs((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
-  const addRecipe = (r) => setCustomRecipes((cur) => [{ ...r, emoji: oneEmoji(r.emoji), id: newId("rec"), custom: true }, ...cur].slice(0, 200));
+  const addRecipe = (r) => {
+    const nm = (r?.name || "").trim().toLowerCase();
+    if (!nm) return false;
+    // Anti-doublon : une recette déjà dans ma cuisine (perso OU catalogue) ne se ré-ajoute pas.
+    const exists = customRecipes.some((x) => (x.name || "").trim().toLowerCase() === nm)
+      || library.recipes.some((x) => (x.name || "").trim().toLowerCase() === nm);
+    if (exists) { showToast(`« ${r.name} » est déjà dans tes recettes`); return false; }
+    setCustomRecipes((cur) => [{ ...r, emoji: oneEmoji(r.emoji), id: newId("rec"), custom: true }, ...cur].slice(0, 200));
+    return true;
+  };
   const deleteRecipe = (id) => { const it = customRecipes.find((x) => x.id === id); setCustomRecipes((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimée`, () => setCustomRecipes((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
   const updateRecipe = (id, rawPatch) => {
     const patch = rawPatch && rawPatch.emoji != null ? { ...rawPatch, emoji: oneEmoji(rawPatch.emoji) } : rawPatch;
@@ -480,10 +507,21 @@ export default function PiocheRepas() {
       const k = Math.round(data.kcal100 || 0); if (k > 0) extra.kcal100 = k;
       const p = Math.round((data.p100 || 0) * 10) / 10; if (p > 0) extra.p100 = p;
     }
-    setPantry((cur) => [{ id: newId("pan"), name: n, out: false, ...extra }, ...cur].slice(0, 120));
+    setPantry((cur) => [{ id: newId("pan"), name: n, out: false, slots: ["pdj", "dej", "diner", "snack"], ...extra }, ...cur].slice(0, 120));
     showToast(`${n} ajouté au frigo`);
   };
   const togglePantry = (id) => setPantry((cur) => cur.map((x) => x.id === id ? { ...x, out: !x.out } : x));
+  // Consignes actives : injectées dans les prompts assistant (idées repas + planif). Dédup par texte.
+  const addDirective = (rawText) => {
+    const text = String(rawText || "").replace(/\s+/g, " ").trim();
+    if (!text) return false;
+    const norm = text.toLowerCase();
+    if (directives.some((d) => (d.text || "").toLowerCase() === norm)) { showToast("Consigne déjà épinglée"); return false; }
+    setDirectives((cur) => [{ id: newId("dir"), text, created: Date.now() }, ...cur].slice(0, 30));
+    showToast("Consigne épinglée");
+    return true;
+  };
+  const removeDirective = (id) => { const it = directives.find((x) => x.id === id); setDirectives((cur) => cur.filter((x) => x.id !== id)); if (it) showToast("Consigne retirée", () => setDirectives((p) => p.some((x) => x.id === id) ? p : [it, ...p])); };
   // Patch partiel : on ignore les clés undefined (= champ laissé vide à l'édition →
   // garder l'ancienne valeur au lieu de l'effacer, sinon nom/macros passaient à undefined).
   const updatePantry = (id, patch) => setPantry((cur) => cur.map((x) => {
@@ -504,10 +542,10 @@ export default function PiocheRepas() {
       ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
       ...library.recipes.filter((r) => !customIds.has(r.id)).map((r) => ({ ...r, kind: "recette", lib: true })),
       ...combos.map((c) => { const t = (c.items || []).reduce((a, i) => ({ k: a.k + i.kcal * (i.qty || 1), p: a.p + i.p * (i.qty || 1) }), { k: 0, p: 0 }); return { ...c, kind: "combo", kcal: Math.round(t.k), p: Math.round(t.p) }; }),
-      ...customMeals.map((m) => ({ ...m, kind: "aliment" })),
+      ...pantry.filter((m) => m.kcal != null).map((m) => ({ ...m, kind: "aliment" })),
     ];
-  }, [customRecipes, library.recipes, combos, customMeals]);
-  const deleteMeal = (m) => { if (m.kind === "recette") deleteRecipe(m.id); else if (m.kind === "combo") deleteCombo(m.id); else deleteCustomMeal(m.id); };
+  }, [customRecipes, library.recipes, combos, pantry]);
+  const deleteMeal = (m) => { if (m.kind === "recette") deleteRecipe(m.id); else if (m.kind === "combo") deleteCombo(m.id); else removePantry(m.id); };
   const useMealEntry = (m, slotOverride) => {
     if (m.kind === "combo") { const slot = slotOverride || m.slot || "dej", key = picksKey(slot); const ck = (m.items || []).reduce((a, it) => a + (it.kcal || 0) * (it.qty || 1), 0), cp = (m.items || []).reduce((a, it) => a + (it.p || 0) * (it.qty || 1), 0); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1, id: newId("pk") }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); toastAdd(m.name, ck, cp); return; }
     const slot = slotOverride || (m.kind === "recette" ? (m.cat || "dej") : (m.slots && m.slots[0]) || "dej"), key = picksKey(slot);
@@ -600,8 +638,8 @@ export default function PiocheRepas() {
   const chatAction = (action) => {
     const a = action?.input || {};
     if (action?.type === "save_recipe") {
-      addRecipe({ name: a.name, emoji: a.emoji || "", cat: a.cat || "dej", slots: a.cat ? [a.cat] : ["dej"], kcal: Math.round(a.kcal) || 0, p: Math.round(a.p) || 0, ingredients: Array.isArray(a.ingredients) ? a.ingredients : [], steps: Array.isArray(a.steps) ? a.steps : [], desc: a.desc || "" });
-      return `« ${a.name} » enregistrée dans ta cuisine.`;
+      const ok = addRecipe({ name: a.name, emoji: a.emoji || "", cat: a.cat || "dej", slots: a.cat ? [a.cat] : ["dej"], kcal: Math.round(a.kcal) || 0, p: Math.round(a.p) || 0, ingredients: Array.isArray(a.ingredients) ? a.ingredients : [], steps: Array.isArray(a.steps) ? a.steps : [], desc: a.desc || "" });
+      return ok ? `« ${a.name} » enregistrée dans ta cuisine.` : `« ${a.name} » est déjà dans ta cuisine.`;
     }
     if (action?.type === "log_meal") {
       if (!a.slot || !a.name) throw new Error("Repas incomplet.");
@@ -648,13 +686,12 @@ export default function PiocheRepas() {
     if (t) setDay(() => ({ picks: clone(t.picks), skipBreakfast: !!t.skipBreakfast, training: !!t.training }));
   };
   const deleteTemplate = (id) => { const it = templates.find((x) => x.id === id); setTemplates((t) => t.filter((x) => x.id !== id)); if (it) showToast(`Modèle « ${it.name} » supprimé`, () => setTemplates((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
-  const saveCustomMeal = (meal) => setCustomMeals((cur) => {
-    const m = { ...meal, slots: meal.slots || ["pdj", "dej", "diner", "snack"], tags: meal.tags || [], desc: meal.desc || "Enregistré", custom: true };
+  // Enregistrer un aliment dans le garde-manger (scan OFF / saisie) → dispo par défaut, loggable.
+  const savePantryFood = (meal) => setPantry((cur) => {
+    const m = { ...meal, out: false, slots: meal.slots || ["pdj", "dej", "diner", "snack"], tags: meal.tags || [], desc: meal.desc || "Enregistré", custom: true };
     const others = cur.filter((x) => x.id !== m.id);
     return [m, ...others].slice(0, 200);
   });
-  const deleteCustomMeal = (id) => { const it = customMeals.find((x) => x.id === id); setCustomMeals((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimé`, () => setCustomMeals((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
-  const updateCustomMeal = (id, patch) => setCustomMeals((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x));
   const setWeight = (iso, kg) => setWeights((w) => {
     const n = { ...w };
     if (kg == null || isNaN(kg)) delete n[iso]; else n[iso] = kg;
@@ -692,14 +729,14 @@ export default function PiocheRepas() {
     if (obj.settings && typeof obj.settings === "object") setSettings(obj.settings);
     if (obj.days && typeof obj.days === "object") setDays((prev) => ({ ...prev, ...normDays(obj.days) }));
     if (obj.weights && typeof obj.weights === "object") setWeights((prev) => ({ ...prev, ...obj.weights }));
-    if (Array.isArray(obj.customMeals)) setCustomMeals((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customMeals.filter((x) => !ids.has(x.id))]; });
     if (Array.isArray(obj.combos)) setCombos((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.combos.filter((x) => !ids.has(x.id))]; });
     if (Array.isArray(obj.shakeBases)) setShakeBases((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.shakeBases.filter((x) => !ids.has(x.id))]; });
     if (Array.isArray(obj.shakeLiquids)) setShakeLiquids((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.shakeLiquids.filter((x) => !ids.has(x.id))]; });
     if (obj.usage && typeof obj.usage === "object") setUsage((prev) => ({ ...prev, ...obj.usage }));
     if (Array.isArray(obj.favs)) setFavs((prev) => Array.from(new Set([...prev, ...obj.favs])));
-    if (Array.isArray(obj.customRecipes)) setCustomRecipes((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.customRecipes.filter((x) => !ids.has(x.id))]; });
-    if (Array.isArray(obj.pantry)) setPantry((prev) => { const ids = new Set(prev.map((x) => x.id)); return [...prev, ...obj.pantry.filter((x) => !ids.has(x.id))]; });
+    if (Array.isArray(obj.customRecipes)) setCustomRecipes((prev) => { const ids = new Set(prev.map((x) => x.id)); return dedupeRecipesByName([...prev, ...obj.customRecipes.filter((x) => !ids.has(x.id))]); });
+    if (Array.isArray(obj.pantry) || Array.isArray(obj.customMeals)) setPantry((prev) => mergePantryStore([...prev, ...(obj.pantry || [])], obj.customMeals || []));
+    if (Array.isArray(obj.directives)) setDirectives((prev) => { const seen = new Set(prev.map((x) => String(x.text || "").trim().toLowerCase())); return [...prev, ...obj.directives.filter((x) => x && x.text && !seen.has(String(x.text).trim().toLowerCase()))]; });
     if (obj.workouts && typeof obj.workouts === "object") setWorkouts((prev) => ({ ...prev, ...obj.workouts }));
     if (obj.sport && typeof obj.sport === "object") setSport((prev) => ({ ...prev, ...obj.sport }));
   };
@@ -715,7 +752,7 @@ export default function PiocheRepas() {
           screenHeader { title, subtitle, badge, onSettings, onBack } selon l'écran. */}
       <div ref={headerRef} className="fixed inset-x-0 top-0 z-30" style={{ background: C.nav, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: `1px solid ${C.line}`, paddingTop: "env(safe-area-inset-top)" }}>
         {(() => {
-          const TITLES = { journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" };
+          const TITLES = { coach: "Ton coach", journal: "Suivi", progres: "Suivi", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" };
           const h = screenHeader;
           const onBack = h?.onBack || ((view === "guide" || view === "reglages") ? navBack : null);
           const badge = h?.badge;
@@ -736,7 +773,7 @@ export default function PiocheRepas() {
                   <button onClick={h.onSettings} aria-label="Réglages de la séance" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><SlidersHorizontal size={18} /></button>
                 )}
                 {!onBack && view !== "sport" && (
-                  <button onClick={openChat} aria-label="Assistant — discuter" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.accent}1f`, color: C.accent }}><Sparkles size={18} /></button>
+                  <button onClick={openChat} aria-label="Coach — discuter" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Sprout size={18} /></button>
                 )}
                 {!onBack && view !== "reglages" && (
                   <button onClick={openSettings} aria-label="Réglages de l'app" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Settings2 size={18} /></button>
@@ -758,7 +795,7 @@ export default function PiocheRepas() {
             training={training} onToggleTraining={toggleTraining}
             sportInfo={sportInfo} sportCatchUp={sportCatchUp} recomp={recomp} onGoSport={() => go("sport")}
             onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={openQuickLog} onPlan={() => go("idees")} onRebalance={rebalanceSlot}
-            pushNav={pushNav} navBack={navBack}
+            pushNav={pushNav} navBack={navBack} onOpenChat={openChat} onCoachPrompt={openChatWith}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker} onIdea={openIdea} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
             habituals={habituals} onHabitual={(it) => quickAdd(it.slot, it)} onSuggestNow={() => openIdea(suggestSlotNow())}
@@ -766,10 +803,13 @@ export default function PiocheRepas() {
             templates={templates} hasPrevDay={!!days[addDays(activeDate, -1)]}
             onCopyPrev={copyPrevDay} onSaveTemplate={saveTemplate} onLoadTemplate={loadTemplate} onDeleteTemplate={deleteTemplate}
             targetSuggestion={showTargetSuggestion ? targetSuggestion : null}
-            onApplyTarget={applyTargetSuggestion} onDismissTarget={() => setTargetDismissed(targetSuggestion.kcal)}
+            onApplyTarget={applyTargetSuggestion} onDismissTarget={dismissTarget}
             favorites={assistFavorites} knownFoods={assistKnownFoods} pantry={pantry} onAddRecipe={addRecipe}
             savedRecipeNames={savedRecipeNames}
           />
+        )}
+        {view === "coach" && (
+          <CoachScreen days={days} weights={weights} settings={settings} onCoachPrompt={openChatWith} onOpenChat={openChat} onGoWeek={() => go("journal")} onReview={openReview} />
         )}
         {(view === "journal" || view === "progres") && (
           <div className="space-y-5">
@@ -787,12 +827,13 @@ export default function PiocheRepas() {
           <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} />
         )}
         {view === "reglages" && (
-          <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, customMeals, usage, combos, shakeBases, shakeLiquids, favs }} customMeals={customMeals} onDeleteCustom={deleteCustomMeal} onUpdateCustom={updateCustomMeal} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
+          <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, pantry, usage, combos, shakeBases, shakeLiquids, favs, directives }} directives={directives} onAddDirective={addDirective} onRemoveDirective={removeDirective} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
         )}
         {view === "idees" && (
           <PlanScreen
             targetKcal={settings.kcal} targetP={settings.protein} days={days}
             favorites={assistFavorites} knownFoods={assistKnownFoods}
+            directives={directives} onRemoveDirective={removeDirective}
             pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
             onPlanDay={planDay} onSaveRecipe={saveSuggestion} />
         )}
@@ -803,16 +844,16 @@ export default function PiocheRepas() {
       <TabBar view={view} setView={go} />
 
       {picker && (
-        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...customMeals]} usage={usage} combos={combos} pantry={pantry} presets={library.presets} onAddExtra={addExtra} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
+        <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...pantry.filter((m) => m.kcal != null)]} usage={usage} combos={combos} pantry={pantry} presets={library.presets} onAddExtra={addExtra} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
           bases={library.pool.filter((m) => (m.tags || []).includes("shake-base"))} liquids={library.pool.filter((m) => (m.tags || []).includes("shake-liquid"))}
           recipes={[...customRecipes, ...library.recipes]} onAddRecipe={addRecipe}
-          shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={saveCustomMeal} onDeleteCustom={deleteCustomMeal} onClose={navBack}
+          shakeBases={shakeBases} shakeLiquids={shakeLiquids} onAddShakeBase={addShakeBase} onDelShakeBase={delShakeBase} onAddShakeLiquid={addShakeLiquid} onDelShakeLiquid={delShakeLiquid} onSave={savePantryFood} onDeleteCustom={removePantry} onClose={navBack}
           habituals={habituals} onQuickAdd={quickAdd} onPhotoLog={pickerToQuickLog} onAssist={pickerToIdea} />
       )}
       {toolOpen && (
         <Sheet open onClose={navBack} title="Scanner un produit" subtitle="Feu nutritionnel & ajout au jour" icon={<ScanLine size={18} />} iconColor={C.protein}>
           <p className="mb-3 text-xs" style={{ color: C.muted }}>Scanne ou cherche un produit pour voir son feu 🟢/🟠/🔴. <span style={{ color: C.sub }}>« Ajouter »</span> l'inscrit dans tes <span style={{ color: C.sub }}>en-cas d'aujourd'hui</span> ; <span style={{ color: C.sub }}>« je consomme ça »</span> le garde dans ta base pour le retrouver.</p>
-          <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={saveCustomMeal} />
+          <OffSearch C={C} accent={C.protein} onChoose={(it) => { addExtra(it); navBack(); }} onSave={savePantryFood} />
         </Sheet>
       )}
       {frigoOpen && (
@@ -830,6 +871,7 @@ export default function PiocheRepas() {
           targetKcal={settings.kcal} targetP={settings.protein} training={training} workout={sportInfo?.name} trend={observedTrend(days, weights, activeDate)} overused={varietyProfile(days, activeDate)}
           dayRemKcal={remKcal} dayRemP={remP} reserveKcal={Math.max(0, remKcal - slotMargin(ideaSlot).kcal)} weekBalance={weekBalance}
           favorites={assistFavorites} knownFoods={assistKnownFoods}
+          directives={directives} onRemoveDirective={removeDirective}
           localIdeas={[...customRecipes, ...library.recipes]}
           dayContext={["pdj", "dej", "diner", "snacks", "extras"].flatMap((k) => picks?.[k] || []).filter(Boolean).map((it) => { const ings = (it.ingredients || []).map((x) => (typeof x === "string" ? x : x && x.name)).filter(Boolean).slice(0, 5); return `${it.name}${ings.length ? ` (${ings.join(", ")})` : ""}`; })}
           recentMeals={(() => { const out = []; for (let i = 1; i <= 4; i++) { const d = days[addDays(activeDate, -i)]; if (!d?.picks) continue; ["pdj", "dej", "diner", "snacks", "extras"].forEach((k) => (d.picks[k] || []).forEach((it) => { if (it && it.name && !it.planned) out.push(it.name); })); } return [...new Set(out)]; })()}
@@ -842,14 +884,14 @@ export default function PiocheRepas() {
           <AccountSheet session={session} status={syncStatus} onClose={navBack} />
         )}
         {chatOpen && (
-          <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} onAction={chatAction} onClose={navBack} />
+          <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} opening={coachOpening({ days, weights, settings, refISO: activeDate })} initialPrompt={chatPrompt} onAction={chatAction} onClose={navBack} />
         )}
       </Suspense>
       {shopOpen && (
         <ShoppingSheet pantry={pantry} overused={varietyProfile(days, TODAY)} favorites={assistFavorites} knownFoods={assistKnownFoods} settings={settings} recipes={[...customRecipes, ...library.recipes]} onAddPantry={addPantry} onClose={navBack} />
       )}
       {reviewOpen && (
-        <ReviewSheet days={days} settings={settings} overused={varietyProfile(days, TODAY)} refISO={TODAY} onClose={navBack} />
+        <ReviewSheet days={days} settings={settings} overused={varietyProfile(days, TODAY)} refISO={TODAY} directives={directives} onPin={addDirective} onClose={navBack} />
       )}
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
@@ -867,12 +909,13 @@ function ScreenFallback() {
 }
 
 function TabBar({ view, setView }) {
-  // 4 onglets + bouton central « + ». Progrès vit dans le header (icône en haut).
+  // 5 onglets. Coach en dernier ; Progrès vit dans le header (icône en haut).
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
     { k: "journal", l: "Suivi", icon: TrendingUp },
     { k: "cuisine", l: "Cuisine", icon: Soup },
     { k: "sport", l: "Sport", icon: Dumbbell },
+    { k: "coach", l: "Coach", icon: Sprout },
   ];
   const Tab = ({ t }) => {
     const Icon = t.icon, active = view === t.k;
@@ -890,6 +933,7 @@ function TabBar({ view, setView }) {
         <Tab t={tabs[1]} />
         <Tab t={tabs[2]} />
         <Tab t={tabs[3]} />
+        <Tab t={tabs[4]} />
       </div>
     </div>
   );

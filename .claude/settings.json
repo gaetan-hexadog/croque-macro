@@ -8,7 +8,8 @@
       "Bash(rtk ls *)",
       "Bash(find /Users/gaetan/Downloads/fitness-app -type f -name \"*.json\" | grep -E \"\\(tsconfig|next\\\\.config\\)\" | head -5)",
       "Read(//Users/gaetan/Downloads/fitness-app/**)",
-      "Bash(rtk find *)"
+      "Bash(rtk find *)",
+      "Bash(rtk read *)"
     ]
   }
 }

@@ -94,6 +94,9 @@ export default function OffSearch({ C, accent, onChoose, onSave, initialQuery = 
       name: `${selected.name}${selected.brand ? ` · ${selected.brand}` : ""} (${fmt(g)} ${unit})`,
       kcal: calc.kcal, p: calc.p, c: calc.c, f: calc.f,
       slots: ["pdj", "dej", "diner", "snack"], tags: [],
+      // Densité /100 + grammage → l'aliment scanné devient un vrai item du garde-manger
+      // (visible au frigo, recalculable au gramme par l'assistant), pas juste une portion.
+      kcal100: Math.round(pf(macros.kcal)), p100: Math.round(pf(macros.p) * 10) / 10, qty: g,
       desc: `${fmt(g)} ${unit} · Open Food Facts`, custom: true, off: true, code: selected.code, unit,
     });
     setSaved(true);

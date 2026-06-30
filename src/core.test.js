@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros, catOf, protStock, varietyProfile } from "./core.js";
+import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros, catOf, protStock, varietyProfile, mergePantryStore } from "./core.js";
 import { mergeAppState } from "./lib/sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
@@ -226,6 +226,42 @@ describe("varietyProfile", () => {
   it("ignore les repas seulement planifiés", () => {
     const days = { [TODAY]: { picks: { pdj: [{ name: "Tofu", kcal: 1, p: 1, planned: true }], dej: [], diner: [], snacks: [], extras: [] } } };
     expect(varietyProfile(days, TODAY)).toEqual([]);
+  });
+});
+
+describe("mergePantryStore", () => {
+  it("fusionne par nom et garde les DEUX faces (portion + densité)", () => {
+    const pantry = [{ id: "p1", name: "Skyr", out: false, unit: "g", kcal100: 63, p100: 11 }];
+    const customMeals = [{ id: "c1", name: "skyr", kcal: 95, p: 17, unit: "g" }];
+    const out = mergePantryStore(pantry, customMeals);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ name: "Skyr", out: false, kcal100: 63, p100: 11, kcal: 95, p: 17 });
+    expect(Array.isArray(out[0].slots)).toBe(true);
+  });
+  it("ex-customMeal → out:false (dispo) + slots par défaut", () => {
+    const out = mergePantryStore([], [{ id: "c1", name: "Tofu", kcal: 145, p: 16 }]);
+    expect(out[0].out).toBe(false);
+    expect(out[0].slots).toEqual(["pdj", "dej", "diner", "snack"]);
+  });
+  it("est idempotent : re-fusionner le résultat ne change rien", () => {
+    const merged = mergePantryStore(
+      [{ id: "p1", name: "Skyr", out: true, kcal100: 63, p100: 11, slots: ["pdj"] }],
+      [{ id: "c1", name: "Pain", kcal: 240, p: 20 }],
+    );
+    const again = mergePantryStore(merged, []);
+    expect(again).toBe(merged); // pas de churn → même référence
+  });
+  it("déduplique insensible à la casse / espaces", () => {
+    const out = mergePantryStore([{ id: "p1", name: " Tofu " }, { id: "p2", name: "TOFU" }], []);
+    expect(out).toHaveLength(1);
+  });
+  it("ignore un item sans nom", () => {
+    const out = mergePantryStore([{ id: "p1", name: "" }, { id: "p2", name: "Œufs" }], []);
+    expect(out.map((x) => x.name)).toEqual(["Œufs"]);
+  });
+  it("un doublon dispo l'emporte sur rupture", () => {
+    const out = mergePantryStore([{ id: "p1", name: "Tofu", out: true }], [{ id: "c1", name: "tofu", kcal: 145, p: 16 }]);
+    expect(out[0].out).toBe(false);
   });
 });
 

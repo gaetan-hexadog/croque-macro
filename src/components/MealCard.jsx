@@ -58,9 +58,11 @@ export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajout
       <VariantChips variants={meal.variants} sel={sel} onToggle={toggle} />
       <div className="mt-2.5 flex gap-2">
         <button onClick={() => onLog(custom())} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Plus size={14} /> {logLabel}</button>
-        <button onClick={() => onSave(meal)} disabled={saved} className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: saved ? C.green : C.ink }}>
-          {saved ? <><Check size={14} /> Enregistré</> : <><BookmarkPlus size={14} /> Cuisine</>}
-        </button>
+        {onSave && (
+          <button onClick={() => onSave(meal)} disabled={saved} className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: saved ? C.green : C.ink }}>
+            {saved ? <><Check size={14} /> Enregistré</> : <><BookmarkPlus size={14} /> Cuisine</>}
+          </button>
+        )}
       </div>
     </div>
   );

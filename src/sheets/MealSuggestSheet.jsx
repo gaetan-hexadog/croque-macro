@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { Sparkles, Loader2, Refrigerator, AlertCircle, ChevronDown } from "lucide-react";
+import { Sparkles, Loader2, Refrigerator, AlertCircle, ChevronDown, Pin, X } from "lucide-react";
 import { C, buildAssistantPrompt, correctMacros } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
@@ -32,6 +32,7 @@ export function MealSuggestSheet({
   slot = "dej", remKcal = 0, remP = 0, targetKcal = 1850, targetP = 150,
   dayRemKcal = 0, dayRemP = 0, reserveKcal = 0, weekBalance, training = false, workout, trend,
   favorites = [], knownFoods = [], localIdeas = [], dayContext = [], recentMeals = [], overused = [],
+  directives = [], onRemoveDirective,
   pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
   onLog, onSaveRecipe, dateLabel, onClose,
 }) {
@@ -83,7 +84,7 @@ export function MealSuggestSheet({
       const dining = chips.has("resto");
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused,
+        mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...excludeTerms],
         dateLabel,
@@ -111,6 +112,21 @@ export function MealSuggestSheet({
         </div>
       </div>
 
+      {/* Consignes actives (épinglées du bilan / Réglages) — l'assistant en tient compte ; retrait rapide */}
+      {directives.length > 0 && (
+        <div className="mb-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: `${C.accent}10`, border: `1px solid ${C.accent}33` }}>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}><Pin size={12} /> Tes consignes · prises en compte</p>
+          <div className="flex flex-wrap gap-1.5">
+            {directives.map((d) => (
+              <span key={d.id} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+                {d.text}
+                {onRemoveDirective && <button onClick={() => onRemoveDirective(d.id)} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Retirer la consigne"><X size={12} /></button>}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Réponse rapide : chips d'envie + Plaisir (toujours visible) + accès Frigo */}
       <div className="mb-2 flex flex-wrap gap-1.5">
         <button onClick={() => setIndulge((v) => !v)} className="rounded-full px-2.5 py-1.5 text-xs font-bold active:scale-95" style={indulge ? { backgroundColor: C.accent, color: "#fff" } : { backgroundColor: `${C.accent}16`, color: C.accent, border: `1px solid ${C.accent}40` }}>😋 Plaisir</button>
@@ -137,7 +153,8 @@ export function MealSuggestSheet({
             <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Dans tes recettes{chips.size || excludeTerms.length ? " · filtrées" : ""} · {localFiltered.length}</span>
             <ChevronDown size={13} style={{ color: C.muted, marginLeft: "auto", transform: localCollapsed ? "none" : "rotate(180deg)", transition: "transform .2s" }} />
           </button>
-          {!localCollapsed && localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `l${i}`)} saved={savedKeys.has(`l${i}`)} />)}
+          {/* Idées locales = déjà dans tes recettes → pas de bouton « Cuisine » (on n'en re-crée pas un doublon). */}
+          {!localCollapsed && localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} />)}
         </div>
       )}
 

@@ -74,12 +74,19 @@ export function mergeAppState(local = {}, remote) {
     [...(a || []), ...(b || [])].forEach((x) => { const k = x && (x.id ?? x.name); if (k != null) m.set(k, x); });
     return [...m.values()];
   };
+  // Consignes : clé = texte normalisé (la même consigne épinglée sur 2 appareils a 2 id → on dédoublonne par texte).
+  const byText = (a = [], b = []) => {
+    const m = new Map();
+    [...(a || []), ...(b || [])].forEach((x) => { const k = x && String(x.text || "").trim().toLowerCase(); if (k) m.set(k, x); });
+    return [...m.values()];
+  };
   return {
     settings: remote.settings || local.settings,
     templates: byId(local.templates, remote.templates),
     customMeals: byId(local.customMeals, remote.customMeals),
     customRecipes: byId(local.customRecipes, remote.customRecipes),
     pantry: byId(local.pantry, remote.pantry),
+    directives: byText(local.directives, remote.directives),
     combos: byId(local.combos, remote.combos),
     shakeBases: byId(local.shakeBases, remote.shakeBases),
     shakeLiquids: byId(local.shakeLiquids, remote.shakeLiquids),

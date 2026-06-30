@@ -144,23 +144,32 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
   const [cF, setCF] = useState(""); const [cS, setCS] = useState("");
   const [servingFor, setServingFor] = useState(null);
   const [creatingRecipe, setCreatingRecipe] = useState(false);
+  const [recipeQ, setRecipeQ] = useState("");
   const slotRecipes = useMemo(() => recipes.filter((r) => (Array.isArray(r.slots) && r.slots.includes(slotKey)) || r.cat === slotKey), [recipes, slotKey]);
+  // Recherche dans le panneau Recettes : vide → recettes du créneau ; sinon → TOUTES mes
+  // recettes (nom ou ingrédients), pour retrouver un plat même tagué sur un autre créneau.
+  const recipeResults = useMemo(() => {
+    const s = deburr(recipeQ);
+    if (!s.trim()) return slotRecipes;
+    return recipes.filter((r) => deburr(r.name).includes(s)
+      || deburr((r.ingredients || []).map((i) => (typeof i === "string" ? i : i?.name || "")).join(" ")).includes(s));
+  }, [recipeQ, recipes, slotRecipes]);
   // Piocher un aliment ouvre toujours le calculateur de quantité (fractions par
   // défaut ; g/ml ou formats/servings selon ce que le produit déclare).
   const pickFood = (m) => setServingFor(m);
 
   const frequent = useMemo(() => pool
-    .filter((m) => m.slots.includes(slotKey) && usage[m.name] && usage[m.name].count >= 2)
+    .filter((m) => Array.isArray(m.slots) && m.slots.includes(slotKey) && usage[m.name] && usage[m.name].count >= 2)
     .sort((a, b) => (usage[b.name].count - usage[a.name].count) || ((usage[b.name].last || 0) - (usage[a.name].last || 0)))
     .slice(0, 8), [pool, slotKey, usage]);
   const recent = useMemo(() => pool
-    .filter((m) => m.slots.includes(slotKey) && usage[m.name])
+    .filter((m) => Array.isArray(m.slots) && m.slots.includes(slotKey) && usage[m.name])
     .sort((a, b) => (usage[b.name].last || 0) - (usage[a.name].last || 0))
     .slice(0, 8), [pool, slotKey, usage]);
   const slotCombos = useMemo(() => combos.filter((c) => c.slot === slotKey), [combos, slotKey]);
 
-  const suggestions = useMemo(() => rankFor(slotKey, pool.filter((m) => m.slots.includes(slotKey))).slice(0, 4), [pool, slotKey, rankFor]);
-  const allForSlot = useMemo(() => rankFor(slotKey, pool.filter((m) => m.slots.includes(slotKey))), [pool, slotKey, rankFor]);
+  const suggestions = useMemo(() => rankFor(slotKey, pool.filter((m) => Array.isArray(m.slots) && m.slots.includes(slotKey))).slice(0, 4), [pool, slotKey, rankFor]);
+  const allForSlot = useMemo(() => rankFor(slotKey, pool.filter((m) => Array.isArray(m.slots) && m.slots.includes(slotKey))), [pool, slotKey, rankFor]);
 
   const results = useMemo(() => {
     if (!q.trim()) return [];
@@ -287,12 +296,17 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
 
           {panel === "recipes" && (
             <div>
+              <div className="mb-3 flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                <Search size={16} style={{ color: C.muted }} />
+                <input value={recipeQ} onChange={(e) => setRecipeQ(e.target.value)} placeholder="Rechercher une recette…" className="w-full bg-transparent text-sm outline-none" style={{ color: C.ink }} />
+                {recipeQ && <button onClick={() => setRecipeQ("")} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Effacer"><X size={15} /></button>}
+              </div>
               <button onClick={() => setCreatingRecipe(true)} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Plus size={16} /> Créer une recette</button>
-              {slotRecipes.length === 0 ? (
-                <p className="py-6 text-center text-sm leading-relaxed" style={{ color: C.muted }}>Aucune recette pour ce créneau.<br />Crée-en une — elle s'enregistre dans Ma cuisine et s'ajoute à ce repas.</p>
+              {recipeResults.length === 0 ? (
+                <p className="py-6 text-center text-sm leading-relaxed" style={{ color: C.muted }}>{recipeQ.trim() ? "Aucune recette ne correspond à ta recherche." : <>Aucune recette pour ce créneau.<br />Crée-en une — elle s'enregistre dans Ma cuisine et s'ajoute à ce repas.</>}</p>
               ) : (
                 <div className="space-y-2">
-                  {slotRecipes.map((r) => (
+                  {recipeResults.map((r) => (
                     <button key={r.id} onClick={() => onChoose(recipeToPick(r))} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold" style={{ color: C.ink }}>{r.emoji ? `${r.emoji} ` : ""}{r.name}{r.custom && <span style={{ color: C.protein }}> ·perso</span>}</span>

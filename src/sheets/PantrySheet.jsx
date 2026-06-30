@@ -1,11 +1,47 @@
 import React, { useState } from "react";
-import { ChevronLeft, Share2, Check, ScanLine, Plus, Pencil, Trash2, RotateCcw, ChevronDown, ShoppingCart, Keyboard, Search } from "lucide-react";
+import { ChevronLeft, Share2, Check, ScanLine, Plus, Pencil, Trash2, RotateCcw, ChevronDown, ShoppingCart, Keyboard, Search, Sparkles, Loader2 } from "lucide-react";
 import { C, cardStyle, catOf, catMeta, CAT_ORDER, protStock } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import OffSearch from "../components/OffSearch.jsx";
 import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
 import { fetchProductByBarcode } from "../lib/openfoodfacts.js";
+import { estimateFoodMacros } from "../lib/assistant.js";
 import { formatPantryText, shareOrCopy } from "../lib/share.js";
+
+// Form partagé (ajout « à la main » + édition) avec ESTIMATION auto des macros /100 depuis
+// le nom (vrac sans étiquette/code-barres). Composant module-level → l'état de chargement
+// du bouton « Trouver les valeurs » survit aux re-rendus du parent.
+function PantryFields({ v, on, onFill, onSubmit }) {
+  const [est, setEst] = useState("idle"); // idle | loading | error
+  const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
+  const u = v.unit === "ml" ? "ml" : v.unit === "pièce" ? "pièce" : "g";
+  const canEstimate = !!v.name.trim() && u !== "pièce";
+  const estimate = async () => {
+    if (!canEstimate) return;
+    setEst("loading");
+    try { const r = await estimateFoodMacros(v.name.trim(), u); onFill(r); setEst("idle"); }
+    catch { setEst("error"); }
+  };
+  return (
+    <>
+      <input value={v.name} onChange={on("name")} onKeyDown={(ev) => { if (ev.key === "Enter" && onSubmit) onSubmit(); }} placeholder="Nom (ex. riz basmati, graines de courge)…" className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+      <div className="mb-2 flex gap-2">
+        <input value={v.qty} onChange={on("qty")} inputMode="decimal" placeholder="Quantité que j'ai" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+        <select value={v.unit} onChange={on("unit")} className="rounded-xl px-2 py-2.5 text-sm outline-none" style={fld}>
+          <option value="g">g</option><option value="ml">ml</option><option value="pièce">pièce</option>
+        </select>
+      </div>
+      <button onClick={estimate} disabled={!canEstimate || est === "loading"} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold active:scale-95 disabled:opacity-50" style={{ backgroundColor: `${C.accent}14`, color: C.accent, border: `1px solid ${C.accent}40` }}>
+        {est === "loading" ? <><Loader2 size={14} className="animate-spin" /> Recherche des valeurs…</> : <><Sparkles size={14} /> Trouver les valeurs /100 {u}</>}
+      </button>
+      {est === "error" && <p className="mb-2 text-[11px]" style={{ color: C.over }}>Estimation indisponible — saisis les valeurs à la main.</p>}
+      <div className="mb-3 flex gap-2">
+        <input value={v.kcal100} onChange={on("kcal100")} inputMode="numeric" placeholder={`kcal /100${u}`} className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+        <input value={v.p100} onChange={on("p100")} inputMode="numeric" placeholder={`prot. /100${u}`} className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
+      </div>
+    </>
+  );
+}
 
 const num = (v) => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
 const stripQty = (s) => String(s || "").replace(/\s*\([^)]*\)\s*$/, "").trim();
@@ -60,12 +96,6 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   };
   const toggleCat = (k) => setCollapsed((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
-  const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
-  const UnitSelect = ({ value, onChange }) => (
-    <select value={value} onChange={onChange} className="rounded-xl px-2 py-2.5 text-sm outline-none" style={fld}>
-      <option value="g">g</option><option value="ml">ml</option><option value="pièce">pièce</option>
-    </select>
-  );
   const dens = (it) => {
     const q = it.qty ? `${it.qty} ${it.unit || "g"}` : "";
     const d = (it.kcal100 || it.p100) ? `${it.kcal100 || "?"}·${it.p100 ?? "?"} /100${it.unit || "g"}` : "";
@@ -76,20 +106,6 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   const groups = CAT_ORDER.map((k) => ({ k, items: dispo.filter((it) => catOf(it.name) === k) })).filter((g) => g.items.length);
   const pct = pantry.length ? Math.round((dispo.length / pantry.length) * 100) : 0;
 
-  // Form partagé (ajout « à la main » et édition)
-  const Fields = ({ v, on }) => (
-    <>
-      <input value={v.name} onChange={on("name")} onKeyDown={(ev) => { if (ev.key === "Enter" && v === f) add(); }} placeholder="Nom (ex. compote pomme)…" className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
-      <div className="mb-2 flex gap-2">
-        <input value={v.qty} onChange={on("qty")} inputMode="decimal" placeholder="Quantité que j'ai" className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
-        <UnitSelect value={v.unit} onChange={on("unit")} />
-      </div>
-      <div className="mb-3 flex gap-2">
-        <input value={v.kcal100} onChange={on("kcal100")} inputMode="numeric" placeholder={`kcal /100${v.unit}`} className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
-        <input value={v.p100} onChange={on("p100")} inputMode="numeric" placeholder={`prot. /100${v.unit}`} className="min-w-0 flex-1 rounded-xl px-3.5 py-3 text-sm outline-none" style={fld} />
-      </div>
-    </>
-  );
 
   return (
     <>
@@ -208,7 +224,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
       <Sheet open onClose={closeAction} title={action.name} subtitle={dens(action) || "sans densité"} icon={<Pencil size={18} />} iconColor={C.weight} z={50}>
         {editId === action.id ? (
           <>
-            {Fields({ v: e, on: setEd })}
+            <PantryFields v={e} on={setEd} onFill={(r) => setE((s) => ({ ...s, kcal100: String(r.kcal100), p100: String(r.p100) }))} onSubmit={saveEdit} />
             <button onClick={saveEdit} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Check size={16} /> Enregistrer</button>
           </>
         ) : (
@@ -230,7 +246,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
     {/* Ajout à la main */}
     {adding && (
       <Sheet open onClose={() => setAdding(false)} title="Ajouter au frigo" subtitle="à la main" icon={<Plus size={18} />} iconColor={C.green} z={50}>
-        {Fields({ v: f, on: set })}
+        <PantryFields v={f} on={set} onFill={(r) => setF((s) => ({ ...s, kcal100: String(r.kcal100), p100: String(r.p100) }))} onSubmit={add} />
         <button onClick={add} disabled={!f.name.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: C.green }}><Plus size={16} /> Ajouter</button>
       </Sheet>
     )}

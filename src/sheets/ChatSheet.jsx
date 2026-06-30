@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Plus, Pencil, BookmarkPlus, Check, ImagePlus, X, ScanLine } from "lucide-react";
+import { Sprout, Send, Plus, Pencil, BookmarkPlus, Check, ImagePlus, X, ScanLine } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { chatAssistant, AssistantError } from "../lib/assistant.js";
@@ -7,10 +7,11 @@ import { compressImage } from "../lib/image.js";
 import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
 import { fetchProductByBarcode } from "../lib/openfoodfacts.js";
 
+// Repli si pas d'ouverture proactive (rare) : quelques amorces.
 const STARTERS = [
   "Que manger ce soir avec ce qu'il me reste ?",
-  "Propose-moi une recette de déj et enregistre-la",
-  "Il me reste combien de protéines aujourd'hui ?",
+  "Comment finir mes protéines sans poudre ?",
+  "Une idée de repas de saison ?",
   "Mon poids a bougé, pourquoi à ton avis ?",
 ];
 
@@ -22,12 +23,12 @@ const META = {
   update_recipe: (a) => ({ icon: Pencil, chip: `Mettre à jour${a.target_name ? ` « ${a.target_name} »` : " la recette"}` }),
 };
 
-// Avatar de l'assistant (pastille dégradée, léger relief).
-const Avatar = () => (
-  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: `radial-gradient(circle at 32% 28%, ${C.warn}, ${C.accent})`, color: "#1a1208", boxShadow: `0 3px 10px -3px ${C.accent}80, inset 0 0 0 1px rgba(255,255,255,0.28)` }}><Sparkles size={15} /></span>
+// Identité du coach : pastille « pousse » (croissance / saison / vivant), vert → bleu.
+const Avatar = ({ size = 32 }) => (
+  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08", boxShadow: `0 3px 10px -3px ${C.green}80, inset 0 0 0 1px rgba(255,255,255,0.25)` }}><Sprout size={Math.round(size * 0.5)} /></span>
 );
 
-// Points animés « l'assistant écrit ».
+// Points animés « le coach écrit ».
 const Dots = () => (
   <span className="flex items-center gap-1 px-1 py-1.5">
     {[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.muted, animation: "cmBounce 1s infinite ease-in-out", animationDelay: `${i * 0.16}s` }} />)}
@@ -41,24 +42,39 @@ const renderRich = (text) => String(text || "").split("\n").map((line, i) => {
   const parts = body.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((p, j) => (p.startsWith("**") && p.endsWith("**")
     ? <strong key={j} className="font-bold">{p.slice(2, -2)}</strong>
     : <React.Fragment key={j}>{p}</React.Fragment>));
-  if (bullet) return <div key={i} className="flex gap-1.5"><span className="mt-px shrink-0" style={{ color: C.accent }}>•</span><span className="min-w-0">{parts}</span></div>;
-  return <div key={i}>{parts.length ? parts : " "}</div>;
+  if (bullet) return <div key={i} className="flex gap-1.5"><span className="mt-px shrink-0" style={{ color: C.green }}>•</span><span className="min-w-0">{parts}</span></div>;
+  return <div key={i}>{parts.length ? parts : " "}</div>;
 });
 
-// Chat assistant agentique : conversation libre + cartes d'action à CONFIRMER (tool use).
-// Le system porte le contexte d'app (relu à chaque envoi). onAction(action) exécute et
-// renvoie un message de confirmation (ou throw). Éphémère (repart à zéro à la fermeture).
-export function ChatSheet({ system, onAction, onClose }) {
-  const [msgs, setMsgs] = useState([]); // { role, content, actions? }
+// Chat COACH agentique : le coach OUVRE la conversation (il a lu la semaine), propose
+// des chips de réponse, et peut agir (cartes à confirmer). `system` porte le contexte
+// d'app (relu à chaque envoi). `opening` = ouverture proactive composée par coachOpening
+// ({ greeting, continuity, bubbles[], chips[] }). onAction(action) exécute et renvoie une
+// confirmation (ou throw). Éphémère (repart à zéro à la fermeture).
+export function ChatSheet({ system, opening, initialPrompt, onAction, onClose }) {
+  const op = opening && Array.isArray(opening.bubbles) && opening.bubbles.length ? opening : null;
+  // Le coach parle EN PREMIER : accueil + lecture du jour/semaine en 1-2 bulles.
+  const seed = op
+    ? [
+        { role: "assistant", content: [op.greeting, op.bubbles[0]].filter(Boolean).join("\n\n"), actions: [], coach: true },
+        ...(op.bubbles[1] ? [{ role: "assistant", content: op.bubbles[1], actions: [], coach: true }] : []),
+      ]
+    : [];
+  const [msgs, setMsgs] = useState(seed); // { role, content, actions? }
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [acts, setActs] = useState({}); // `${i}-${ai}` → { done?: string, err?: string }
   const [img, setImg] = useState(null); // photo en attente : { dataUrl, base64, mediaType }
   const [scanning, setScanning] = useState(false);
+  const [chipsHidden, setChipsHidden] = useState(false);
   const fileRef = useRef(null);
+  const autoSent = useRef(false);
   const scrollRef = useRef(null);
   useEffect(() => { scrollRef.current && scrollRef.current.scrollTo({ top: 1e9, behavior: "smooth" }); }, [msgs, busy]);
+
+  const hasUserMsg = msgs.some((m) => m.role === "user");
+  const showChips = op && !hasUserMsg && !chipsHidden && !busy;
 
   const pickImg = async (e) => {
     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
@@ -80,7 +96,7 @@ export function ChatSheet({ system, onAction, onClose }) {
     } catch { setErr("Lecture produit indisponible (réseau)."); }
   };
 
-  // Met à jour le contenu de la bulle assistant en cours de stream (la dernière flaggée).
+  // Met à jour le contenu de la bulle coach en cours de stream (la dernière flaggée).
   const patchStream = (fn) => setMsgs((m) => { const c = m.slice(); for (let k = c.length - 1; k >= 0; k--) { if (c[k].streaming) { c[k] = fn(c[k]); break; } } return c; });
 
   const send = async (text) => {
@@ -97,7 +113,10 @@ export function ChatSheet({ system, onAction, onClose }) {
     setMsgs([...next, { role: "assistant", content: "", actions: [], streaming: true }]); // placeholder qui se remplit
     setBusy(true);
     try {
-      const apiMsgs = next.map((m) => ({ role: m.role, content: m.api != null ? m.api : (m.content || "(proposition d'action)") }));
+      // Les bulles d'OUVERTURE sont locales (pas envoyées au modèle) : on n'envoie que les
+      // vrais échanges (tout sauf les messages coach d'accueil).
+      const history = next.filter((m) => !m.coach);
+      const apiMsgs = history.map((m) => ({ role: m.role, content: m.api != null ? m.api : (m.content || "(proposition d'action)") }));
       const { text: reply, actions } = await chatAssistant({ system, messages: apiMsgs }, { onToken: (t) => patchStream((x) => ({ ...x, content: t })) });
       patchStream(() => ({ role: "assistant", content: reply, actions }));
     } catch (e) {
@@ -105,6 +124,10 @@ export function ChatSheet({ system, onAction, onClose }) {
       setErr(e instanceof AssistantError ? e.message : "Réponse impossible — réessaie.");
     } finally { setBusy(false); }
   };
+
+  const onChip = (chip) => { if (chip.dismiss) { setChipsHidden(true); return; } send(chip.prompt || chip.label); };
+  // Question pré-remplie (coach ouvert depuis une carte) → envoi auto, une seule fois.
+  useEffect(() => { if (initialPrompt && !autoSent.current) { autoSent.current = true; send(initialPrompt); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runAction = async (key, action) => {
     if (acts[key]?.done) return;
@@ -117,7 +140,7 @@ export function ChatSheet({ system, onAction, onClose }) {
   };
 
   return (
-    <Sheet open onClose={onClose} title="Assistant" subtitle="Il connaît ton contexte et peut agir (tu confirmes)" icon={<Sparkles size={18} />} iconColor={C.accent}>
+    <Sheet open onClose={onClose} title="Ton coach" subtitle="Il a lu ta semaine · tu valides ses actions" icon={<Sprout size={18} />} iconColor={C.green}>
       <div className="flex flex-col" style={{ height: "min(68vh, 580px)" }}>
         {scanning ? (
           <div className="flex flex-1 flex-col justify-center">
@@ -127,31 +150,34 @@ export function ChatSheet({ system, onAction, onClose }) {
         <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto pb-2" style={{ scrollbarWidth: "none" }}>
           {msgs.length === 0 && !busy && (
             <div className="space-y-3 py-2">
-              <p className="text-sm leading-relaxed" style={{ color: C.sub }}>Pose-moi une question — je connais ton budget du jour, ta semaine, ton frigo et tes recettes, et je peux enregistrer/logger/modifier (tu valides toujours). Tu peux aussi m'envoyer une <b style={{ color: C.ink }}>photo</b> d'un plat ou d'un produit.</p>
+              <p className="text-sm leading-relaxed" style={{ color: C.sub }}>Je connais ton budget du jour, ta semaine, ton frigo et la saison — et je peux enregistrer / logger / modifier (tu valides toujours). Tu peux aussi m'envoyer une <b style={{ color: C.ink }}>photo</b> d'un plat ou d'un produit.</p>
               <div className="flex flex-col gap-1.5">
                 {STARTERS.map((s) => (
                   <button key={s} onClick={() => send(s)} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
-                    <Sparkles size={13} style={{ color: C.accent, flexShrink: 0 }} /> {s}
+                    <Sprout size={13} style={{ color: C.green, flexShrink: 0 }} /> {s}
                   </button>
                 ))}
               </div>
             </div>
           )}
+          {op?.continuity && !hasUserMsg && (
+            <p className="px-1 text-center text-[11px]" style={{ color: C.muted }}>↩ {op.continuity}</p>
+          )}
           {msgs.map((m, i) => m.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[82%] overflow-hidden rounded-2xl rounded-br-md text-sm leading-relaxed" style={{ backgroundColor: `${C.accent}22`, border: `1px solid ${C.accent}3a`, color: C.ink }}>
+              <div className="max-w-[82%] overflow-hidden rounded-2xl rounded-br-md text-sm leading-relaxed" style={{ backgroundColor: `${C.green}22`, border: `1px solid ${C.green}3a`, color: C.ink }}>
                 {m.img && <img src={m.img} alt="photo envoyée" className="block max-h-52 w-full object-cover" />}
                 {m.content && <div className="whitespace-pre-wrap px-3.5 py-2.5">{m.content}</div>}
               </div>
             </div>
           ) : (
             <div key={i} className="flex items-start gap-2">
-              <Avatar />
+              <Avatar size={28} />
               <div className="min-w-0 flex-1 space-y-1.5">
                 {m.streaming && !m.content ? (
                   <div className="w-fit rounded-2xl rounded-bl-md px-2 py-0.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}><Dots /></div>
                 ) : m.content ? (
-                  <div className="w-fit max-w-full rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{renderRich(m.content)}{m.streaming && <span className="cm-caret" style={{ color: C.accent }}>▍</span>}</div>
+                  <div className="w-fit max-w-full rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{renderRich(m.content)}{m.streaming && <span className="cm-caret" style={{ color: C.green }}>▍</span>}</div>
                 ) : null}
                 {!m.streaming && m.actions?.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -161,13 +187,25 @@ export function ChatSheet({ system, onAction, onClose }) {
                       const Icon = meta.icon;
                       if (st?.done) return <span key={ai} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Check size={13} className="shrink-0" /> <span className="truncate">{st.done}</span></span>;
                       if (st?.err) return <span key={ai} className="inline-flex max-w-full items-center rounded-full px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: `${C.over}1f`, color: C.over }}><span className="truncate">{st.err}</span></span>;
-                      return <button key={ai} onClick={() => runAction(key, action)} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.accent, color: "#1a1208" }}><Icon size={13} className="shrink-0" /> <span className="truncate">{meta.chip}</span></button>;
+                      return <button key={ai} onClick={() => runAction(key, action)} className="inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.green, color: "#0c0a08" }}><Icon size={13} className="shrink-0" /> <span className="truncate">{meta.chip}</span></button>;
                     })}
                   </div>
                 )}
               </div>
             </div>
           ))}
+          {/* Réponses proposées PAR le coach (ouverture proactive) */}
+          {showChips && (
+            <div className="flex flex-wrap gap-1.5 pl-9 pt-0.5">
+              {op.chips.map((chip, ci) => {
+                const dismiss = !!chip.dismiss;
+                const tone = dismiss ? C.muted : C.green;
+                return (
+                  <button key={ci} onClick={() => onChip(chip)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: `${tone}1f`, color: tone, border: `1px solid ${tone}40` }}>{chip.label}</button>
+                );
+              })}
+            </div>
+          )}
           {err && <p className="px-1 text-xs" style={{ color: C.over }}>{err}</p>}
         </div>
 
@@ -192,10 +230,10 @@ export function ChatSheet({ system, onAction, onClose }) {
             <textarea
               value={input} onChange={(e) => setInput(e.target.value)} rows={1}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder="Écris ta question…"
+              placeholder="Réponds à ton coach…"
               className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl px-3.5 py-3 text-sm outline-none"
               style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }} />
-            <button onClick={() => send()} disabled={(!input.trim() && !img) || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.accent, color: "#1a1208" }} aria-label="Envoyer">
+            <button onClick={() => send()} disabled={(!input.trim() && !img) || busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-40" style={{ backgroundColor: C.green, color: "#0c0a08" }} aria-label="Envoyer">
               <Send size={18} />
             </button>
           </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2 } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2, Sprout, Leaf, MessageCircle } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt,
+  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt, coachSignals, seasonalProduce, coachGreeting,
 } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SectionTitle } from "../components/ui.jsx";
@@ -25,8 +25,13 @@ function QuickChips({ items = [], onQuick, color }) {
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
+// Identité du coach : pastille « pousse » (croissance / saison / vivant), vert → bleu.
+const CoachHead = ({ size = 34 }) => (
+  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: "#0c0a08" }}><Sprout size={Math.round(size * 0.52)} /></span>
+);
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, sportCatchUp, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe, savedRecipeNames }) {
+
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, sportCatchUp, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe, savedRecipeNames, onOpenChat, onCoachPrompt }) {
   const [showTpl, setShowTpl] = useState(false);
   const [dismissRebal, setDismissRebal] = useState(false);
   const [viewRecipe, setViewRecipe] = useState(null); // { m, slot, index }
@@ -58,6 +63,9 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   // Résumé hebdo compact, intégré à la carte jauge (visible sans scroller).
   const wstats = weekStats(days, settings, activeDate, 7);
   const wcoach = weekCoach(wstats, settings, weights, activeDate);
+  // Coach du jour (A) : signaux proactifs conscients de l'heure — seulement pour aujourd'hui.
+  const coach = isToday && onCoachPrompt ? coachSignals({ days, weights, settings, refISO: activeDate }) : null;
+  const season = seasonalProduce(activeDate);
   const wBal = Math.round(wcoach.balance);
   const wBalColor = wBal >= 0 ? C.green : C.protein;
   const WTrend = wcoach.weightTrend === "down" ? TrendingDown : wcoach.weightTrend === "up" ? TrendingUp : null;
@@ -153,6 +161,33 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           })}
         </div>
       </div>
+
+      {/* Coach du jour (A) — voix proactive du coach, consciente de l'heure */}
+      {coach && (() => {
+        const rank = { alert: 0, nudge: 1, reassure: 2, win: 3, info: 4 };
+        const sorted = coach.signals.slice().sort((a, b) => (rank[a.tone] ?? 5) - (rank[b.tone] ?? 5));
+        const top = sorted[0];
+        if (!top) return null;
+        const toneColor = { alert: C.over, nudge: C.protein, reassure: C.weight, win: C.green, info: C.warn }[top.tone] || C.green;
+        const chipSignals = sorted.filter((s) => s.chip).slice(0, 2);
+        return (
+          <div className="mb-4 rounded-2xl cm-card" style={cardStyle({ borderTop: `1px solid ${toneColor}66` })}>
+            <div className="flex items-start gap-3">
+              <CoachHead />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold" style={{ color: C.ink }}>{coachGreeting(coach.hour)}</p>
+                <p className="mt-0.5 text-[13px] leading-snug" style={{ color: C.sub }}>{top.text}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {chipSignals.map((s, i) => (
+                <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
+              ))}
+              <button onClick={onOpenChat} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><MessageCircle size={13} style={{ color: C.green }} /> Parler à mon coach</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Séance du jour (programme sport) — lien vers l'onglet Sport */}
       {sportInfo && (
@@ -251,6 +286,19 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       <SectionTitle className="mt-1" right={
         onPlan && <button onClick={onPlan} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.green }}><CalendarRange size={13} /> Planifier ma journée</button>
       }>Les repas</SectionTitle>
+
+      {/* De saison (D) — coaching contextuel : produits du moment → idée de repas */}
+      {isToday && (
+        <button onClick={() => onCoachPrompt && onCoachPrompt(`Propose-moi une idée de repas qui met en avant les produits de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), végétarienne, protéinée et sans poudre.`)} className="mb-3 block w-full rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle({ borderTop: `1px solid ${C.warn}55` })}>
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: C.warn }}><Leaf size={13} /> Pleine saison · {season.label}</span>
+            <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: C.green }}>Une idée <ChevronRight size={13} /></span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {season.all.slice(0, 7).map((x) => <span key={x} className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{x}</span>)}
+          </div>
+        </button>
+      )}
 
       {/* Démarrage rapide sur jour vide : reprendre une journée type en 1 tap */}
       {ribbon.length === 0 && (hasPrevDay || templates.length > 0) && (
