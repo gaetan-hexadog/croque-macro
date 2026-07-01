@@ -406,7 +406,13 @@ export default function PiocheRepas() {
     if (!targetSuggestion) return;
     setSettings((s) => ({ ...s, kcal: targetSuggestion.kcal, protein: targetSuggestion.protein, profile: { ...s.profile, weight: targetSuggestion.weightNow } }));
   }, [targetSuggestion]);
-  const showTargetSuggestion = !!targetSuggestion && settings.targetDismissedKcal !== targetSuggestion.kcal;
+  // « Plus tard » masque le bloc tant que la suggestion reste PROCHE de celle rejetée. La cible
+  // adaptative est recalculée en continu depuis les pesées/repas (elle dérive de 10-40 kcal) → une
+  // égalité stricte la faisait réapparaître à chaque ouverture. On ne redérange que si elle change
+  // vraiment (≥ seuil d'écart avec la valeur rejetée).
+  const TARGET_NUDGE_TOLERANCE = 75; // kcal
+  const showTargetSuggestion = !!targetSuggestion
+    && !(Number.isFinite(settings.targetDismissedKcal) && Math.abs(settings.targetDismissedKcal - targetSuggestion.kcal) < TARGET_NUDGE_TOLERANCE);
   const dismissTarget = useCallback(() => { if (targetSuggestion) setSettings((s) => ({ ...s, targetDismissedKcal: targetSuggestion.kcal })); }, [targetSuggestion]);
 
   const emptyPlanned = useMemo(() => {
