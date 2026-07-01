@@ -4,6 +4,7 @@ import { C, cardStyle, buildAssistantPrompt, TODAY, addDays, fmtFull, fmtShort, 
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { PantrySheet } from "../sheets/PantrySheet.jsx";
 import { VariantChips, applyVariants, variantLabels } from "../components/VariantChips.jsx";
+import { useRotatingLine, THINKING } from "../components/useRotatingLine.js";
 
 const MODES = [{ k: "day", l: "Une journée" }, { k: "week", l: "Une semaine" }];
 const SLOT_ORDER = [["pdj", "Petit-déjeuner"], ["dej", "Déjeuner"], ["diner", "Dîner"], ["snack", "En-cas"]];
@@ -64,6 +65,7 @@ export default function PlanScreen({
   const [savedKeys, setSavedKeys] = useState(() => new Set());
   const [committedDays, setCommittedDays] = useState(() => new Set()); // dayIndex déjà planifiés
   const [dirOpen, setDirOpen] = useState(false); // consignes repliées par défaut
+  const genThinking = useRotatingLine(THINKING.plan, genningDay !== null);
   const [activeDay, setActiveDay] = useState(0);  // jour affiché (mode semaine)
   const [regenKey, setRegenKey] = useState(null); // `${di}-${slot}` en cours de régénération
 
@@ -245,7 +247,7 @@ export default function PlanScreen({
         return (
           <button onClick={() => { if (mode === "week") setActiveDay(0); genDay(mode === "week" ? 0 : 0); }} disabled={genning} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold active:scale-95 disabled:opacity-70" style={{ backgroundColor: generated ? "transparent" : C.green, color: generated ? C.green : "#fff", border: `1.5px solid ${C.green}` }}>
             {genning ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-            {genning ? "L'assistant prépare ta journée…" : generated ? "Régénérer ce jour" : (mode === "day" ? "Proposer ma journée" : "Proposer ma semaine")}
+            {genning ? genThinking : generated ? "Régénérer ce jour" : (mode === "day" ? "Proposer ma journée" : "Proposer ma semaine")}
           </button>
         );
       })()}

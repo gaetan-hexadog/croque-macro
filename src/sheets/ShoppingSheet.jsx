@@ -4,6 +4,7 @@ import { C, cardStyle, buildShoppingPrompt } from "../core.js";
 import { shoppingAdvice, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { shareOrCopy } from "../lib/share.js";
+import { useRotatingLine, THINKING } from "../components/useRotatingLine.js";
 
 const CAT = { proteine: "protein", protéine: "protein", legume: "green", légume: "green", feculent: "warn", féculent: "warn", fruit: "green" };
 
@@ -15,6 +16,7 @@ export function ShoppingSheet({ pantry = [], overused = [], favorites = [], know
   const [added, setAdded] = useState(() => new Set());
   const [shared, setShared] = useState("");
   const mounted = useRef(true);
+  const thinking = useRotatingLine(THINKING.shopping, busy);
 
   const run = async () => {
     setBusy(true); setError(null);
@@ -37,7 +39,7 @@ export function ShoppingSheet({ pantry = [], overused = [], favorites = [], know
   return (
     <Sheet open onClose={onClose} title="Courses pour varier" subtitle="Pour sortir de la routine" icon={<ShoppingCart size={18} />} iconColor={C.weight} z={50}>
       {busy ? (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" style={{ color: C.weight }} /> L'assistant compose ta liste…</div>
+        <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" style={{ color: C.weight }} /> {thinking}</div>
       ) : error ? (
         <div className="flex items-start gap-2 rounded-2xl px-3 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
           <AlertCircle size={16} style={{ color: C.over, flexShrink: 0, marginTop: 1 }} />

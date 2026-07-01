@@ -3,6 +3,7 @@ import { Wand2, Loader2, AlertCircle, Check, ChevronDown, RefreshCw, Plus } from
 import { C, cardStyle, buildAssistantPrompt } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
+import { useRotatingLine, THINKING } from "../components/useRotatingLine.js";
 
 const ingLine = (i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim());
 const QUICK = ["Il me manque un ingrédient", "Sans …", "Plus de protéines", "Version plus légère", "Ajoute des légumes verts", "Plus rapide"];
@@ -16,6 +17,7 @@ export function RecipeAdaptSheet({ recipe, favorites = [], knownFoods = [], pant
   const [result, setResult] = useState(null);
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState("");
+  const thinking = useRotatingLine(THINKING.adapt, busy);
 
   const have = pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 }));
   const avoid = pantry.filter((x) => x.out).map((x) => x.name);
@@ -51,7 +53,7 @@ export function RecipeAdaptSheet({ recipe, favorites = [], knownFoods = [], pant
       </div>
       <button onClick={ask} disabled={busy || !instruction.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95 disabled:opacity-60" style={{ backgroundColor: result ? "transparent" : C.weight, color: result ? C.weight : "#fff", border: `1.5px solid ${C.weight}` }}>
         {busy ? <Loader2 size={16} className="animate-spin" /> : result ? <RefreshCw size={16} /> : <Wand2 size={16} />}
-        {busy ? "L'assistant adapte…" : result ? "Reproposer" : "Adapter cette recette"}
+        {busy ? thinking : result ? "Reproposer" : "Adapter cette recette"}
       </button>
 
       {error && (

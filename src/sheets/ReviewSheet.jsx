@@ -3,6 +3,7 @@ import { Sparkles, Loader2, AlertCircle, Pin } from "lucide-react";
 import { C, buildWeeklyReviewPrompt } from "../core.js";
 import { explainWeight, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
+import { useRotatingLine, THINKING } from "../components/useRotatingLine.js";
 
 // Découpe le rendu en lignes : **gras** + puces. Chaque puce expose son texte « plat »
 // (sans markdown) pour pouvoir l'épingler en consigne.
@@ -24,6 +25,7 @@ export function ReviewSheet({ days = {}, settings = {}, overused = [], refISO, d
   const [error, setError] = useState(null);
   const [text, setText] = useState("");
   const mounted = useRef(true);
+  const thinking = useRotatingLine(THINKING.review, busy);
   const run = async () => {
     setBusy(true); setError(null);
     try { const t = await explainWeight(buildWeeklyReviewPrompt({ days, settings, refISO, overused })); if (mounted.current) setText(t); }
@@ -35,7 +37,7 @@ export function ReviewSheet({ days = {}, settings = {}, overused = [], refISO, d
   return (
     <Sheet open onClose={onClose} title="Bilan de la semaine" subtitle="Au-delà des macros" icon={<Sparkles size={18} />} iconColor={C.accent}>
       {busy ? (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" style={{ color: C.accent }} /> L'assistant analyse ta semaine…</div>
+        <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" style={{ color: C.accent }} /> {thinking}</div>
       ) : error ? (
         <div className="flex items-start gap-2 rounded-2xl px-3 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
           <AlertCircle size={16} style={{ color: C.over, flexShrink: 0, marginTop: 1 }} />

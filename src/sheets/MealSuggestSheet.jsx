@@ -5,6 +5,7 @@ import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
 import MealCard from "../components/MealCard.jsx";
 import { PantrySheet } from "./PantrySheet.jsx";
+import { useRotatingLine, THINKING } from "../components/useRotatingLine.js";
 
 const SLOT_LABELS = { pdj: "petit-déjeuner", dej: "déjeuner", diner: "dîner", snack: "en-cas" };
 // Envies rapides (1 tap). « resto » bascule un mode dédié ; chaque chip filtre AUSSI les idées
@@ -50,6 +51,7 @@ export function MealSuggestSheet({
   const [savedKeys, setSavedKeys] = useState(() => new Set());
   const toggleChip = (k) => setChips((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const budK = indulge ? dayRemKcal : remKcal, budP = indulge ? dayRemP : remP;
+  const thinking = useRotatingLine(THINKING.meal, busy); // message d'attente qui défile pendant que ✨ réfléchit
 
   // Base locale : créneau + budget + pas en rupture + dédup (copie perso/originale même id).
   const local = useMemo(() => {
@@ -173,7 +175,7 @@ export function MealSuggestSheet({
       {/* L'assistant réfléchit — visible, pour qu'on voie qu'il se passe quelque chose */}
       {busy && !results && (
         <div className="mt-2 flex items-center justify-center gap-2 rounded-2xl px-3 py-4 text-sm" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-          <Loader2 size={16} className="animate-spin" style={{ color: C.accent }} /> L'assistant prépare des idées…
+          <Loader2 size={16} className="animate-spin" style={{ color: C.accent }} /> {thinking}
         </div>
       )}
 
@@ -197,7 +199,7 @@ export function MealSuggestSheet({
           )}
           {results.map((m, i) => <MealCard key={`r-${m.title}-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `r${i}`)} saved={savedKeys.has(`r${i}`)} />)}
           <button onClick={ask} disabled={busy} className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: "transparent", color: C.green, border: `1.5px solid ${C.green}` }}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {busy ? "L'assistant réfléchit…" : "Régénérer"}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {busy ? thinking : "Régénérer"}
           </button>
         </div>
       )}

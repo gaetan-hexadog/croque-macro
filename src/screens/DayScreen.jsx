@@ -8,6 +8,7 @@ import { SectionTitle } from "../components/ui.jsx";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
 import { RecipeDetailSheet } from "../components/RecipeDetailSheet.jsx";
 import { explainWeight, AssistantError } from "../lib/assistant.js";
+import { useRotatingLine, THINKING } from "../components/useRotatingLine.js";
 
 // Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
 function QuickChips({ items = [], onQuick, color }) {
@@ -650,6 +651,7 @@ function WeightCard({ date, weight, onWeight, pushNav, navBack, weights = {}, we
   const [val, setVal] = useState(weight != null ? String(weight) : "");
   const [explaining, setExplaining] = useState(false);
   const [exp, setExp] = useState({ busy: false, text: "", err: "" });
+  const expThinking = useRotatingLine(THINKING.weight, exp.busy);
   useEffect(() => { setVal(weight != null ? String(weight) : ""); }, [weight, date]);
   // « Pourquoi ce poids ? » : l'assistant lit les repas/pesées récents (texte libre).
   const analyze = async () => {
@@ -716,7 +718,7 @@ function WeightCard({ date, weight, onWeight, pushNav, navBack, weights = {}, we
       {explaining && (
         <Sheet open onClose={closeExplain} title="Pourquoi ce poids ?" subtitle="d'après tes repas récents" icon={<Sparkles size={18} />} iconColor={C.weight} z={50}>
           {exp.busy ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" /> L'assistant lit tes derniers jours…</div>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" /> {expThinking}</div>
           ) : exp.err ? (
             <p className="py-2 text-sm leading-relaxed" style={{ color: C.over }}>{exp.err}</p>
           ) : (
