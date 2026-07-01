@@ -159,18 +159,6 @@ export function MealSuggestSheet({
       </div>
       <p className="mb-3 mt-1 px-1 text-[10px]" style={{ color: C.muted }}>Les chips filtrent tes recettes en direct ; <b style={{ color: C.sub }}>✨</b> demande de nouvelles idées à l'assistant.</p>
 
-      {/* Tes recettes, filtrées en direct — repliables (repliées dès qu'on interroge l'assistant) */}
-      {localFiltered.length > 0 && (
-        <div className="space-y-2">
-          <button onClick={() => setLocalCollapsed((c) => !c)} className="flex w-full items-center gap-1.5 active:opacity-70">
-            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Dans tes recettes{chips.size || excludeTerms.length ? " · filtrées" : ""} · {localFiltered.length}</span>
-            <ChevronDown size={13} style={{ color: C.muted, marginLeft: "auto", transform: localCollapsed ? "none" : "rotate(180deg)", transition: "transform .2s" }} />
-          </button>
-          {/* Idées locales = déjà dans tes recettes → pas de bouton « Cuisine » (on n'en re-crée pas un doublon). */}
-          {!localCollapsed && localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} />)}
-        </div>
-      )}
-
       {/* L'assistant réfléchit — visible, pour qu'on voie qu'il se passe quelque chose */}
       {busy && !results && (
         <div className="mt-2 flex items-center justify-center gap-2 rounded-2xl px-3 py-4 text-sm" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
@@ -208,6 +196,18 @@ export function MealSuggestSheet({
         <p className="rounded-2xl px-3 py-5 text-center text-xs" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}>
           {chips.has("resto") ? "Au resto — appuie sur ✨ pour des idées adaptées." : excludeTerms.length || chips.size ? "Aucune de tes recettes ne colle — appuie sur ✨, l'assistant cherche." : "Coche une envie, ou demande à l'assistant avec ✨."}
         </p>
+      )}
+
+      {/* Tes recettes, filtrées en direct — repliables (repliées dès qu'on interroge l'assistant) */}
+      {localFiltered.length > 0 && (
+        <div className="space-y-2">
+          <button onClick={() => setLocalCollapsed((c) => !c)} className="flex w-full items-center gap-1.5 active:opacity-70">
+            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Dans tes recettes{chips.size || excludeTerms.length ? " · filtrées" : ""} · {localFiltered.length}</span>
+            <ChevronDown size={13} style={{ color: C.muted, marginLeft: "auto", transform: localCollapsed ? "none" : "rotate(180deg)", transition: "transform .2s" }} />
+          </button>
+          {/* Idées locales = déjà dans tes recettes → pas de bouton « Cuisine » (on n'en re-crée pas un doublon). */}
+          {!localCollapsed && localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} />)}
+        </div>
       )}
 
       {pantryOpen && <PantrySheet pantry={pantry} onAdd={onAddPantry} onToggle={onTogglePantry} onUpdate={onUpdatePantry} onRemove={onRemovePantry} onClose={() => setPantryOpen(false)} />}
