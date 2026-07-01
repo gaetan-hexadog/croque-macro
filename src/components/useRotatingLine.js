@@ -12,23 +12,33 @@ export const THINKING = {
     "Recherche d'idées…",
     "Optimisation des protéines…",
     "Équilibrage calories / plaisir…",
+    "Sélection des ingrédients…",
+    "Vérification des règles diététiques…",
     "Calcul des macros…",
+    "Peaufinage des propositions…",
   ],
   plan: [
     "Composition de la journée…",
     "Répartition des protéines…",
     "Recherche de variété…",
+    "Équilibrage des repas…",
+    "Sélection des ingrédients…",
     "Calcul des macros…",
+    "Peaufinage du planning…",
   ],
   shopping: [
     "Inspection des placards…",
     "Repérage de la routine…",
+    "Analyse des habitudes…",
     "Recherche de nouveautés…",
+    "Sélection d'aliments variés…",
     "Composition de la liste…",
   ],
   review: [
     "Relecture de la semaine…",
     "Bilan légumes & protéines…",
+    "Analyse de la variété…",
+    "Vérification de l'équilibre…",
     "Repérage des points clés…",
     "Préparation des conseils…",
   ],
@@ -36,12 +46,16 @@ export const THINKING = {
     "Relecture des derniers jours…",
     "Distinction eau / gras…",
     "Comparaison repas / balance…",
+    "Analyse des tendances…",
+    "Vérification sodium & fibres…",
     "Préparation de l'explication…",
   ],
   adapt: [
     "Adaptation de la recette…",
     "Recalcul des macros…",
+    "Ajustement des ingrédients…",
     "Respect de l'esprit du plat…",
+    "Peaufinage de la version…",
   ],
 };
 
@@ -49,7 +63,7 @@ export const THINKING = {
 // (« ça avance », pas « c'est figé »). Départ aléatoire (varie à chaque appel), boucle si ça
 // traîne. N'installe l'intervalle QUE quand active → pas de re-render à vide sur les écrans
 // toujours montés (Jour, Planif). Renvoie le message courant (string).
-export function useRotatingLine(messages, active = true, interval = 2200) {
+export function useRotatingLine(messages, active = true, interval = 3200) {
   const n = messages.length;
   const [i, setI] = useState(0);
   useEffect(() => {
