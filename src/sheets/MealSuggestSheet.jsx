@@ -84,7 +84,9 @@ export function MealSuggestSheet({
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
   const ask = async () => {
-    setBusy(true); setError(null); setLocalCollapsed(true); // replie tes recettes → le retour de l'assistant est visible direct
+    // On NE replie PAS les recettes : elles restent le filet de secours si l'assistant
+    // rame, ne rend rien ou plante. La zone assistant (loading/résultats/vide) s'empile dessous.
+    setBusy(true); setError(null);
     try {
       const dining = chips.has("resto");
       const noCook = chips.has("rapide") || NOCOOK.test(deburr(wish));
@@ -108,8 +110,21 @@ export function MealSuggestSheet({
   const save = (cust, i) => { onSaveRecipe?.(cust); setSavedKeys((s) => new Set(s).add(i)); };
   const dispoN = pantry.filter((x) => !x.out).length;
 
+  // Composer épinglé en bas de la modale (hors scroll) : saisie libre + ✨.
+  const composer = (
+    <>
+      <div className="flex items-center gap-2 rounded-full py-1 pl-4 pr-1" style={{ backgroundColor: C.bg, border: `1px solid ${C.line}` }}>
+        <input value={wish} onChange={(e) => setWish(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(); }} placeholder="Ton envie, ou ce que tu évites (des pâtes, sans tofu…)" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none" style={{ color: C.ink }} />
+        <button onClick={ask} disabled={busy} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-95 disabled:opacity-60" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Demander à l'assistant">
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+        </button>
+      </div>
+      <p className="mt-1.5 px-1 text-[10px]" style={{ color: C.muted }}>Les chips filtrent <b style={{ color: C.sub }}>tes recettes</b> en direct ; <b style={{ color: C.accent }}>✨</b> demande de nouvelles idées à l'assistant.</p>
+    </>
+  );
+
   return (
-    <Sheet open onClose={onClose} title="Une idée de repas" subtitle={`Pour le ${SLOT_LABELS[slot] || "repas"}`} icon={<Sparkles size={18} />} iconColor={C.green}>
+    <Sheet open onClose={onClose} title="Une idée de repas" subtitle={`Pour le ${SLOT_LABELS[slot] || "repas"}`} icon={<Sparkles size={18} />} iconColor={C.green} footer={composer}>
       {/* Accroche conversationnelle */}
       <div className="flex items-start gap-2 pb-3">
         <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
@@ -140,8 +155,8 @@ export function MealSuggestSheet({
         </div>
       )}
 
-      {/* Réponse rapide : chips d'envie + Plaisir (toujours visible) + accès Frigo */}
-      <div className="mb-2 flex flex-wrap gap-1.5">
+      {/* Réponse rapide : chips d'envie + Plaisir (toujours visible) + accès Frigo (ouvre la vraie page par-dessus) */}
+      <div className="mb-3 flex flex-wrap gap-1.5">
         <button onClick={() => setIndulge((v) => !v)} className="rounded-full px-2.5 py-1.5 text-xs font-bold active:scale-95" style={indulge ? { backgroundColor: C.accent, color: "#fff" } : { backgroundColor: `${C.accent}16`, color: C.accent, border: `1px solid ${C.accent}40` }}>😋 Plaisir</button>
         {WISH_CHIPS.map((c) => {
           const on = chips.has(c.k);
@@ -150,18 +165,25 @@ export function MealSuggestSheet({
         <button onClick={() => setPantryOpen(true)} className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Refrigerator size={13} /> Frigo{dispoN ? ` · ${dispoN}` : ""}</button>
       </div>
 
-      {/* …ou saisie libre + ✨ (appelle l'assistant) */}
-      <div className="flex items-end gap-2">
-        <input value={wish} onChange={(e) => setWish(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(); }} placeholder="Ton envie, ou ce que tu évites (des pâtes, sans tofu…)" className="min-h-11 flex-1 rounded-2xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
-        <button onClick={ask} disabled={busy} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95 disabled:opacity-60" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Demander à l'assistant">
-          {busy ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-        </button>
-      </div>
-      <p className="mb-3 mt-1 px-1 text-[10px]" style={{ color: C.muted }}>Les chips filtrent tes recettes en direct ; <b style={{ color: C.sub }}>✨</b> demande de nouvelles idées à l'assistant.</p>
+      {/* Tes recettes, filtrées en direct — compactes, repliables, TOUJOURS visibles (filet de secours) */}
+      {localFiltered.length > 0 ? (
+        <div className="space-y-1.5">
+          <button onClick={() => setLocalCollapsed((c) => !c)} className="flex w-full items-center gap-1.5 active:opacity-70">
+            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Dans tes recettes{chips.size || excludeTerms.length ? " · filtrées" : ""} · {localFiltered.length}</span>
+            <ChevronDown size={13} style={{ color: C.muted, marginLeft: "auto", transform: localCollapsed ? "none" : "rotate(180deg)", transition: "transform .2s" }} />
+          </button>
+          {/* Idées locales = déjà dans tes recettes → carte compacte, pas de bouton « Cuisine » (pas de doublon). */}
+          {!localCollapsed && localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} compact onLog={(cust) => { onLog?.(cust, slot); onClose(); }} />)}
+        </div>
+      ) : (!results && !busy && (
+        <p className="rounded-2xl px-3 py-5 text-center text-xs" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}>
+          {chips.has("resto") ? "Au resto — appuie sur ✨ pour des idées adaptées." : excludeTerms.length || chips.size ? "Aucune de tes recettes ne colle — appuie sur ✨, l'assistant cherche." : "Coche une envie, ou demande à l'assistant avec ✨."}
+        </p>
+      ))}
 
-      {/* L'assistant réfléchit — visible, pour qu'on voie qu'il se passe quelque chose */}
+      {/* Zone assistant — SOUS les recettes : loading / erreur / résultats (les recettes restent le filet) */}
       {busy && !results && (
-        <div className="mt-2 flex items-center justify-center gap-2 rounded-2xl px-3 py-4 text-sm" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-2xl px-3 py-4 text-sm" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
           <Loader2 size={16} className="animate-spin" style={{ color: C.accent }} /> {thinking}
         </div>
       )}
@@ -177,7 +199,6 @@ export function MealSuggestSheet({
         </div>
       )}
 
-      {/* Idées de l'assistant (ajoutées sous les tiennes) */}
       {results && (
         <div className="mt-3 space-y-2 pb-2">
           <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}><Sparkles size={12} /> Idées de l'assistant</p>
@@ -188,25 +209,6 @@ export function MealSuggestSheet({
           <button onClick={ask} disabled={busy} className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: "transparent", color: C.green, border: `1.5px solid ${C.green}` }}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {busy ? thinking : "Régénérer"}
           </button>
-        </div>
-      )}
-
-      {/* Rien à montrer encore */}
-      {!localFiltered.length && !results && !busy && (
-        <p className="rounded-2xl px-3 py-5 text-center text-xs" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}>
-          {chips.has("resto") ? "Au resto — appuie sur ✨ pour des idées adaptées." : excludeTerms.length || chips.size ? "Aucune de tes recettes ne colle — appuie sur ✨, l'assistant cherche." : "Coche une envie, ou demande à l'assistant avec ✨."}
-        </p>
-      )}
-
-      {/* Tes recettes, filtrées en direct — repliables (repliées dès qu'on interroge l'assistant) */}
-      {localFiltered.length > 0 && (
-        <div className="space-y-2">
-          <button onClick={() => setLocalCollapsed((c) => !c)} className="flex w-full items-center gap-1.5 active:opacity-70">
-            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Dans tes recettes{chips.size || excludeTerms.length ? " · filtrées" : ""} · {localFiltered.length}</span>
-            <ChevronDown size={13} style={{ color: C.muted, marginLeft: "auto", transform: localCollapsed ? "none" : "rotate(180deg)", transition: "transform .2s" }} />
-          </button>
-          {/* Idées locales = déjà dans tes recettes → pas de bouton « Cuisine » (on n'en re-crée pas un doublon). */}
-          {!localCollapsed && localFiltered.map((m, i) => <MealCard key={`l-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} />)}
         </div>
       )}
 

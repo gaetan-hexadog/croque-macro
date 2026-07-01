@@ -7,7 +7,7 @@ const ingLine = (i) => `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}
 
 // Carte d'une suggestion de repas (locale ou générée). onLog/onSave reçoivent le
 // repas EFFECTIF (variantes appliquées). Partagée par l'idée du jour et la planif.
-export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajouter", check = false }) {
+export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajouter", check = false, compact = false }) {
   const [open, setOpen] = useState(false);
   const warns = check ? dietaryWarnings(meal) : [];
   const [sel, setSel] = useState(() => new Set());
@@ -18,6 +18,24 @@ export default function MealCard({ meal, onLog, onSave, saved, logLabel = "Ajout
     return { ...meal, kcal: eff.kcal, protein: eff.p, title: labels.length ? `${meal.title} · ${labels.join(", ")}` : meal.title };
   };
   const hasDetail = (meal.ingredients?.length || meal.steps?.length);
+
+  // Mode compact : ligne dense (emoji · titre · macros · ajout 1-tap). Un tap sur le
+  // texte déplie la carte complète (détail, variantes, actions). Utilisé pour les
+  // recettes locales déjà connues, où l'ajout rapide prime.
+  if (compact && !open) {
+    return (
+      <div className="rounded-2xl" style={cardStyle({ padding: "0.6rem 0.7rem" })}>
+        <div className="flex items-center gap-2.5">
+          <span className="text-lg leading-none">{oneEmoji(meal.emoji) || "🍽️"}</span>
+          <button onClick={() => setOpen(true)} className="min-w-0 flex-1 text-left active:opacity-70">
+            <p className="truncate text-xs font-bold leading-tight" style={{ color: C.ink }}>{meal.title}</p>
+            <p className="mt-0.5 text-xs" style={{ color: C.sub }}><span className="font-semibold" style={{ color: C.ink }}>{eff.kcal}</span> kcal · <span className="font-semibold" style={{ color: C.protein }}>{eff.p} g</span> prot.</p>
+          </button>
+          <button onClick={() => onLog(custom())} className="flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-2 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: C.green }} aria-label={logLabel}><Plus size={14} /></button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="rounded-2xl cm-card" style={cardStyle()}>
       <div className="flex items-start gap-2.5">

@@ -8,7 +8,7 @@ const reduceMotion = () => typeof window !== "undefined" && window.matchMedia &&
 // Bottom-sheet partagée : slide-up, poignée, et SWIPE-VERS-LE-BAS pour fermer
 // depuis n'importe où tant que le contenu est en haut (sinon on scrolle). Le tap
 // sur le fond ferme aussi. overscroll-behavior empêche le pull-to-refresh.
-export function Sheet({ open, onClose, children, title, subtitle, icon, iconColor, onBack, headerRight, stickyHeader, maxHeight = "92vh", z = 30 }) {
+export function Sheet({ open, onClose, children, title, subtitle, icon, iconColor, onBack, headerRight, stickyHeader, footer, maxHeight = "92vh", z = 30 }) {
   const [shown, setShown] = useState(false);
   const [dragY, setDragY] = useState(0);
   const startRef = useRef(null);
@@ -62,6 +62,8 @@ export function Sheet({ open, onClose, children, title, subtitle, icon, iconColo
         </div>
         {stickyHeader && <div className="shrink-0 px-5 pb-2 pt-1">{stickyHeader}</div>}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-5" style={{ overscrollBehavior: "contain" }}>{children}</div>
+        {/* Footer épinglé hors du scroll (ex. composer d'« Une idée de repas ») */}
+        {footer && <div className="shrink-0 border-t px-5 pb-4 pt-3" style={{ borderColor: C.line, backgroundColor: C.sheet }}>{footer}</div>}
       </div>
     </div>
   );
