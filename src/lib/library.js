@@ -14,7 +14,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase.config.js";
 import { SNAPSHOT_FOODS } from "../data/foods.snapshot.js";
 
-const CACHE_KEY = "croque-macro:library:v3"; // bump → ignore l'ancien cache (data Clear Protein à jour)
+const CACHE_KEY = "croque-macro:library:v4"; // v4 : fix mapping descr→desc (descriptions catalogue) → cache repart propre
 
 // Lignes `foods` plates → shapes attendus par l'app, partitionnés par kind.
 function shapeFromFoods(foods) {
@@ -25,9 +25,9 @@ function shapeFromFoods(foods) {
       if (!byCat[r.cat]) { byCat[r.cat] = []; catOrder.push(r.cat); }
       byCat[r.cat].push({ name: r.name, kcal: r.kcal, p: r.p });
     } else if (r.kind === "recipe") {
-      recipes.push({ id: r.id, cat: r.cat, name: r.name, emoji: r.emoji, kcal: r.kcal, p: r.p, quick: !!r.quick, desc: r.desc, ingredients: Array.isArray(r.ingredients) ? r.ingredients : [], steps: Array.isArray(r.steps) ? r.steps : [] });
+      recipes.push({ id: r.id, cat: r.cat, name: r.name, emoji: r.emoji, kcal: r.kcal, p: r.p, quick: !!r.quick, desc: r.descr ?? r.desc, ingredients: Array.isArray(r.ingredients) ? r.ingredients : [], steps: Array.isArray(r.steps) ? r.steps : [] });
     } else {
-      pool.push({ id: r.id, name: r.name, slots: r.slots || [], kcal: r.kcal, p: r.p, c: r.c, f: r.f, tags: r.tags || [], desc: r.desc, kind: r.kind, unit: r.unit, per: r.per, servings: r.servings || [] });
+      pool.push({ id: r.id, name: r.name, slots: r.slots || [], kcal: r.kcal, p: r.p, c: r.c, f: r.f, tags: r.tags || [], desc: r.descr ?? r.desc, kind: r.kind, unit: r.unit, per: r.per, servings: r.servings || [] });
     }
   }
   return { pool, presets: catOrder.map((cat) => ({ cat, items: byCat[cat] })), recipes };

@@ -45,6 +45,7 @@ export default function PiocheRepas() {
   const [comboSeed, setComboSeed] = useState(0);        // version des presets installés
   const [favs, setFavs] = useState([]);                 // ids des recettes favorites (écran Idées)
   const [customRecipes, setCustomRecipes] = useState([]); // recettes perso (écran Idées), fusionnées à la bibliothèque
+  const [recipesOwned, setRecipesOwned] = useState(false); // migration one-time : catalogue « approprié » en recettes perso (éditables + supprimables) → on n'affiche plus le catalogue
   const [pantry, setPantry] = useState([]);             // frigo/placard : [{ id, name, out }] — out=true = pas dispo aujourd'hui
   const [directives, setDirectives] = useState([]);     // consignes actives [{ id, text, created }] : épinglées du bilan ou saisies, injectées dans les prompts assistant
   const [workouts, setWorkouts] = useState({});         // séances loggées : { id: { date, sessionId, week, data… } } — table workout_logs
@@ -145,6 +146,7 @@ export default function PiocheRepas() {
         if (Array.isArray(d.shakeLiquids)) setShakeLiquids(d.shakeLiquids);
         if (Array.isArray(d.favs)) setFavs(d.favs);
         if (Array.isArray(d.customRecipes)) setCustomRecipes(dedupeRecipesByName(d.customRecipes));
+        if (d.recipesOwned) setRecipesOwned(true);
         // Migration garde-manger : fond l'ancienne base perso (d.customMeals) dans le pantry.
         if (Array.isArray(d.pantry) || Array.isArray(d.customMeals)) setPantry(mergePantryStore(d.pantry || [], d.customMeals || []));
         if (Array.isArray(d.directives)) setDirectives(d.directives);
@@ -158,7 +160,24 @@ export default function PiocheRepas() {
       setHydrated(true);
     })();
   }, []);
-  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport }); }, [settings, days, weights, theme, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport, hydrated]);
+  useEffect(() => { if (hydrated) store.set(STORE_KEY, { settings, days, weights, theme, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport, recipesOwned }); }, [settings, days, weights, theme, templates, usage, combos, shakeBases, shakeLiquids, comboSeed, favs, customRecipes, pantry, directives, workouts, sport, hydrated, recipesOwned]);
+
+  // Migration one-time : « approprie » le catalogue de recettes (foods kind=recipe) en copies PERSO
+  // (même id → éditables ET SUPPRIMABLES). Une fois fait (recipesOwned), on n'affiche plus le catalogue :
+  // les 55 recettes sont désormais toutes perso. Idempotent (skip les ids déjà perso, donc sûr même si
+  // relancé). Flag LOCAL (mono-appareil) → ne tourne qu'une fois ; les copies, elles, se synchronisent
+  // via customRecipes (app_state). Attend que la bibliothèque soit chargée (getLibrarySync/refresh).
+  useEffect(() => {
+    if (!hydrated || recipesOwned) return;
+    const lib = library.recipes || [];
+    if (!lib.length) return;
+    setCustomRecipes((cur) => {
+      const owned = new Set(cur.map((r) => r.id));
+      const forks = lib.filter((r) => r && r.id && !owned.has(r.id)).map((r) => ({ ...r, custom: true }));
+      return forks.length ? [...cur, ...forks].slice(0, 400) : cur;
+    });
+    setRecipesOwned(true);
+  }, [hydrated, recipesOwned, library.recipes]);
 
   // ── Synchronisation Supabase (offline-first, local-first) ──────────────────
   // Miroir de l'état courant pour lire des valeurs fraîches dans les callbacks async
@@ -481,7 +500,7 @@ export default function PiocheRepas() {
     const exists = customRecipes.some((x) => (x.name || "").trim().toLowerCase() === nm)
       || library.recipes.some((x) => (x.name || "").trim().toLowerCase() === nm);
     if (exists) { showToast(`« ${r.name} » est déjà dans tes recettes`); return false; }
-    setCustomRecipes((cur) => [{ ...r, emoji: oneEmoji(r.emoji), id: newId("rec"), custom: true }, ...cur].slice(0, 200));
+    setCustomRecipes((cur) => [{ ...r, emoji: oneEmoji(r.emoji), id: newId("rec"), custom: true }, ...cur].slice(0, 400));
     return true;
   };
   const deleteRecipe = (id) => { const it = customRecipes.find((x) => x.id === id); setCustomRecipes((cur) => cur.filter((x) => x.id !== id)); if (it) showToast(`${it.name} supprimée`, () => setCustomRecipes((p) => p.some((x) => x.id === id) ? p : [...p, it])); };
@@ -490,7 +509,7 @@ export default function PiocheRepas() {
     if (customRecipes.some((x) => x.id === id)) { setCustomRecipes((cur) => cur.map((x) => x.id === id ? { ...x, ...patch } : x)); return; }
     // Recette du catalogue : on crée une copie perso (même id) qui la masque dans `meals`.
     const lib = library.recipes.find((x) => x.id === id);
-    if (lib) setCustomRecipes((cur) => [{ ...lib, ...patch, id, custom: true }, ...cur].slice(0, 200));
+    if (lib) setCustomRecipes((cur) => [{ ...lib, ...patch, id, custom: true }, ...cur].slice(0, 400));
   };
   // Frigo/placard : staples avec interrupteur dispo (out=true → pas dispo aujourd'hui)
   // + macros optionnelles (kcal/p) renseignables au scan, éditables.
@@ -540,11 +559,12 @@ export default function PiocheRepas() {
     const customIds = new Set(customRecipes.map((r) => r.id));
     return [
       ...customRecipes.map((r) => ({ ...r, kind: "recette" })),
-      ...library.recipes.filter((r) => !customIds.has(r.id)).map((r) => ({ ...r, kind: "recette", lib: true })),
+      // Catalogue approprié → on ne l'affiche plus (tout est perso, éditable + supprimable).
+      ...(recipesOwned ? [] : library.recipes.filter((r) => !customIds.has(r.id)).map((r) => ({ ...r, kind: "recette", lib: true }))),
       ...combos.map((c) => { const t = (c.items || []).reduce((a, i) => ({ k: a.k + i.kcal * (i.qty || 1), p: a.p + i.p * (i.qty || 1) }), { k: 0, p: 0 }); return { ...c, kind: "combo", kcal: Math.round(t.k), p: Math.round(t.p) }; }),
       ...pantry.filter((m) => m.kcal != null).map((m) => ({ ...m, kind: "aliment" })),
     ];
-  }, [customRecipes, library.recipes, combos, pantry]);
+  }, [customRecipes, library.recipes, combos, pantry, recipesOwned]);
   const deleteMeal = (m) => { if (m.kind === "recette") deleteRecipe(m.id); else if (m.kind === "combo") deleteCombo(m.id); else removePantry(m.id); };
   const useMealEntry = (m, slotOverride) => {
     if (m.kind === "combo") { const slot = slotOverride || m.slot || "dej", key = picksKey(slot); const ck = (m.items || []).reduce((a, it) => a + (it.kcal || 0) * (it.qty || 1), 0), cp = (m.items || []).reduce((a, it) => a + (it.p || 0) * (it.qty || 1), 0); setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), ...(m.items || []).map((it) => ({ ...it, qty: it.qty || 1, id: newId("pk") }))].slice(0, 8) } })); (m.items || []).forEach((it) => bumpUsage(it.name)); toastAdd(m.name, ck, cp); return; }
@@ -869,7 +889,7 @@ export default function PiocheRepas() {
           dayRemKcal={remKcal} dayRemP={remP} reserveKcal={Math.max(0, remKcal - slotMargin(ideaSlot).kcal)} weekBalance={weekBalance}
           favorites={assistFavorites} knownFoods={assistKnownFoods}
           directives={directives} onRemoveDirective={removeDirective}
-          localIdeas={[...customRecipes, ...library.recipes]}
+          localIdeas={recipesOwned ? customRecipes : [...customRecipes, ...library.recipes]}
           dayContext={["pdj", "dej", "diner", "snacks", "extras"].flatMap((k) => picks?.[k] || []).filter(Boolean).map((it) => { const ings = (it.ingredients || []).map((x) => (typeof x === "string" ? x : x && x.name)).filter(Boolean).slice(0, 5); return `${it.name}${ings.length ? ` (${ings.join(", ")})` : ""}`; })}
           recentMeals={(() => { const out = []; for (let i = 1; i <= 4; i++) { const d = days[addDays(activeDate, -i)]; if (!d?.picks) continue; ["pdj", "dej", "diner", "snacks", "extras"].forEach((k) => (d.picks[k] || []).forEach((it) => { if (it && it.name && !it.planned) out.push(it.name); })); } return [...new Set(out)]; })()}
           pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
