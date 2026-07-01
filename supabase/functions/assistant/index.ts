@@ -35,6 +35,29 @@ const aHeaders = (apiKey: string) => ({ "content-type": "application/json", "x-a
 // on le marque cacheable (TTL ~5 min) pour couper latence + coût sur les appels répétés.
 const sysCache = (s?: string) => (s ? [{ type: "text", text: s, cache_control: { type: "ephemeral" } }] : undefined);
 
+// Appel Claude ROBUSTE. Deux garde-fous que le fetch nu n'avait pas :
+//  1) timeout UPSTREAM (AbortSignal.timeout) — sans lui, un appel qui « hang » ne rendait la main
+//     qu'au timeout CLIENT (120 s) → l'utilisateur voyait « l'assistant a mis trop de temps ». Ici on
+//     coupe court côté serveur et on renvoie une vraie erreur (retryable) bien avant.
+//  2) 1 retry sur erreur TRANSITOIRE (429/500/502/503/529 = surcharge Anthropic) ou coupure réseau.
+// timeoutMs reste < 120 s (timeout client) pour que le serveur échoue le PREMIER, proprement.
+async function callClaude(apiKey: string, payload: unknown, { timeoutMs = 60000, retries = 1 } = {}): Promise<Response> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify(payload), signal: AbortSignal.timeout(timeoutMs) });
+      if (res.ok || attempt === retries) return res;                 // OK, ou plus de retry → on rend la réponse (le handler lira le statut)
+      if (![429, 500, 502, 503, 529].includes(res.status)) return res; // erreur non transitoire (4xx client) → inutile de retenter
+      await res.body?.cancel().catch(() => {});                       // transitoire → on jette le corps et on retente
+    } catch (e) {
+      lastErr = e;                                                    // timeout/abort/réseau
+      if (attempt === retries) throw e;
+    }
+    await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));    // petit backoff avant retry
+  }
+  throw lastErr ?? new Error("callClaude: unreachable");
+}
+
 // ── Outils (sortie structurée forcée) ────────────────────────────────────────
 const PROPOSE_TOOL = {
   name: "propose",
@@ -298,7 +321,7 @@ async function explainText(body: any, apiKey: string) {
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
   let data: any;
   try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.3, max_tokens: 700, system: sysCache(system), messages: [{ role: "user", content: prompt }] }) });
+    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.3, max_tokens: 700, system: sysCache(system), messages: [{ role: "user", content: prompt }] }, { timeoutMs: 45000, retries: 1 });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
@@ -390,7 +413,7 @@ async function shoppingList(body: any, apiKey: string): Promise<Response> {
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Contexte manquant." });
   let data: any;
   try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" } }) });
+    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" } }, { timeoutMs: 55000, retries: 1 });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
@@ -406,7 +429,10 @@ async function proposeMeals(body: any, apiKey: string): Promise<Response> {
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
   let data: any;
   try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }) });
+    // Timeout adapté : semaine (56 repas, 8k tokens) et jour sont longs → marge large, pas de retry (sinon
+    // on dépasserait le timeout client de 120 s). Repas simple → court, avec 1 retry si Anthropic surchargé.
+    const big = mode === "week" || mode === "day";
+    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.2, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 65000, retries: big ? 0 : 1 });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 400) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }

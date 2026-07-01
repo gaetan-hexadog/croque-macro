@@ -809,6 +809,8 @@ function buildAssistantPrompt({
   dayContext = [],           // mode meal : repas DÉJÀ prévus/mangés ce jour-là (cohérence : compléter sans répéter)
   recentMeals = [],          // mode meal : repas des JOURS PRÉCÉDENTS (éviter de répéter d'un jour à l'autre)
   count, concise = false,    // mode meal : nb d'options (déf. 3) ; concise = sans étapes (planif séquentielle rapide)
+  fridgeOnly = false,        // mode meal : composer UNIQUEMENT avec le frigo (+ assaisonnements) — aucun ingrédient absent
+  noCook = false,            // mode meal : sans cuisson — assemblage à froid uniquement
   recipe, instruction,       // mode adapt : recette de départ + consigne d'adaptation
   text,                      // mode parse : description en langage naturel d'un repas mangé
   userWish, dining,          // mode meal : consigne libre de l'utilisateur + flag « au restaurant »
@@ -823,18 +825,19 @@ function buildAssistantPrompt({
   const sys = [
     "Tu es l'assistant nutrition personnel de Bob. Tu proposes des repas végétariens, simples et réalistes. Réponds en français.",
     "Règles diététiques STRICTES, non négociables :",
-    "- Végétarien. Œufs et fromages au lait de VACHE uniquement (jamais chèvre ni brebis).",
+    "- STRICTEMENT végétarien. Œufs et fromages au lait de VACHE uniquement (jamais chèvre ni brebis : donc pas de feta, roquefort, chèvre, manchego, pecorino).",
+    "- ADAPTE ou EXCLUS, ne signale JAMAIS : si un plat classique contient viande, poisson, fruits de mer, charcuterie, gélatine, fromage de chèvre/brebis ou lait de vache, soit tu l'ADAPTES (remplace par une protéine végétale — tofu, tempeh, seitan, légumineuses, œuf, fromage de vache — et lait d'amande), soit tu proposes carrément un AUTRE plat. Tu ne proposes JAMAIS un ingrédient non conforme, même en le mentionnant ou en disant « à remplacer ». « Jambon / lardons / bacon / saucisse » sont INTERDITS SAUF s'il s'agit d'un produit végétal nommé explicitement comme tel (ex. « jambon végétal La Vie », « lardons végétaux »).",
     "- Bob ne boit pas de lait de vache. Lait végétal par défaut = lait d'AMANDE non sucré (~1 g de protéines/250 ml).",
     `- La protéine vient D'ABORD de VRAIS aliments (${REAL_PROTEIN_FOODS}). La poudre de protéine est un DÉPANNAGE (petit-déj pressé), pas le réflexe par défaut à chaque repas. Jamais du lait.`,
     `- Objectif : perte de gras. Cibles ~${r0(targetKcal)} kcal / ~${r0(targetP)} g de protéines par jour. Repas protéinés.`,
     "- Au petit-déjeuner, Bob est souvent pressé : privilégie le grab-and-go (shaker OK ici, ou une option portable à base de vrais aliments).",
     `- ${seasonNote(refISO)} Mets-les en avant quand c'est pertinent.`,
-    "- Bob suit son poids et n'aime pas que la balance soit brouillée par la rétention d'eau. Pour limiter ça : VARIE les sources de protéines et évite d'EMPILER au même repas / sur la même journée un fort SODIUM (aliments transformés type jambon ou lardons végétaux, charcuterie veggie, condiments salés, sauce soja, cornichons, miso, feta) ET de TRÈS grosses charges de fibres/légumineuses (lentilles + pois chiches + edamame + maïs au même repas). Ce n'est PAS une interdiction — ces aliments sont bons ; juste ne pas tout cumuler, et équilibrer avec des options plus légères en sel/fibres dans la journée.",
+    "- Bob suit son poids et n'aime pas que la balance soit brouillée par la rétention d'eau. Pour limiter ça : VARIE les sources de protéines et évite d'EMPILER au même repas / sur la même journée un fort SODIUM (aliments transformés type jambon ou lardons végétaux, charcuterie veggie, condiments salés, sauce soja, cornichons, miso) ET de TRÈS grosses charges de fibres/légumineuses (lentilles + pois chiches + edamame + maïs au même repas). Ce n'est PAS une interdiction — ces aliments sont bons ; juste ne pas tout cumuler, et équilibrer avec des options plus légères en sel/fibres dans la journée.",
     "VARIÉTÉ (important) : sois créatif et propose des repas VARIÉS et appétissants — explore différentes cuisines (méditerranéenne, indienne, mexicaine, asiatique, levantine…), légumineuses, céréales, façons de cuisiner. NE te limite PAS aux mêmes plats classiques ni à ce que Bob mange déjà d'habitude. Si on régénère, propose autre chose.",
     "Consignes de calcul :",
     "- CALCULE les kcal/protéines TOTAUX en ADDITIONNANT la contribution de CHAQUE ingrédient (quantité × valeur), jamais une estimation globale « à la louche ». Le total DOIT être cohérent avec les quantités listées.",
     "- Pour un ingrédient présent dans mon frigo ou mes produits connus, calcule sa contribution à partir des valeurs /100 EXACTES données plus bas (quantité ÷ 100 × valeur) — NE ré-estime PAS, ne les arrondis pas. Pour les autres ingrédients, estime à partir de valeurs standard réalistes (conservateur, arrondis kcal vers le haut).",
-    "- Le frigo est une PRÉFÉRENCE, pas une contrainte : utilise en priorité ce qui est disponible (et indique la portion en g/ml d'après la densité /100, tu peux n'en prendre qu'une partie), MAIS complète et varie librement avec d'autres aliments courants. Ne te bride pas à ce que j'ai déjà loggé.",
+    "- Quand une liste « frigo/placard » est fournie, sers-t'en pour les portions et les macros (densité /100 → portion en g/ml ; tu peux n'en prendre qu'une partie). Le NIVEAU d'usage du frigo — strict (uniquement ces aliments + assaisonnements) ou simple préférence (base + compléments libres) — est précisé PLUS BAS selon le contexte : respecte CE niveau-là.",
     "- N'utilise JAMAIS un aliment listé comme à exclure.",
     "- CHAQUE ingrédient DOIT avoir une quantité CHIFFRÉE (qty + unit) — jamais d'ingrédient sans quantité. Pour les poudres/suppléments (protéine, all-in-one, Bulk…), exprime en DOSE/scoop (≈30 g), JAMAIS en grammes. Renvoie toujours via l'outil `propose`.",
     "- Pour CHAQUE ingrédient, indique AUSSI sa contribution `kcal` et `protein`. La somme des ingrédients doit coller au total `kcal`/`protein` du repas (sinon corrige). Ça permet à l'app de recalculer exactement les ingrédients que j'ai au frigo.",
@@ -856,7 +859,9 @@ function buildAssistantPrompt({
   }
   if (favorites.length) { L.push(`Quelques aliments que j'aime (simple inspiration, ne t'y limite pas, varie) : ${favorites.slice(0, 8).join(", ")}.`); L.push(""); }
   if (have.length) {
-    L.push("Disponible dans mon frigo/placard (tu peux n'en utiliser qu'une PARTIE — ne consomme pas forcément tout le paquet) :");
+    L.push(fridgeOnly
+      ? "MON FRIGO / PLACARD — tu dois composer les repas AVEC CES ALIMENTS (tu peux n'en utiliser qu'une PARTIE) :"
+      : "Disponible dans mon frigo/placard (tu peux n'en utiliser qu'une PARTIE — ne consomme pas forcément tout le paquet) :");
     have.slice(0, 60).forEach((h) => {
       if (typeof h === "string") { L.push(`- ${h}`); return; }
       const u = h.unit || "g";
@@ -864,13 +869,15 @@ function buildAssistantPrompt({
       const macro = (h.kcal100 || h.p100) ? ` — ${r0(h.kcal100 || 0)} kcal, ${h.p100 ?? "?"} g prot. pour 100 ${u}` : "";
       L.push(`- ${h.name}${stock}${macro}`);
     });
-    L.push("CONTRAINTE FRIGO — la SOURCE DE PROTÉINES et toute LÉGUMINEUSE du repas doivent être choisies DANS cette liste, ou parmi mes incontournables toujours dispo (œufs, fromage au lait de vache, poudre de protéine). Ne propose PAS un plat dont la protéine ou la légumineuse principale n'y figure pas (ex. : pas de dahl de lentilles ni de chili si je n'ai ni lentilles ni haricots ; pas de tofu/tempeh si absents). Les ingrédients COURANTS (légumes, féculents, épices, huile, condiments), eux, peuvent être complétés librement.");
+    if (mode === "meal" || mode === "day" || mode === "week") L.push(fridgeOnly
+      ? "CONTRAINTE FRIGO STRICTE — construis CHAQUE repas UNIQUEMENT à partir des aliments listés ci-dessus. Tu peux compléter SEULEMENT avec des basiques d'assaisonnement universels : sel, poivre, épices et herbes séchées, huile, vinaigre, jus de citron, moutarde, eau. N'introduis AUCUN autre ingrédient — aucune protéine, légumineuse, légume, fruit, féculent, laitier, sauce ni produit qui ne figure pas dans ma liste (NE suppose PAS que j'ai des œufs, du fromage ou de la poudre de protéine si ce n'est pas listé). Si tu ne peux pas faire un repas correct et équilibré avec ça, dis-le franchement dans la note et propose le meilleur assemblage possible avec ce que j'ai — sans jamais inventer un ingrédient manquant."
+      : "CONTRAINTE FRIGO — la SOURCE DE PROTÉINES et toute LÉGUMINEUSE du repas doivent être choisies DANS cette liste, ou parmi mes incontournables toujours dispo (œufs, fromage au lait de vache, poudre de protéine). Ne propose PAS un plat dont la protéine ou la légumineuse principale n'y figure pas (ex. : pas de dahl de lentilles ni de chili si je n'ai ni lentilles ni haricots ; pas de tofu/tempeh si absents). Les ingrédients COURANTS (légumes, féculents, épices, huile, condiments), eux, peuvent être complétés librement.");
     L.push("");
   }
   if (avoid.length) { L.push(`À NE PAS utiliser aujourd'hui : ${avoid.slice(0, 40).join(", ")}.`); L.push(""); }
   if (directives.length && (mode === "meal" || mode === "day" || mode === "week")) {
     L.push("MES CONSIGNES ACTIVES (je les ai épinglées moi-même — tiens-en compte EN PRIORITÉ dans chaque proposition, sauf si elles contredisent une règle diététique) :");
-    directives.slice(0, 15).forEach((d) => { const t = typeof d === "string" ? d : d && d.text; if (t && String(t).trim()) L.push(`- ${String(t).trim()}`); });
+    directives.slice(0, 15).forEach((d) => { const t = typeof d === "string" ? d : d && d.text; if (t && String(t).trim()) { let s = String(t).trim().replace(/\s+/g, " "); if (s.length > 180) s = s.slice(0, 177).replace(/\s+\S*$/, "") + "…"; L.push(`- ${s}`); } });
     L.push("");
   }
 
@@ -894,6 +901,7 @@ function buildAssistantPrompt({
   } else if (mode === "parse") {
     L.push(`J'ai mangé ceci, identifie-le et estime ses macros : « ${text || ""} ».`);
     L.push("Renvoie UNE seule option : titre court du repas, les aliments en `ingredients` (quantités qty+unit quand c'est possible), et les kcal + protéines TOTAUX estimés (réaliste, plutôt conservateur).");
+    L.push("IMPORTANT — ici tu n'INVENTES ni ne PROPOSES rien : tu ENREGISTRES fidèlement un repas DÉJÀ mangé. Reprends les aliments TELS QUE décrits, même si l'un n'entre pas dans mon régime habituel (ne le remplace pas, ne le retire pas). Les règles « végétarien / adapter-ou-exclure » ne s'appliquent PAS à l'identification d'un repas déjà consommé.");
   } else if (mode === "adapt") {
     const r = recipe || {};
     L.push(`Voici ma recette « ${r.name || "sans nom"} » (${r0(r.kcal || 0)} kcal, ${r0(r.p || 0)} g protéines) :`);
@@ -910,6 +918,7 @@ function buildAssistantPrompt({
     if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
     if (dining) L.push("CONTEXTE : je mange AU RESTAURANT (pas de cuisine maison) — IGNORE mon frigo. Propose des PLATS À COMMANDER réalistes (pas de recette à cuisiner) ; `ingredients` = composantes principales du plat. Estime les macros de façon CONSERVATRICE (portions resto généreuses, arrondis kcal vers le haut). Dans `note`, glisse 1 conseil de commande (ex. sauce à part, doubler la protéine, pain en moins).");
     if (userWish && userWish.trim()) L.push(`MA DEMANDE (à respecter en PRIORITÉ) : « ${userWish.trim()} ». Respecte-la même si ça sort de mes habitudes, tout en gardant le budget et les règles diététiques.`);
+    if (noCook) L.push("SANS CUISSON (RÈGLE DURE) — ce repas doit se préparer À FROID, par simple ASSEMBLAGE (ouvrir, égoutter, mélanger, verser, tartiner). AUCUNE cuisson : ni four, ni poêle, ni casserole, ni micro-ondes, ni eau bouillante, ni cuisson vapeur. N'emploie que des aliments consommables tels quels (crus, en conserve/bocal égouttés, déjà cuits/prêts). Si un aliment nécessite normalement une cuisson (riz, pâtes, lentilles/pois chiches secs, œuf à cuire, pomme de terre…), ne l'utilise QUE s'il est déjà cuit ou en conserve dans mon frigo, sinon EXCLUS-le. Dans les étapes, décris uniquement l'assemblage à froid.");
     if (indulge) L.push("Je veux me FAIRE PLAISIR sur ce repas : le budget ci-dessus est mon restant du jour ENTIER (j'assume de rééquilibrer ensuite). Propose quelque chose de satisfaisant dans ce budget, et PRÉVIENS-moi dans la `note` que mes repas suivants devront être plus légers (donne un ordre de grandeur, ex. « dîner ~450 kcal du coup »).");
     else if (reserveKcal > 50) L.push(`IMPORTANT — le budget ci-dessus est ma MARGE pour CE repas : j'ai d'autres repas pas encore décidés aujourd'hui (≈${r0(reserveKcal)} kcal leur sont réservés). Ne dépasse PAS cette marge. Si elle est quasi nulle, propose l'option la plus légère et protéinée possible et dis-le franchement dans la note.`);
     if (Number.isFinite(weekBalance)) {
@@ -932,7 +941,7 @@ function buildAssistantPrompt({
     if (mode === "week") treat += " Sur la semaine, répartis 1 à 2 plaisirs maximum, pas chaque jour.";
     L.push(treat);
   }
-  if (!dining) L.push("UTILISE EN PRIORITÉ les aliments listés dans mon frigo/placard ci-dessus : base au moins une PARTIE de chaque repas dessus quand c'est pertinent (indique la portion en g/ml). Tu PEUX compléter avec d'autres aliments courants pour varier et atteindre les cibles, mais ne fais pas comme si mon frigo n'existait pas.");
+  if (!dining && !fridgeOnly) L.push("UTILISE EN PRIORITÉ les aliments listés dans mon frigo/placard ci-dessus : base au moins une PARTIE de chaque repas dessus quand c'est pertinent (indique la portion en g/ml). Tu PEUX compléter avec d'autres aliments courants pour varier et atteindre les cibles, mais ne fais pas comme si mon frigo n'existait pas.");
   if (training) L.push(`Aujourd'hui = JOUR D'ENTRAÎNEMENT${workout ? ` (${workout})` : ""} : vise le HAUT de la fourchette protéines et inclus des GLUCIDES complexes (avoine, riz, patate douce, légumineuses, pain complet) autour de la séance pour la récup — en restant dans le budget.`);
   if (trend && Number.isFinite(trend.maintenance) && Number.isFinite(trend.ratePerWeek)) L.push(`Repère d'après mon poids réel : maintenance estimée ~${r0(trend.maintenance)} kcal/j, évolution ${trend.ratePerWeek <= 0 ? "" : "+"}${(Math.round(trend.ratePerWeek * 100) / 100).toString().replace(".", ",")} kg/sem. Tiens-en compte dans le ton de tes conseils (sans changer le budget chiffré donné).`);
   if (overused.length) L.push(`VARIÉTÉ — sur mes ~10 derniers jours reviennent souvent : ${overused.map((o) => `${o.name} (${o.n}×)`).join(", ")}. Privilégie d'AUTRES sources de protéines / légumes / féculents que celles-là pour ne pas que je mange toujours pareil (sauf si je le demande explicitement).`);
@@ -975,7 +984,7 @@ function buildWeeklyReviewPrompt({ days = {}, settings = {}, refISO = TODAY, ove
   const system = [
     "Tu es l'assistant nutrition personnel de Bob. Tu fais un BILAN de sa semaine, en français, court et concret (zéro blabla). Objectif : perte de gras, repas végétariens.",
     "Va AU-DELÀ des kcal/protéines : commente la VARIÉTÉ (sources de protéines, légumes et couleurs, féculents, cuisines), l'équilibre (assez de légumes verts et de fibres ? trop de fromage / sodium / transformés ?) et la régularité.",
-    "Format : 2-3 phrases de constat (ce qui va, ce qui manque), PUIS tes 2 conseils CONCRETS et actionnables pour la semaine prochaine, chacun sur SA PROPRE LIGNE commençant par « - » (une puce = un conseil autonome et compréhensible seul, car Bob pourra l'épingler comme consigne). Bienveillant mais honnête. ~5-7 lignes max, pas de Markdown lourd.",
+    "Format : 2-3 phrases de constat (ce qui va, ce qui manque), PUIS tes 2 conseils, chacun sur SA PROPRE LIGNE commençant par « - ». POINT CLÉ : chaque conseil est une CONSIGNE que Bob va épingler telle quelle et que l'assistant relira à CHAQUE proposition de repas. Formule-la donc en UNE phrase IMPÉRATIVE, COURTE (~90 caractères max) et directement applicable — PAS d'exemples entre parenthèses, PAS de justification ni de « parce que » dans la puce (le « pourquoi » va dans le constat, au-dessus). Exemples de bon format : « - Vise au moins 200 g de légumes verts par jour. » ; « - Remplace 3-4 barres ou shakers par semaine par une collation solide non transformée. ». Bienveillant mais honnête. ~5-7 lignes max, pas de Markdown lourd.",
   ].join("\n");
   const L = [];
   if (stats && stats.logged) L.push(`Cette semaine : ${stats.logged} jours loggés, moyenne ~${r0(stats.avgKcal)} kcal / ${r0(stats.avgProt)} g protéines par jour (cible ${r0(settings.kcal || 1850)}/${r0(settings.protein || 150)}).`);
@@ -1020,7 +1029,7 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
   return [
     "Tu es le COACH nutrition personnel de Bob, en mode CONVERSATION. Réponds en français, de façon concise, concrète et chaleureuse. Tu CONNAIS son contexte ci-dessous — utilise-le, ne redemande jamais ce que tu sais déjà.",
     "POSTURE DE COACH : encourage et rassure (un dépassement n'est pas une faute, ça se lisse sur la semaine — jamais de culpabilisation) ; sois proactif (propose une action concrète plutôt que d'attendre la demande) ; si la journée avance et qu'un objectif est menacé (protéines en retard, kcal déjà hautes), dis-le avec tact et propose un rattrapage réaliste.",
-    "Règles diététiques NON négociables : végétarien (œufs/fromages au lait de VACHE uniquement, jamais chèvre/brebis) ; Bob ne boit pas de lait de vache, lait végétal par défaut = AMANDE non sucré. Objectif : perte de gras.",
+    "Règles diététiques NON négociables : STRICTEMENT végétarien (œufs/fromages au lait de VACHE uniquement, jamais chèvre/brebis/feta) ; Bob ne boit pas de lait de vache, lait végétal par défaut = AMANDE non sucré. Objectif : perte de gras. Si une recette classique contient viande/poisson/charcuterie/fromage de chèvre-brebis/lait de vache, ADAPTE-la (protéine végétale, ou œuf/fromage de vache, lait d'amande) ou propose autre chose — ne suggère JAMAIS un ingrédient non conforme, même « à remplacer ».",
     `PROTÉINES — privilégie de VRAIS aliments (${REAL_PROTEIN_FOODS}) pour atteindre la cible ; la poudre est un DÉPANNAGE (petit-déj pressé), pas le réflexe à chaque repas. Ne pousse pas un shake si un vrai aliment fait le job.`,
     `Cibles : ${settings.kcal || 1850} kcal / ${settings.protein || 150} g protéines par jour.`,
     seasonNote(refISO),

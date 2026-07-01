@@ -63,6 +63,7 @@ export default function PlanScreen({
   const [varSel, setVarSel] = useState({});       // `${di}-${slot}-${optIdx}` → Set(variantes cochées)
   const [savedKeys, setSavedKeys] = useState(() => new Set());
   const [committedDays, setCommittedDays] = useState(() => new Set()); // dayIndex déjà planifiés
+  const [dirOpen, setDirOpen] = useState(false); // consignes repliées par défaut
   const [activeDay, setActiveDay] = useState(0);  // jour affiché (mode semaine)
   const [regenKey, setRegenKey] = useState(null); // `${di}-${slot}` en cours de régénération
 
@@ -184,18 +185,24 @@ export default function PlanScreen({
     <div className="space-y-4">
       <p className="text-sm" style={{ color: C.sub }}>Génère des options par repas, choisis celles qui te plaisent, puis planifie-les. Sur le jour en cours, seuls les repas pas encore faits sont proposés.</p>
 
-      {/* Consignes actives — l'assistant en tient compte à la génération ; retrait rapide */}
+      {/* Consignes actives — repliées par défaut : une ligne discrète (l'assistant en tient compte à la génération). */}
       {directives.length > 0 && (
-        <div className="rounded-2xl px-3 py-2.5" style={{ backgroundColor: `${C.accent}10`, border: `1px solid ${C.accent}33` }}>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}><Pin size={12} /> Tes consignes · prises en compte</p>
-          <div className="flex flex-wrap gap-1.5">
-            {directives.map((d) => (
-              <span key={d.id} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
-                {d.text}
-                {onRemoveDirective && <button onClick={() => onRemoveDirective(d.id)} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Retirer la consigne"><X size={12} /></button>}
-              </span>
-            ))}
-          </div>
+        <div className="rounded-2xl px-3 py-2" style={{ backgroundColor: `${C.accent}10`, border: `1px solid ${C.accent}33` }}>
+          <button onClick={() => setDirOpen((o) => !o)} className="flex w-full items-center gap-1.5 active:opacity-70">
+            <Pin size={12} style={{ color: C.accent }} />
+            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}>{directives.length} consigne{directives.length > 1 ? "s" : ""} · prise{directives.length > 1 ? "s" : ""} en compte</span>
+            <ChevronDown size={13} style={{ color: C.accent, marginLeft: "auto", transform: dirOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+          </button>
+          {dirOpen && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {directives.map((d) => (
+                <span key={d.id} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+                  {d.text}
+                  {onRemoveDirective && <button onClick={() => onRemoveDirective(d.id)} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Retirer la consigne"><X size={12} /></button>}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

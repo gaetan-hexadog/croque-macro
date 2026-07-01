@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, ChevronDown, Pin, X } from "lucide-react";
-import { C, buildAssistantPrompt, correctMacros } from "../core.js";
+import { C, buildAssistantPrompt, correctMacros, dietaryWarnings } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
 import MealCard from "../components/MealCard.jsx";
@@ -18,6 +18,8 @@ const WISH_CHIPS = [
 ];
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const SWEET = /skyr|fruit|pancake|banane|chocolat|avoine|porridge|miel|compote|crepe|gaufre|vanille|cookie|datte|yaourt|granola/;
+// Intention « sans cuisson » : chip Rapide OU mention explicite dans le texte → règle dure côté prompt.
+const NOCOOK = /sans cuisson|sans prep|pas de cuisson|pas cuire|a froid|assemblage|\bcrue?s?\b/;
 const textOf = (m) => deburr(m.title + " " + (m.ingredients || []).map((i) => (typeof i === "string" ? i : i.name)).join(" "));
 // Extrait les exclusions en langage naturel : « sans tofu », « pas de fromage », « sauf X ».
 const excludeFromText = (s) => {
@@ -41,6 +43,7 @@ export function MealSuggestSheet({
   const [indulge, setIndulge] = useState(false); // « je me fais plaisir » → budget = restant du jour entier
   const [pantryOpen, setPantryOpen] = useState(false);
   const [localCollapsed, setLocalCollapsed] = useState(false); // replié quand l'assistant répond (sinon le retour se planque sous tes recettes)
+  const [dirOpen, setDirOpen] = useState(false); // consignes repliées par défaut (elles mangeaient l'écran)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
@@ -82,16 +85,19 @@ export function MealSuggestSheet({
     setBusy(true); setError(null); setLocalCollapsed(true); // replie tes recettes → le retour de l'assistant est visible direct
     try {
       const dining = chips.has("resto");
+      const noCook = chips.has("rapide") || NOCOOK.test(deburr(wish));
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
         mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
+        fridgeOnly: !dining, noCook, // « une idée de repas » = cuisine avec ce que j'ai (sauf au resto)
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...excludeTerms],
         dateLabel,
       });
       const { meals } = await askAssistant({ system, prompt, mode });
       if (!mounted.current) return;
-      setResults(meals.map((m) => correctMacros(m, knownFoods, pantry)));
+      // Filet diététique : si un plat non conforme passe malgré le prompt, on le RETIRE (pas d'alerte « régénère »).
+      setResults(meals.map((m) => correctMacros(m, knownFoods, pantry)).filter((m) => dietaryWarnings(m).length === 0));
     } catch (e) {
       if (mounted.current) setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
     } finally { if (mounted.current) setBusy(false); }
@@ -112,18 +118,24 @@ export function MealSuggestSheet({
         </div>
       </div>
 
-      {/* Consignes actives (épinglées du bilan / Réglages) — l'assistant en tient compte ; retrait rapide */}
+      {/* Consignes actives (épinglées du bilan / Réglages) — repliées par défaut : une ligne discrète qui rassure sans manger l'écran. */}
       {directives.length > 0 && (
-        <div className="mb-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: `${C.accent}10`, border: `1px solid ${C.accent}33` }}>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}><Pin size={12} /> Tes consignes · prises en compte</p>
-          <div className="flex flex-wrap gap-1.5">
-            {directives.map((d) => (
-              <span key={d.id} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
-                {d.text}
-                {onRemoveDirective && <button onClick={() => onRemoveDirective(d.id)} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Retirer la consigne"><X size={12} /></button>}
-              </span>
-            ))}
-          </div>
+        <div className="mb-2 rounded-2xl px-3 py-2" style={{ backgroundColor: `${C.accent}10`, border: `1px solid ${C.accent}33` }}>
+          <button onClick={() => setDirOpen((o) => !o)} className="flex w-full items-center gap-1.5 active:opacity-70">
+            <Pin size={12} style={{ color: C.accent }} />
+            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}>{directives.length} consigne{directives.length > 1 ? "s" : ""} · prise{directives.length > 1 ? "s" : ""} en compte</span>
+            <ChevronDown size={13} style={{ color: C.accent, marginLeft: "auto", transform: dirOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+          </button>
+          {dirOpen && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {directives.map((d) => (
+                <span key={d.id} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+                  {d.text}
+                  {onRemoveDirective && <button onClick={() => onRemoveDirective(d.id)} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Retirer la consigne"><X size={12} /></button>}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -180,7 +192,10 @@ export function MealSuggestSheet({
       {results && (
         <div className="mt-3 space-y-2 pb-2">
           <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.accent }}><Sparkles size={12} /> Idées de l'assistant</p>
-          {results.map((m, i) => <MealCard key={`r-${m.title}-${i}`} meal={m} check onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `r${i}`)} saved={savedKeys.has(`r${i}`)} />)}
+          {results.length === 0 && (
+            <p className="rounded-2xl px-3 py-4 text-center text-xs" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}>Aucune idée conforme à tes règles cette fois — régénère pour d'autres options.</p>
+          )}
+          {results.map((m, i) => <MealCard key={`r-${m.title}-${i}`} meal={m} onLog={(cust) => { onLog?.(cust, slot); onClose(); }} onSave={(cust) => save(cust, `r${i}`)} saved={savedKeys.has(`r${i}`)} />)}
           <button onClick={ask} disabled={busy} className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: "transparent", color: C.green, border: `1.5px solid ${C.green}` }}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} {busy ? "L'assistant réfléchit…" : "Régénérer"}
           </button>
