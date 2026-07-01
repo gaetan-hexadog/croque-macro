@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2, Leaf, MessageCircle } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2, Leaf } from "lucide-react";
 import {
   SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt, coachSignals, seasonalProduce,
 } from "../core.js";
@@ -31,6 +31,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   const [dismissRebal, setDismissRebal] = useState(false);
   const [viewRecipe, setViewRecipe] = useState(null); // { m, slot, index }
   const [adapting, setAdapting] = useState(null);     // recette consultée envoyée à l'assistant
+  const [seasonOpen, setSeasonOpen] = useState(false); // modale « aliments de saison »
   // Le « + » d'un repas ouvre DIRECTEMENT la pioche (elle logge déjà tout : recherche,
   // habituels 1-tap, photo, assistant, scan, recettes…). La baguette ouvre la suggestion.
   // Toutes les sheets passent par l'historique → geste retour OS cohérent partout.
@@ -184,21 +185,13 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           </div>
         </div>
 
-        {/* Contexte coaching (aujourd'hui) : saison + chips + parler au coach */}
-        {isToday && onCoachPrompt && (
-          <div className="mt-3 space-y-2 border-t pt-3" style={{ borderColor: C.line }}>
-            <button onClick={() => onCoachPrompt(`Propose-moi une idée de repas qui met en avant les produits de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), végétarienne, protéinée et sans poudre.`)} className="flex w-full items-center gap-1.5 text-left active:opacity-70">
-              <Leaf size={13} style={{ color: C.warn, flexShrink: 0 }} />
-              <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide" style={{ color: C.warn }}>De saison</span>
-              <span className="min-w-0 flex-1 truncate text-xs" style={{ color: C.sub }}>{season.all.slice(0, 5).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}</span>
-              <ChevronRight size={13} style={{ color: C.muted, flexShrink: 0 }} />
-            </button>
-            <div className="flex flex-wrap gap-1.5">
-              {coachChips.map((s, i) => (
-                <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
-              ))}
-              {onOpenChat && <button onClick={onOpenChat} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><MessageCircle size={12} style={{ color: C.green }} /> Parler à mon coach</button>}
-            </div>
+        {/* Contexte (aujourd'hui) : nudges coach rapides + accès aux aliments de saison (→ modale) */}
+        {isToday && (
+          <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3" style={{ borderColor: C.line }}>
+            {coachChips.map((s, i) => (
+              <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
+            ))}
+            <button onClick={() => { nav(() => setSeasonOpen(false)); setSeasonOpen(true); }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.warn}1f`, color: C.warn, border: `1px solid ${C.warn}40` }}><Leaf size={12} /> De saison</button>
           </div>
         )}
       </section>
@@ -307,6 +300,18 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           onDelete={onDeleteTemplate}
           onClose={closeNav}
         />
+      )}
+
+      {/* Modale « aliments de saison » : liste complète + accès direct à une idée de saison */}
+      {seasonOpen && (
+        <Sheet open onClose={closeNav} title="De saison" subtitle={`Pleine saison · ${season.label}`} icon={<Leaf size={18} />} iconColor={C.warn} z={50}>
+          <div className="flex flex-wrap gap-1.5">
+            {season.all.map((x) => <span key={x} className="rounded-full px-3 py-1.5 text-sm font-semibold" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}>{x}</span>)}
+          </div>
+          {onCoachPrompt && (
+            <button onClick={() => { closeNav(); onCoachPrompt(`Propose-moi une idée de repas qui met en avant les produits de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), végétarienne, protéinée et sans poudre.`); }} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Sparkles size={16} /> Une idée de repas de saison</button>
+          )}
+        </Sheet>
       )}
     </div>
   );
