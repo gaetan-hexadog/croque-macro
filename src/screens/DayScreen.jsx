@@ -70,6 +70,13 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   const wBal = Math.round(wcoach.balance);
   const wBalColor = wBal >= 0 ? C.green : C.protein;
   const WTrend = wcoach.weightTrend === "down" ? TrendingDown : wcoach.weightTrend === "up" ? TrendingUp : null;
+  // Signal coach principal + chips — levés du rendu pour fusionner le coach DANS la carte des jauges (héro).
+  const TONE_RANK = { alert: 0, nudge: 1, reassure: 2, win: 3, info: 4 };
+  const TONE_COLOR = { alert: C.over, nudge: C.protein, reassure: C.weight, win: C.green, info: C.warn };
+  const coachSorted = coach ? coach.signals.slice().sort((a, b) => (TONE_RANK[a.tone] ?? 5) - (TONE_RANK[b.tone] ?? 5)) : [];
+  const coachTop = coachSorted[0] || null;
+  const coachTone = coachTop ? (TONE_COLOR[coachTop.tone] || C.green) : C.green;
+  const coachChips = coachSorted.filter((s) => s.chip).slice(0, 2);
   const seg = (m, color) => ({ ...m, kcal: m.kcal * (m.qty || 1), p: m.p * (m.qty || 1), color });
   const ribbon = [
     ...picks.pdj.map((m) => seg(m, SLOT_UI.pdj.color)),
@@ -104,37 +111,23 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: "pan-y" }}>
-      {/* Ajustement de la cible selon le poids réel (proposé, jamais imposé) */}
+      {/* Nudge cible (proposé, jamais imposé) — bandeau fin */}
       {targetSuggestion && (
-        <div className="mb-4 rounded-2xl cm-card" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}55` }}>
-          <div className="mb-2 flex items-start gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: C.weight, color: "#fff" }}><Scale size={16} /></span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold" style={{ color: C.ink }}>{targetSuggestion.headline}</p>
-              <p className="mt-0.5 text-xs" style={{ color: C.sub }}>
-                Sur ~3 semaines : maintenance réelle estimée ~<span className="font-semibold" style={{ color: C.ink }}>{targetSuggestion.maintenance} kcal</span>, {targetSuggestion.ratePerWeek <= 0 ? `perte ${String(Math.abs(targetSuggestion.ratePerWeek)).replace(".", ",")}` : `prise ${String(targetSuggestion.ratePerWeek).replace(".", ",")}`} kg/sem.
-                {" "}Nouvelle cible : <span className="font-semibold" style={{ color: C.ink }}>{targetSuggestion.kcal} kcal · {targetSuggestion.protein} g</span>.
-              </p>
-            </div>
-            <button onClick={onDismissTarget} className="shrink-0 rounded-full p-1 active:scale-90" style={{ color: C.muted }} aria-label="Plus tard"><X size={16} /></button>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onApplyTarget} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Check size={15} /> Ajuster ma cible</button>
-            <button onClick={onDismissTarget} className="rounded-xl px-4 py-2.5 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>Plus tard</button>
-          </div>
+        <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2" style={{ backgroundColor: `${C.weight}14`, border: `1px solid ${C.weight}44` }}>
+          <Scale size={15} style={{ color: C.weight, flexShrink: 0 }} />
+          <p className="min-w-0 flex-1 truncate text-xs" style={{ color: C.sub }}>Cible conseillée : <b style={{ color: C.ink }}>{targetSuggestion.kcal} kcal · {targetSuggestion.protein} g</b></p>
+          <button onClick={onApplyTarget} className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: C.weight }}>Ajuster</button>
+          <button onClick={onDismissTarget} className="shrink-0 rounded-full p-0.5 active:scale-90" style={{ color: C.muted }} aria-label="Plus tard"><X size={15} /></button>
         </div>
       )}
 
-      {/* Nudge rééquilibrage : un repas prévu ne rentre plus → réadapter plus léger */}
+      {/* Nudge rééquilibrage : repas prévus en dépassement — bandeau fin */}
       {showRebal && (
-        <div className="mb-4 flex items-center gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${C.accent}14`, border: `1px solid ${C.accent}55` }}>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.accent}26`, color: C.accent }}><Sparkles size={17} /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold" style={{ color: C.ink }}>Tes repas prévus dépassent (+{planOverflow} kcal)</p>
-            <p className="text-xs" style={{ color: C.sub }}>Réadapter ton {SLOTS[rebalSlot].label.toLowerCase()} en plus léger ?</p>
-          </div>
-          <button onClick={() => onRebalance(rebalSlot)} className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: C.accent }}>Réadapter</button>
-          <button onClick={() => setDismissRebal(true)} className="shrink-0 rounded-full p-1 active:scale-90" style={{ color: C.muted }} aria-label="Ignorer"><X size={16} /></button>
+        <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2" style={{ backgroundColor: `${C.accent}14`, border: `1px solid ${C.accent}44` }}>
+          <Sparkles size={15} style={{ color: C.accent, flexShrink: 0 }} />
+          <p className="min-w-0 flex-1 truncate text-xs" style={{ color: C.sub }}>Repas prévus en dépassement <b style={{ color: C.ink }}>(+{planOverflow} kcal)</b></p>
+          <button onClick={() => onRebalance(rebalSlot)} className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: C.accent }}>Réadapter</button>
+          <button onClick={() => setDismissRebal(true)} className="shrink-0 rounded-full p-0.5 active:scale-90" style={{ color: C.muted }} aria-label="Ignorer"><X size={15} /></button>
         </div>
       )}
 
@@ -163,70 +156,20 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       </div>
 
-      {/* Coach du jour (A) — voix proactive du coach, consciente de l'heure */}
-      {coach && (() => {
-        const rank = { alert: 0, nudge: 1, reassure: 2, win: 3, info: 4 };
-        const sorted = coach.signals.slice().sort((a, b) => (rank[a.tone] ?? 5) - (rank[b.tone] ?? 5));
-        const top = sorted[0];
-        if (!top) return null;
-        const toneColor = { alert: C.over, nudge: C.protein, reassure: C.weight, win: C.green, info: C.warn }[top.tone] || C.green;
-        const chipSignals = sorted.filter((s) => s.chip).slice(0, 2);
-        return (
-          <div className="mb-4 rounded-2xl cm-card" style={cardStyle({ borderTop: `1px solid ${toneColor}66` })}>
-            <div className="flex items-start gap-3">
-              <CoachHead />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold" style={{ color: C.ink }}>{coachGreeting(coach.hour)}</p>
-                <p className="mt-0.5 text-[13px] leading-snug" style={{ color: C.sub }}>{top.text}</p>
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {chipSignals.map((s, i) => (
-                <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
-              ))}
-              <button onClick={onOpenChat} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><MessageCircle size={13} style={{ color: C.green }} /> Parler à mon coach</button>
+      {/* ── HÉRO du jour : coach + jauges + saison fusionnés en UNE carte ── */}
+      <section className="mb-4 rounded-3xl cm-card" style={cardStyle(coachTop ? { borderTop: `1px solid ${coachTone}66` } : undefined)}>
+        {/* Coach (aujourd'hui) : voix proactive en tête */}
+        {coachTop && (
+          <div className="mb-3 flex items-start gap-3 border-b pb-3" style={{ borderColor: C.line }}>
+            <CoachHead size={30} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold" style={{ color: C.ink }}>{coachGreeting(coach.hour)}</p>
+              <p className="mt-0.5 text-[13px] leading-snug" style={{ color: C.sub }}>{coachTop.text}</p>
             </div>
           </div>
-        );
-      })()}
+        )}
 
-      {/* Séance du jour (programme sport) — lien vers l'onglet Sport */}
-      {sportInfo && (
-        <button onClick={onGoSport} className="mb-4 flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle(sportInfo.done ? undefined : { border: `1px solid ${C.green}`, borderTop: `1px solid ${C.green}` })}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: sportInfo.done ? `${C.green}22` : C.paper, color: sportInfo.done ? C.green : C.sub }}>{sportInfo.done ? <Check size={18} /> : <Dumbbell size={18} />}</span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold" style={{ color: C.ink }}>Séance du jour · {sportInfo.name}</span>
-            <span className="block text-xs" style={{ color: C.sub }}>{sportInfo.subtitle} · S{sportInfo.week}{sportInfo.done ? " · faite ✓" : " — c'est aujourd'hui"}</span>
-          </span>
-          <ChevronRight size={18} style={{ color: C.muted }} />
-        </button>
-      )}
-
-      {/* Rattrapage : séance(s) dont le jour est passé sans avoir été faites cette semaine */}
-      {sportCatchUp && (
-        <button onClick={onGoSport} className="mb-4 flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={{ backgroundColor: `${C.over}14`, border: `1px solid ${C.over}55` }}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.over}22`, color: C.over }}><Dumbbell size={18} /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold" style={{ color: C.ink }}>{sportCatchUp.length > 1 ? `${sportCatchUp.length} séances à rattraper` : `${sportCatchUp[0].name} à rattraper`}</span>
-            <span className="block text-xs" style={{ color: C.sub }}>{sportCatchUp.length > 1 ? `${sportCatchUp.map((s) => s.name).join(", ")} — leur jour est passé cette semaine` : `${sportCatchUp[0].subtitle} · son jour (${sportCatchUp[0].day.toLowerCase()}) est passé — fais-la aujourd'hui`}</span>
-          </span>
-          <span className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold text-white" style={{ backgroundColor: C.over }}>Rattraper</span>
-        </button>
-      )}
-
-      {/* Coaching recomposition : force ↔ poids */}
-      {recomp && (
-        <div className="mb-4 flex gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}14`, border: `1px solid ${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}44` }}>
-          <Dumbbell size={18} style={{ color: recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight, flexShrink: 0, marginTop: 2 }} />
-          <div>
-            <p className="text-sm font-bold" style={{ color: C.ink }}>{recomp.title}</p>
-            <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{recomp.message}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Dashboard compact : petit anneau + jauges linéaires + log rapide intégré */}
-      <section className="mb-4 rounded-3xl cm-card" style={cardStyle()}>
+        {/* Jauges du jour */}
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>{over ? "Dépassé" : "Restant aujourd'hui"}</span>
           <button onClick={onToggleTraining} aria-pressed={training} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={training ? { backgroundColor: `${C.weight}26`, color: C.weight } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.muted }}><Dumbbell size={12} /> Training</button>
@@ -261,45 +204,68 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           </div>
         </div>
 
-        {/* Log rapide intégré au dashboard : habituels en 1 tap + entrée « Logger » */}
-        {/* {isToday && (
-          <div className="mt-4 border-t pt-3" style={{ borderColor: C.line }}>
-            <span className="mb-2 block px-0.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Log rapide</span>
-            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-              {habituals.map((it) => (
-                <button key={it.name} onClick={() => onHabitual(it)} className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${SLOT_UI[it.slot].color}1f`, color: SLOT_UI[it.slot].color }}><Plus size={15} /></span>
-                  <span className="min-w-0">
-                    <span className="block max-w-34 truncate text-xs font-bold" style={{ color: C.ink }}>{it.name}</span>
-                    <span className="block text-[11px]" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{r0(it.kcal)} kcal · {r0(it.p)} g</span>
-                  </span>
-                </button>
+        {/* Contexte coaching (aujourd'hui) : saison + chips + parler au coach */}
+        {isToday && onCoachPrompt && (
+          <div className="mt-3 space-y-2 border-t pt-3" style={{ borderColor: C.line }}>
+            <button onClick={() => onCoachPrompt(`Propose-moi une idée de repas qui met en avant les produits de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), végétarienne, protéinée et sans poudre.`)} className="flex w-full items-center gap-1.5 text-left active:opacity-70">
+              <Leaf size={13} style={{ color: C.warn, flexShrink: 0 }} />
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide" style={{ color: C.warn }}>De saison</span>
+              <span className="min-w-0 flex-1 truncate text-xs" style={{ color: C.sub }}>{season.all.slice(0, 5).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}</span>
+              <ChevronRight size={13} style={{ color: C.muted, flexShrink: 0 }} />
+            </button>
+            <div className="flex flex-wrap gap-1.5">
+              {coachChips.map((s, i) => (
+                <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
               ))}
-              <button onClick={() => openAdd(null)} className="flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 active:scale-95" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }}>
-                <Plus size={16} /> <span className="text-xs font-bold">Logger</span>
-              </button>
+              {onOpenChat && <button onClick={onOpenChat} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><MessageCircle size={13} style={{ color: C.green }} /> Parler à mon coach</button>}
             </div>
           </div>
-        )} */}
+        )}
       </section>
+
+      {/* ── Sport : séance / rattrapage / recomposition — condensés en UNE carte ── */}
+      {(sportInfo || sportCatchUp || recomp) && (
+        <div className="mb-4 rounded-2xl cm-card" style={cardStyle()}>
+          {[
+            sportInfo && (
+              <button onClick={onGoSport} className="flex w-full items-center gap-3 text-left active:opacity-70">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: sportInfo.done ? `${C.green}22` : `${C.green}14`, color: sportInfo.done ? C.green : C.sub }}>{sportInfo.done ? <Check size={17} /> : <Dumbbell size={17} />}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold" style={{ color: C.ink }}>Séance du jour · {sportInfo.name}</span>
+                  <span className="block text-xs" style={{ color: C.sub }}>{sportInfo.subtitle} · S{sportInfo.week}{sportInfo.done ? " · faite ✓" : " — c'est aujourd'hui"}</span>
+                </span>
+                <ChevronRight size={18} style={{ color: C.muted }} />
+              </button>
+            ),
+            sportCatchUp && (
+              <button onClick={onGoSport} className="flex w-full items-center gap-3 text-left active:opacity-70">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.over}22`, color: C.over }}><Dumbbell size={17} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold" style={{ color: C.ink }}>{sportCatchUp.length > 1 ? `${sportCatchUp.length} séances à rattraper` : `${sportCatchUp[0].name} à rattraper`}</span>
+                  <span className="block text-xs" style={{ color: C.sub }}>{sportCatchUp.length > 1 ? `${sportCatchUp.map((s) => s.name).join(", ")} — leur jour est passé` : `${sportCatchUp[0].subtitle} · son jour (${sportCatchUp[0].day.toLowerCase()}) est passé`}</span>
+                </span>
+                <span className="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold text-white" style={{ backgroundColor: C.over }}>Rattraper</span>
+              </button>
+            ),
+            recomp && (
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}18`, color: recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight }}><Dumbbell size={17} /></span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold" style={{ color: C.ink }}>{recomp.title}</p>
+                  <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{recomp.message}</p>
+                </div>
+              </div>
+            ),
+          ].filter(Boolean).map((row, i) => (
+            <div key={i} className={i ? "mt-2.5 border-t pt-2.5" : ""} style={i ? { borderColor: C.line } : undefined}>{row}</div>
+          ))}
+        </div>
+      )}
 
       {/* Les repas — une carte distincte par repas */}
       <SectionTitle className="mt-1" right={
         onPlan && <button onClick={onPlan} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.green }}><CalendarRange size={13} /> Planifier ma journée</button>
       }>Les repas</SectionTitle>
-
-      {/* De saison (D) — coaching contextuel : produits du moment → idée de repas */}
-      {isToday && (
-        <button onClick={() => onCoachPrompt && onCoachPrompt(`Propose-moi une idée de repas qui met en avant les produits de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), végétarienne, protéinée et sans poudre.`)} className="mb-3 block w-full rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle({ borderTop: `1px solid ${C.warn}55` })}>
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: C.warn }}><Leaf size={13} /> Pleine saison · {season.label}</span>
-            <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: C.green }}>Une idée <ChevronRight size={13} /></span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {season.all.slice(0, 7).map((x) => <span key={x} className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{x}</span>)}
-          </div>
-        </button>
-      )}
 
       {/* Démarrage rapide sur jour vide : reprendre une journée type en 1 tap */}
       {ribbon.length === 0 && (hasPrevDay || templates.length > 0) && (
