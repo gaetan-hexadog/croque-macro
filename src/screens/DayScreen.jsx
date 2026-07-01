@@ -195,9 +195,9 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
             </button>
             <div className="flex flex-wrap gap-1.5">
               {coachChips.map((s, i) => (
-                <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
+                <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
               ))}
-              {onOpenChat && <button onClick={onOpenChat} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><MessageCircle size={13} style={{ color: C.green }} /> Parler à mon coach</button>}
+              {onOpenChat && <button onClick={onOpenChat} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}><MessageCircle size={12} style={{ color: C.green }} /> Parler à mon coach</button>}
             </div>
           </div>
         )}
