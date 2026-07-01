@@ -112,7 +112,6 @@ export function MealSuggestSheet({
     <Sheet open onClose={onClose} title="Une idée de repas" subtitle={`Pour le ${SLOT_LABELS[slot] || "repas"}`} icon={<Sparkles size={18} />} iconColor={C.green}>
       {/* Accroche conversationnelle */}
       <div className="flex items-start gap-2 pb-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: `radial-gradient(circle at 32% 28%, ${C.warn}, ${C.accent})`, color: "#1a1208" }}><Sparkles size={15} /></span>
         <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
           {indulge
             ? <>Mode plaisir : tu pioches dans <b style={{ color: C.protein }}>{Math.round(Math.max(0, budK))} kcal · {Math.round(Math.max(0, budP))} g</b> du jour — je rééquilibrerai tes repas à venir. Envie de quoi ?</>
