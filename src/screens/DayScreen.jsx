@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2, Sprout, Leaf, MessageCircle } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2, Leaf, MessageCircle } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt, coachSignals, seasonalProduce, coachGreeting,
+  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt, coachSignals, seasonalProduce,
 } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SectionTitle } from "../components/ui.jsx";
@@ -25,12 +25,6 @@ function QuickChips({ items = [], onQuick, color }) {
 }
 
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
-
-// Identité du coach : pastille « pousse » (croissance / saison / vivant), vert → bleu.
-const CoachHead = ({ size = 34 }) => (
-  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: size, height: size, background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: C.bg }}><Sprout size={Math.round(size * 0.52)} /></span>
-);
-
 
 export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, sportCatchUp, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe, savedRecipeNames, onOpenChat, onCoachPrompt }) {
   const [showTpl, setShowTpl] = useState(false);
@@ -70,13 +64,10 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   const wBal = Math.round(wcoach.balance);
   const wBalColor = wBal >= 0 ? C.green : C.protein;
   const WTrend = wcoach.weightTrend === "down" ? TrendingDown : wcoach.weightTrend === "up" ? TrendingUp : null;
-  // Signal coach principal + chips — levés du rendu pour fusionner le coach DANS la carte des jauges (héro).
+  // Chips coach (actions rapides) — le message verbeux du coach a été retiré du héro ; on garde
+  // seulement les chips actionnables, triés par priorité de ton.
   const TONE_RANK = { alert: 0, nudge: 1, reassure: 2, win: 3, info: 4 };
-  const TONE_COLOR = { alert: C.over, nudge: C.protein, reassure: C.weight, win: C.green, info: C.warn };
-  const coachSorted = coach ? coach.signals.slice().sort((a, b) => (TONE_RANK[a.tone] ?? 5) - (TONE_RANK[b.tone] ?? 5)) : [];
-  const coachTop = coachSorted[0] || null;
-  const coachTone = coachTop ? (TONE_COLOR[coachTop.tone] || C.green) : C.green;
-  const coachChips = coachSorted.filter((s) => s.chip).slice(0, 2);
+  const coachChips = (coach ? coach.signals.slice().sort((a, b) => (TONE_RANK[a.tone] ?? 5) - (TONE_RANK[b.tone] ?? 5)) : []).filter((s) => s.chip).slice(0, 2);
   const seg = (m, color) => ({ ...m, kcal: m.kcal * (m.qty || 1), p: m.p * (m.qty || 1), color });
   const ribbon = [
     ...picks.pdj.map((m) => seg(m, SLOT_UI.pdj.color)),
@@ -156,19 +147,8 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       </div>
 
-      {/* ── HÉRO du jour : coach + jauges + saison fusionnés en UNE carte ── */}
-      <section className="mb-4 rounded-3xl cm-card" style={cardStyle(coachTop ? { borderTop: `1px solid ${coachTone}66` } : undefined)}>
-        {/* Coach (aujourd'hui) : voix proactive en tête */}
-        {coachTop && (
-          <div className="mb-3 flex items-start gap-3 border-b pb-3" style={{ borderColor: C.line }}>
-            <CoachHead size={30} />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold" style={{ color: C.ink }}>{coachGreeting(coach.hour)}</p>
-              <p className="mt-0.5 text-[13px] leading-snug" style={{ color: C.sub }}>{coachTop.text}</p>
-            </div>
-          </div>
-        )}
-
+      {/* ── HÉRO du jour : jauges + contexte saison/coach en UNE carte ── */}
+      <section className="mb-4 rounded-3xl cm-card" style={cardStyle()}>
         {/* Jauges du jour */}
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>{over ? "Dépassé" : "Restant aujourd'hui"}</span>
