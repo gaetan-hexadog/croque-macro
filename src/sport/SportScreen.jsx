@@ -117,7 +117,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   if (preview) {
     return (
       <>
-        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} done={!!workouts[`W${currentWeek}-${preview}`]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} />
+        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} done={!!workouts[`W${currentWeek}-${preview}`]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
         <AdaptSheet open={!!adaptFor} onClose={() => setAdaptFor(null)} session={adaptFor ? SESSIONS[adaptFor] : null} equipment={{ ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) }} onUse={useAdapted} showToast={showToast} />
       </>
     );
