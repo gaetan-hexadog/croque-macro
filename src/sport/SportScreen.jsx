@@ -118,13 +118,13 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
     return (
       <>
         <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} done={!!workouts[`W${currentWeek}-${preview}`]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
-        <AdaptSheet open={!!adaptFor} onClose={() => setAdaptFor(null)} session={adaptFor ? SESSIONS[adaptFor] : null} equipment={{ ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) }} onUse={useAdapted} showToast={showToast} />
+        <AdaptSheet open={!!adaptFor} onClose={() => setAdaptFor(null)} session={adaptFor ? SESSIONS[adaptFor] : null} equipment={{ ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) }} onUse={useAdapted} showToast={showToast} sportTheme={sport.sportTheme} />
       </>
     );
   }
 
   if (detail) {
-    return <SessionDetail entry={detail} onBack={() => setDetail(null)} onSave={updateWorkout} onDelete={deleteWorkout} />;
+    return <SessionDetail entry={detail} onBack={() => setDetail(null)} onSave={updateWorkout} onDelete={deleteWorkout} sportTheme={sport.sportTheme} />;
   }
 
   return (
@@ -135,7 +135,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
         onOpen={openPreview} onOpenDetail={openDetail}
         onManualLog={() => setManualOpen(true)} onCoach={onCoach}
       />
-      <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} onSave={saveManual} showToast={showToast} />
+      <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} onSave={saveManual} showToast={showToast} sportTheme={sport.sportTheme} />
       <SportSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} sport={sport} setSport={setSport} currentWeek={currentWeek} />
     </>
   );

@@ -53,3 +53,22 @@ export function sportTokens(sportTheme = "hybride", kind = "hub") {
     onAccent: "#ffffff", onField: "#ffffff",
   };
 }
+
+// Tokens pour les bottom-sheets (modales) de la section Sport. En "gym" → sombre/néon ;
+// sinon dérivé de l'app `C` (aucun changement). Consommé par <Sheet tokens={...}>.
+export function sheetTokens(sportTheme = "hybride") {
+  if (sportVariant(sportTheme, "hub") === "gym") {
+    return {
+      variant: "gym", overlay: "rgba(0,0,0,0.72)", sheet: "#14121a", shadow: "rgba(0,0,0,0.85)",
+      paper: "#0f0d14", card: "rgba(255,255,255,0.06)", line: "rgba(255,255,255,0.12)",
+      ink: "#ffffff", sub: "rgba(255,255,255,0.62)", muted: "rgba(255,255,255,0.4)",
+      accent: "#c6ff3d", good: "#c6ff3d", over: "#ff6a4d", onAccent: "#08070a",
+    };
+  }
+  return {
+    variant: "timer", overlay: C.overlay, sheet: C.sheet, shadow: C.shadow,
+    paper: C.paper, card: C.card, line: C.line,
+    ink: C.ink, sub: C.sub, muted: C.muted,
+    accent: C.accent, good: C.green, over: C.over, onAccent: "#ffffff",
+  };
+}
