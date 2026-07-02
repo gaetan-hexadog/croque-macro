@@ -11,6 +11,7 @@ import { ManualLogSheet } from "./ManualLogSheet.jsx";
 import { SportSettings } from "./SportSettings.jsx";
 import { AdaptSheet } from "./AdaptSheet.jsx";
 import { loadLive } from "./liveSession.js";
+import { setCueConfig } from "./timers.jsx";
 
 const FONT = "'Space Grotesk', system-ui";
 const DEFAULT_SESSION_DAYS = { A: 2, B: 4, C: 6 };
@@ -28,6 +29,11 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adaptFor, setAdaptFor] = useState(null); // sessionId pour la sheet d'adaptation
   const [overrides, setOverrides] = useState({}); // { sessionId: séance adaptée ponctuelle }
+
+  // Signaux en séance (vibration/voix) pilotés par les réglages ; l'audio suit `soundEnabled`.
+  useEffect(() => {
+    setCueConfig({ haptics: sport.hapticsEnabled !== false, voice: sport.voiceEnabled !== false });
+  }, [sport.hapticsEnabled, sport.voiceEnabled]);
 
   const startDate = sport.startDate || null;
   const currentWeek = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(startDate);

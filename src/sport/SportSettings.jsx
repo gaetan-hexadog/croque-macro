@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check } from "lucide-react";
+import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT } from "../lib/sport.js";
@@ -14,8 +14,12 @@ const DEFAULT_DAYS = { A: 2, B: 4, C: 6 };
 export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   const days = sport.preferences?.sessionDays || DEFAULT_DAYS;
   const soundOn = sport.soundEnabled !== false;
+  const hapticsOn = sport.hapticsEnabled !== false;
+  const voiceOn = sport.voiceEnabled !== false;
   const setDay = (sid, i) => setSport((s) => ({ ...s, preferences: { ...(s.preferences || {}), sessionDays: { ...days, [sid]: i } } }));
   const toggleSound = () => setSport((s) => ({ ...s, soundEnabled: !(s.soundEnabled !== false) }));
+  const toggleHaptics = () => setSport((s) => ({ ...s, hapticsEnabled: !(s.hapticsEnabled !== false) }));
+  const toggleVoice = () => setSport((s) => ({ ...s, voiceEnabled: !(s.voiceEnabled !== false) }));
   const setWeek = (w) => setSport((s) => ({ ...s, currentWeek: Math.min(14, Math.max(1, w)), weekManuallySet: true }));
   const autoWeek = () => setSport((s) => ({ ...s, weekManuallySet: false }));
   const vacationMode = !!sport.vacationMode;
@@ -74,13 +78,28 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
         )}
       </div>
 
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Minuteurs</p>
-      <button onClick={toggleSound} className="flex w-full items-center gap-3 rounded-2xl cm-card active:scale-[0.99]" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: soundOn ? `${C.green}1a` : C.card, color: soundOn ? C.green : C.muted }}>{soundOn ? <Volume2 size={17} /> : <VolumeX size={17} />}</span>
-        <span className="flex-1 text-left text-sm font-semibold" style={{ color: C.ink }}>Bips de fin de repos / d'intervalle</span>
-        <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: soundOn ? C.green : C.card, color: soundOn ? "#fff" : C.sub }}>{soundOn ? "Activés" : "Coupés"}</span>
-      </button>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Signaux en séance</p>
+      <p className="mb-2 text-xs" style={{ color: C.muted }}>Fin de repos / d'intervalle. La vibration et la voix percent même avec la musique à fond.</p>
+      <div className="space-y-2">
+        <SignalToggle icon={soundOn ? Volume2 : VolumeX} label="Bips renforcés" on={soundOn} onToggle={toggleSound} />
+        <SignalToggle icon={Vibrate} label="Vibration (poche)" hint="Marche même téléphone en poche" on={hapticsOn} onToggle={toggleHaptics} />
+        <SignalToggle icon={Megaphone} label="Voix « 3 · 2 · 1 · go »" on={voiceOn} onToggle={toggleVoice} />
+      </div>
     </Sheet>
+  );
+}
+
+// Ligne toggle d'un canal de signal (bip / vibration / voix).
+function SignalToggle({ icon: Icon, label, hint, on, onToggle }) {
+  return (
+    <button onClick={onToggle} className="flex w-full items-center gap-3 rounded-2xl cm-card active:scale-[0.99]" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: on ? `${C.green}1a` : C.card, color: on ? C.green : C.muted }}><Icon size={17} /></span>
+      <span className="flex-1 text-left">
+        <span className="block text-sm font-semibold" style={{ color: C.ink }}>{label}</span>
+        {hint && <span className="block text-xs" style={{ color: C.muted }}>{hint}</span>}
+      </span>
+      <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: on ? C.green : C.card, color: on ? "#fff" : C.sub }}>{on ? "On" : "Off"}</span>
+    </button>
   );
 }
 
