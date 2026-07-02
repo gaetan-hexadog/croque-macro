@@ -3,7 +3,7 @@ import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, 
 import {
   SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
 } from "./core.js";
-import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, recompSignal } from "./lib/sport.js";
+import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, recompSignal, buildSportCoachSystem, sportCoachOpening } from "./lib/sport.js";
 import { sportTokens } from "./sport/theme.js";
 import { loadLive } from "./sport/liveSession.js";
 import { getLibrarySync, refreshLibrary } from "./lib/library.js";
@@ -66,6 +66,7 @@ export default function PiocheRepas() {
   const [sessionChecked, setSessionChecked] = useState(false); // getSession résolu → on peut décider gate vs app
   const [accountOpen, setAccountOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [sportChatOpen, setSportChatOpen] = useState(false); // coach sport (chat dédié)
   const [chatPrompt, setChatPrompt] = useState(null); // question pré-remplie quand on ouvre le coach depuis une carte
   const [shopOpen, setShopOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -105,6 +106,7 @@ export default function PiocheRepas() {
   const openAccount = useCallback(() => { pushNav(() => setAccountOpen(false)); setAccountOpen(true); }, [pushNav]);
   const openChat = useCallback(() => { setChatPrompt(null); pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
   const openChatWith = useCallback((prompt) => { setChatPrompt(prompt || null); pushNav(() => setChatOpen(false)); setChatOpen(true); }, [pushNav]);
+  const openSportCoach = useCallback(() => { pushNav(() => setSportChatOpen(false)); setSportChatOpen(true); }, [pushNav]);
   const openShop = useCallback(() => { pushNav(() => setShopOpen(false)); setShopOpen(true); }, [pushNav]);
   const openReview = useCallback(() => { pushNav(() => setReviewOpen(false)); setReviewOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
@@ -863,7 +865,7 @@ export default function PiocheRepas() {
           <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} favs={favs} onToggleFav={toggleFav} knownFoods={assistKnownFoods} onCoachPrompt={openChatWith} />
         )}
         {view === "sport" && (
-          <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} />
+          <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} onCoach={openSportCoach} />
         )}
         {view === "reglages" && (
           <SettingsSheet settings={settings} setSettings={setSettings} theme={theme} onTheme={switchTheme} allData={{ settings, days, weights, theme, templates, pantry, usage, combos, shakeBases, shakeLiquids, favs, directives }} directives={directives} onAddDirective={addDirective} onRemoveDirective={removeDirective} onImport={importData} onOpenAccount={openAccount} onOpenGuide={() => go("guide")} onClose={navBack} />
@@ -925,6 +927,10 @@ export default function PiocheRepas() {
         {chatOpen && (
           <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} opening={coachOpening({ days, weights, settings, refISO: activeDate })} initialPrompt={chatPrompt} onAction={chatAction} onClose={navBack} />
         )}
+        {sportChatOpen && (() => {
+          const w = sport?.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(sport?.startDate);
+          return <ChatSheet system={buildSportCoachSystem(sport, workouts, w)} opening={sportCoachOpening(sport, workouts, w)} onAction={() => {}} onClose={navBack} />;
+        })()}
       </Suspense>
       {shopOpen && (
         <ShoppingSheet pantry={pantry} overused={varietyProfile(days, TODAY)} favorites={assistFavorites} knownFoods={assistKnownFoods} settings={settings} recipes={[...customRecipes, ...library.recipes]} onAddPantry={addPantry} onClose={navBack} />

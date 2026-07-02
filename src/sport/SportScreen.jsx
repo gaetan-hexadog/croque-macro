@@ -21,7 +21,7 @@ const DEFAULT_SESSION_DAYS = { A: 2, B: 4, C: 6 };
 // (accueil / preview / séance active / détail) + les sheets (manuel, réglages).
 // La logique du programme vit dans ../sport.js ; la sync auto-pousse `workouts`.
 // ════════════════════════════════════════════════════════════════════════════
-export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, pushNav, showToast, onDeleteWorkout, setHeader }) {
+export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, pushNav, showToast, onDeleteWorkout, setHeader, onCoach }) {
   const [active, setActive] = useState(null);     // { sessionId, session, resume }
   const [preview, setPreview] = useState(null);   // sessionId
   const [detail, setDetail] = useState(null);     // entry
@@ -133,7 +133,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
         sport={sport} workouts={workouts}
         currentWeek={currentWeek} sessionDays={sessionDays} startDate={startDate}
         onOpen={openPreview} onOpenDetail={openDetail}
-        onManualLog={() => setManualOpen(true)}
+        onManualLog={() => setManualOpen(true)} onCoach={onCoach}
       />
       <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} onSave={saveManual} showToast={showToast} />
       <SportSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} sport={sport} setSport={setSport} currentWeek={currentWeek} />
