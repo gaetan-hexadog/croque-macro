@@ -1,211 +1,190 @@
-import React, { useState } from "react";
+import React from "react";
 import {
-  Dumbbell, Check, ChevronRight, TrendingUp, TrendingDown, Minus as Flat,
-  AlertTriangle, Info, CalendarCheck, History as HistoryIcon, BookOpen, PenLine,
+  Dumbbell, Check, ChevronRight, TrendingUp, TrendingDown, Minus as Flat, Play,
+  AlertTriangle, Flame, History as HistoryIcon, PenLine, Sprout, CalendarCheck, LineChart,
 } from "lucide-react";
-import { C, cardStyle } from "../core.js";
-import { SectionTitle } from "../components/ui.jsx";
+import { sportTokens, SPORT_FONT } from "./theme.js";
 import {
-  SESSIONS, SESSION_ORDER, ADAPT_TIPS, getAdaptiveSuggestion, getGapWarning, getCatchUp, daysBetween,
+  SESSIONS, SESSION_ORDER, getAdaptiveSuggestion, getCatchUp, daysBetween,
   strengthTrend, strengthSeries, assiduitySeries,
 } from "../lib/sport.js";
 import { Sparkline } from "./components.jsx";
 
-// ── Accueil Sport (piste B : carte progression + timeline) ───────────────────
-// Pas de header local : le header global de l'app porte titre « Sport », sous-titre
-// (semaine/phase), badge (charge) et les actions (réglages). Ici, que du contenu.
-export function SportHome({ workouts, currentWeek, sessionDays, startDate, onOpen, onOpenDetail, onManualLog }) {
+// ════════════════════════════════════════════════════════════════════════════
+// SportHome — accueil « Launchpad » (design-lab) : focus radical sur la séance du
+// jour (héros + coach intégré + Démarrer), puis une ligne momentum glanceable, puis
+// progression + historique en secondaire. Rendu via les tokens hub de theme.js.
+// ════════════════════════════════════════════════════════════════════════════
+export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, startDate, onOpen, onOpenDetail, onManualLog, onCoach }) {
+  const t = sportTokens(sport.sportTheme, "hub");
   const todayDow = new Date().getDay();
-  const gap = getGapWarning(workouts);
   const catchUp = getCatchUp(workouts, sessionDays, startDate, currentWeek);
-  const todaysSession = SESSION_ORDER.find((sid) => sessionDays[sid] === todayDow);
+  const todayId = SESSION_ORDER.find((sid) => sessionDays[sid] === todayDow);
+  const today = todayId ? SESSIONS[todayId] : null;
   const doneThisWeek = (sid) => !!workouts[`W${currentWeek}-${sid}`];
+  const todayDone = todayId && doneThisWeek(todayId);
+  const weekDone = SESSION_ORDER.filter(doneThisWeek).length;
+
+  const trend = strengthTrend(workouts);
+  const trendPct = trend && trend.older ? Math.round(((trend.recent - trend.older) / trend.older) * 100) : null;
+  const pts = strengthSeries(workouts).map((p) => p.value);
+  const ass = assiduitySeries(workouts, currentWeek, 6);
+  const TrendIcon = trend?.direction === "up" ? TrendingUp : trend?.direction === "down" ? TrendingDown : Flat;
+  const trendCol = trend?.direction === "up" ? t.good : trend?.direction === "down" ? t.effort : t.sub;
+  const trendLabel = trend?.direction === "up" ? "Force en hausse" : trend?.direction === "down" ? "Force en baisse" : "Force stable";
+
+  // Prochaine séance non faite (pour l'état repos / après séance faite).
+  const nextId = SESSION_ORDER.find((sid) => !doneThisWeek(sid) && sid !== todayId) || SESSION_ORDER.find((sid) => !doneThisWeek(sid));
+  const next = nextId ? SESSIONS[nextId] : null;
+
+  // Briefing du coach, dérivé des données réelles.
+  const brief = (() => {
+    if (catchUp.length) {
+      const names = catchUp.map((id) => SESSIONS[id].name).join(", ");
+      return `${catchUp.length > 1 ? `${catchUp.length} séances` : names} à rattraper — leur jour est passé. Fais-la aujourd'hui, ça compte pour la semaine.`;
+    }
+    if (today && !todayDone) {
+      const sugg = getAdaptiveSuggestion(workouts, todayId);
+      const base = trend?.direction === "up" ? "Ta force monte" : trend?.direction === "down" ? "Ta force fatigue un peu" : "Tu tiens le rythme";
+      if (today.type === "cardio") return `${base}. Aujourd'hui c'est cardio — garde le déficit sans toucher au muscle.`;
+      return `${base}. Aujourd'hui ${today.subtitle.toLowerCase()}${sugg ? " — une charge à retenter, vas-y franco" : " — soigne l'exécution"}.`;
+    }
+    if (todayDone) return `Séance du jour bouclée 💪 ${next ? `Prochaine : ${next.name}, ${next.day.toLowerCase()}.` : "Belle semaine."}`;
+    return `Repos aujourd'hui. ${next ? `Prochaine séance : ${next.name}, ${next.day.toLowerCase()}.` : "Récupère bien."}`;
+  })();
+
+  const heroSession = today || next; // ce qu'on met en avant : aujourd'hui, sinon la prochaine
+  const heroLabel = today ? (todayDone ? "Aujourd'hui · fait ✓" : "Aujourd'hui") : "Prochaine séance";
 
   return (
-    <div className="pb-2">
-      <ProgressCard workouts={workouts} currentWeek={currentWeek} />
+    <div className="pb-3" style={{ fontFamily: SPORT_FONT }}>
+      {/* ── Héros : la séance à faire, avec le coach intégré ── */}
+      {heroSession && (
+        <div className="relative mb-3 overflow-hidden rounded-3xl p-5" style={{ background: `linear-gradient(165deg, ${t.accent}, ${t.accent}d0)` }}>
+          <span className="pointer-events-none absolute -bottom-9 -right-3 select-none text-[150px] font-extrabold leading-none" style={{ color: "rgba(255,255,255,0.10)" }}>{heroSession.id}</span>
+          <div className="relative">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.85)" }}>{heroLabel} · {heroSession.day}</p>
+            <p className="mt-1 text-[38px] font-extrabold leading-none text-white">{heroSession.name}</p>
+            <p className="mt-1.5 text-sm font-semibold" style={{ color: "rgba(255,255,255,0.92)" }}>{heroSession.subtitle} · {heroSession.duration}</p>
 
-      {catchUp.length > 0 && <CatchUpBanner sessions={catchUp} onOpen={onOpen} />}
-      {gap && <Banner level={gap.level} title={gap.title} message={gap.message} />}
+            {/* Coach intégré */}
+            <Coach t={t} brief={brief} onCoach={onCoach} onField />
 
-      {/* Timeline de la semaine */}
-      <SectionTitle>Cette semaine</SectionTitle>
-      <div className="relative mb-5 pl-7">
-        <div className="absolute left-2.5 top-3 bottom-4" style={{ width: 2, backgroundColor: C.line }} />
+            <button onClick={() => onOpen(heroSession.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-extrabold active:scale-95" style={{ color: t.accent }}>
+              {todayDone ? <><Check size={17} /> Refaire / consulter</> : <><Play size={17} /> Démarrer la séance</>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Momentum : une ligne glanceable ── */}
+      <div className="mb-3 flex items-stretch gap-2">
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl py-2.5" style={{ backgroundColor: t.panel, border: `1px solid ${t.line}` }}>
+          <div className="flex gap-1">{SESSION_ORDER.map((sid) => <span key={sid} className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: doneThisWeek(sid) ? t.good : t.line }} />)}</div>
+          <span className="mt-1 text-[11px] font-semibold" style={{ color: t.sub }}>{weekDone}/3 semaine</span>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl py-2.5" style={{ backgroundColor: t.panel, border: `1px solid ${t.line}` }}>
+          <span className="flex items-center gap-1 text-sm font-extrabold" style={{ color: trendCol }}><TrendIcon size={14} /> {trendPct != null ? `${trendPct > 0 ? "+" : ""}${trendPct}%` : "—"}</span>
+          <span className="mt-0.5 text-[11px] font-semibold" style={{ color: t.sub }}>force</span>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl py-2.5" style={{ backgroundColor: t.panel, border: `1px solid ${t.line}` }}>
+          <span className="text-sm font-extrabold" style={{ color: t.ink }}>S{currentWeek}<span style={{ color: t.muted }}>/14</span></span>
+          <span className="mt-0.5 text-[11px] font-semibold" style={{ color: t.sub }}>programme</span>
+        </div>
+      </div>
+
+      {/* ── Cette semaine : les 3 séances ── */}
+      <p className="mb-2 mt-4 text-[11px] font-extrabold uppercase tracking-widest" style={{ color: t.muted }}>Cette semaine</p>
+      <div className="space-y-2">
         {SESSION_ORDER.map((sid) => {
           const s = SESSIONS[sid];
           const done = doneThisWeek(sid);
-          const isToday = todaysSession === sid;
+          const isToday = todayId === sid;
           const missed = catchUp.includes(sid);
-          const sugg = getAdaptiveSuggestion(workouts, sid);
-          const dotCol = done ? C.green : isToday ? C.accent : missed ? C.over : C.muted;
-          const filled = done || isToday || missed;
-          const edge = isToday && !done ? C.accent : missed ? C.over : null;
+          const col = done ? t.good : isToday ? t.accent : missed ? t.effort : t.muted;
           return (
-            <div key={sid} className="relative mb-3">
-              <span className="absolute -left-7 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full" style={{ backgroundColor: filled ? dotCol : C.paper, border: `2px solid ${filled ? dotCol : C.line}` }}>
-                {done && <Check size={11} color="#fff" />}
-                {missed && !done && <AlertTriangle size={11} color="#fff" />}
-              </span>
-              <button onClick={() => onOpen(sid)} className="flex w-full items-center gap-3 rounded-2xl cm-card text-left active:scale-[0.99]" style={cardStyle(edge ? { border: `1px solid ${edge}`, borderTop: `1px solid ${edge}` } : undefined)}>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: done ? `${C.green}22` : missed ? `${C.over}1a` : C.paper, color: done ? C.green : missed ? C.over : C.sub }}>
-                  {done ? <Check size={18} /> : <Dumbbell size={17} />}
+            <button key={sid} onClick={() => onOpen(sid)} className="flex w-full items-center gap-3 rounded-2xl p-3 text-left active:scale-[0.99]" style={{ backgroundColor: t.panel, border: `1px solid ${isToday ? t.accent + "55" : missed ? t.effort + "55" : t.line}` }}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${col}1a`, color: col }}>{done ? <Check size={18} /> : missed ? <AlertTriangle size={17} /> : <Dumbbell size={17} />}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5 text-sm font-bold" style={{ color: t.ink }}>{s.name} · {s.subtitle}
+                  {isToday && !done && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: t.accent }}>Auj.</span>}
+                  {missed && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: t.effort }}>Rattraper</span>}
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 text-sm font-bold" style={{ color: C.ink }}>
-                    {s.name} · {s.subtitle}
-                    {isToday && !done && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: C.accent }}>Aujourd'hui</span>}
-                    {missed && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: C.over }}>À rattraper</span>}
-                  </p>
-                  <p className="truncate text-xs" style={{ color: C.sub }}>{s.day} · {s.duration}{done ? " · fait ✓" : missed ? " · jour passé" : ""}{sugg ? " · ⚠︎ à retenter" : ""}</p>
-                </div>
-                <ChevronRight size={18} style={{ color: C.muted }} />
-              </button>
-            </div>
+                <span className="block truncate text-xs" style={{ color: t.sub }}>{s.day} · {s.duration}{done ? " · fait ✓" : ""}</span>
+              </span>
+              <ChevronRight size={17} style={{ color: t.muted }} />
+            </button>
           );
         })}
       </div>
 
-      <RecentHistory workouts={workouts} onOpenDetail={onOpenDetail} onManualLog={onManualLog} />
-      <AdaptGuide />
-    </div>
-  );
-}
-
-// Carte progression : courbe de force + assiduité (le contexte semaine/phase/charge
-// est dans le header global).
-function ProgressCard({ workouts, currentWeek }) {
-  const points = strengthSeries(workouts).map((p) => p.value);
-  const trend = strengthTrend(workouts);
-  const ass = assiduitySeries(workouts, currentWeek, 6);
-  const TrendIcon = trend?.direction === "up" ? TrendingUp : trend?.direction === "down" ? TrendingDown : Flat;
-  const trendCol = trend?.direction === "up" ? C.green : trend?.direction === "down" ? C.over : C.sub;
-  const trendLabel = trend?.direction === "up" ? "Force en hausse" : trend?.direction === "down" ? "Force en baisse" : "Force stable";
-
-  return (
-    <div className="mb-5 rounded-2xl cm-card" style={cardStyle()}>
-      {/* Force */}
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm font-bold" style={{ color: C.ink }}>
-          <TrendIcon size={15} style={{ color: trendCol }} /> {trend ? trendLabel : "Courbe de force"}
-        </span>
-        {points.length >= 2
-          ? <Sparkline points={points} color={trendCol} />
-          : <span className="text-xs" style={{ color: C.muted }}>2 séances pour démarrer</span>}
-      </div>
-
-      {/* Assiduité */}
-      <div className="mt-4 flex items-center justify-between border-t pt-4" style={{ borderColor: C.line }}>
-        <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: C.sub }}><CalendarCheck size={13} /> Assiduité 6 sem.</span>
-        <div className="flex items-end gap-1.5">
-          {ass.map((a) => (
-            <div key={a.week} className="flex flex-col items-center gap-1">
-              <div className="flex gap-0.5">
-                {[0, 1, 2].map((i) => <span key={i} className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: i < a.done ? C.green : C.track }} />)}
+      {/* ── Progression (secondaire) ── */}
+      <p className="mb-2 mt-4 text-[11px] font-extrabold uppercase tracking-widest" style={{ color: t.muted }}>Progression</p>
+      <div className="rounded-2xl p-4" style={{ backgroundColor: t.panel, border: `1px solid ${t.line}` }}>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-sm font-bold" style={{ color: t.ink }}><TrendIcon size={15} style={{ color: trendCol }} /> {trend ? trendLabel : "Courbe de force"}</span>
+          {pts.length >= 2 ? <Sparkline points={pts} color={trendCol} /> : <span className="text-xs" style={{ color: t.muted }}>2 séances pour démarrer</span>}
+        </div>
+        <div className="mt-3 flex items-center justify-between border-t pt-3" style={{ borderColor: t.line }}>
+          <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: t.sub }}><CalendarCheck size={13} /> Assiduité 6 sem.</span>
+          <div className="flex items-end gap-1.5">
+            {ass.map((a) => (
+              <div key={a.week} className="flex flex-col items-center gap-1">
+                <div className="flex gap-0.5">{[0, 1, 2].map((i) => <span key={i} className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: i < a.done ? t.good : t.line }} />)}</div>
+                <span className="text-[9px]" style={{ color: t.muted }}>S{a.week}</span>
               </div>
-              <span className="text-[9px]" style={{ color: C.muted }}>S{a.week}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-// Bannière de rattrapage : une ou plusieurs séances dont le jour est passé sans
-// qu'elles soient faites. Le bouton ouvre la plus ancienne ; la faire la logge sur
-// la semaine en cours (rien ne se décale, c'est juste un jour différent).
-export function CatchUpBanner({ sessions, onOpen }) {
-  const col = C.over;
-  const first = sessions[0];
-  const s = SESSIONS[first];
-  const multi = sessions.length > 1;
-  return (
-    <div className="mb-4 rounded-2xl cm-card" style={{ backgroundColor: `${col}14`, border: `1px solid ${col}44` }}>
-      <div className="flex gap-3">
-        <AlertTriangle size={18} style={{ color: col, flexShrink: 0, marginTop: 2 }} />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold" style={{ color: C.ink }}>
-            {multi ? `${sessions.length} séances à rattraper` : `${s.name} pas encore faite`}
-          </p>
-          <p className="mt-0.5 text-xs" style={{ color: C.sub }}>
-            {multi
-              ? `${sessions.map((id) => SESSIONS[id].name).join(", ")} : leur jour est passé cette semaine. Rattrape-les aujourd'hui, ça compte pour la semaine en cours.`
-              : `Son jour (${s.day.toLowerCase()}) est passé. Rattrape-la aujourd'hui — ça compte pour cette semaine, rien ne se décale.`}
-          </p>
-        </div>
+      {/* ── Dernières séances + log manuel ── */}
+      <div className="mb-1 mt-4 flex items-center justify-between">
+        <p className="text-[11px] font-extrabold uppercase tracking-widest" style={{ color: t.muted }}>Dernières séances</p>
+        <button onClick={onManualLog} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: t.accent }}><PenLine size={13} /> Ajouter</button>
       </div>
-      <button onClick={() => onOpen(first)} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white active:scale-95" style={{ backgroundColor: col }}>
-        <Dumbbell size={15} /> Rattraper {s.name} maintenant
-      </button>
+      <RecentHistory t={t} workouts={workouts} onOpenDetail={onOpenDetail} />
     </div>
   );
 }
 
-function Banner({ level, title, message }) {
-  const col = level === "warning" ? C.over : level === "good" ? C.green : C.weight;
-  const Icon = level === "warning" ? AlertTriangle : Info;
-  return (
-    <div className="mb-4 flex gap-3 rounded-2xl cm-card" style={{ backgroundColor: `${col}14`, border: `1px solid ${col}44` }}>
-      <Icon size={18} style={{ color: col, flexShrink: 0, marginTop: 2 }} />
-      <div>
-        <p className="text-sm font-bold" style={{ color: C.ink }}>{title}</p>
-        <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{message}</p>
+// Coach intégré : avatar + briefing motivant, tappable → chat sport (si dispo).
+function Coach({ t, brief, onCoach, onField }) {
+  const inner = (
+    <>
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: onField ? "rgba(255,255,255,0.22)" : `${t.accent}22`, color: onField ? "#fff" : t.accent }}><Sprout size={14} /></span>
+        <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: onField ? "rgba(255,255,255,0.8)" : t.accent }}>Coach · aujourd'hui</span>
+        {onCoach && <ChevronRight size={15} className="ml-auto" style={{ color: onField ? "rgba(255,255,255,0.8)" : t.accent }} />}
       </div>
-    </div>
+      <p className="text-xs leading-snug" style={{ color: onField ? "rgba(255,255,255,0.95)" : t.sub }}>{brief}</p>
+    </>
   );
+  const style = { backgroundColor: onField ? "rgba(255,255,255,0.16)" : `${t.accent}12`, border: onField ? "1px solid rgba(255,255,255,0.22)" : `1px solid ${t.accent}33` };
+  return onCoach
+    ? <button onClick={onCoach} className="mb-4 mt-4 block w-full rounded-2xl p-3 text-left active:scale-95" style={style}>{inner}</button>
+    : <div className="mb-4 mt-4 rounded-2xl p-3" style={style}>{inner}</div>;
 }
 
-function RecentHistory({ workouts, onOpenDetail, onManualLog }) {
+function RecentHistory({ t, workouts, onOpenDetail }) {
   const list = Object.values(workouts || {}).filter((e) => e?.completed).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
+  if (list.length === 0) return <p className="rounded-2xl p-3 text-xs" style={{ backgroundColor: t.panel, border: `1px solid ${t.line}`, color: t.muted }}>Aucune séance enregistrée pour l'instant.</p>;
   return (
-    <div className="mb-5 rounded-2xl cm-card" style={cardStyle()}>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="flex items-center gap-2 text-sm font-bold" style={{ color: C.ink }}><HistoryIcon size={15} /> Dernières séances</p>
-        <button onClick={onManualLog} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.accent }}><PenLine size={13} /> Ajouter</button>
-      </div>
-      {list.length === 0 ? (
-        <p className="py-2 text-xs" style={{ color: C.muted }}>Aucune séance enregistrée pour l'instant.</p>
-      ) : (
-        <div className="space-y-0.5">
-          {list.map((e) => {
-            const d = daysBetween(new Date(e.date), new Date());
-            const rel = d === 0 ? "aujourd'hui" : d === 1 ? "hier" : `il y a ${d} j`;
-            const s = SESSIONS[e.sessionId];
-            const cardio = s?.type === "cardio";
-            return (
-              <button key={e.id} onClick={() => onOpenDetail(e)} className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left active:scale-[0.99]">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: cardio ? `${C.weight}1a` : `${C.green}1a`, color: cardio ? C.weight : C.green }}><Dumbbell size={14} /></span>
-                <span className="flex-1 text-sm font-semibold" style={{ color: C.ink }}>S{e.week} · {s ? s.name : e.sessionId}{e.manual ? " · manuel" : ""}</span>
-                <span className="text-xs" style={{ color: C.muted }}>{rel}</span>
-                <ChevronRight size={15} style={{ color: C.muted }} />
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AdaptGuide() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="mb-5 rounded-2xl cm-card" style={cardStyle()}>
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between active:scale-95">
-        <span className="flex items-center gap-2 text-sm font-bold" style={{ color: C.ink }}><BookOpen size={15} /> Si ça coince…</span>
-        <ChevronRight size={16} style={{ color: C.muted, transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} />
-      </button>
-      {open && (
-        <div className="mt-3 space-y-2.5">
-          {ADAPT_TIPS.map((t, i) => (
-            <div key={i}>
-              <p className="text-xs font-semibold" style={{ color: C.ink }}>{t.situation}</p>
-              <p className="text-xs" style={{ color: C.sub }}>{t.response}</p>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="space-y-0.5">
+      {list.map((e) => {
+        const d = daysBetween(new Date(e.date), new Date());
+        const rel = d === 0 ? "aujourd'hui" : d === 1 ? "hier" : `il y a ${d} j`;
+        const s = SESSIONS[e.sessionId];
+        const cardio = s?.type === "cardio";
+        return (
+          <button key={e.id} onClick={() => onOpenDetail(e)} className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left active:scale-[0.99]">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: cardio ? `${t.rest}1a` : `${t.good}1a`, color: cardio ? t.rest : t.good }}><Dumbbell size={14} /></span>
+            <span className="flex-1 text-sm font-semibold" style={{ color: t.ink }}>S{e.week} · {s ? s.name : e.sessionId}{e.manual ? " · manuel" : ""}</span>
+            <span className="text-xs" style={{ color: t.muted }}>{rel}</span>
+            <ChevronRight size={15} style={{ color: t.muted }} />
+          </button>
+        );
+      })}
     </div>
   );
 }

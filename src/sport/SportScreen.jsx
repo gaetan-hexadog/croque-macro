@@ -129,7 +129,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   return (
     <>
       <SportHome
-        workouts={workouts}
+        sport={sport} workouts={workouts}
         currentWeek={currentWeek} sessionDays={sessionDays} startDate={startDate}
         onOpen={openPreview} onOpenDetail={openDetail}
         onManualLog={() => setManualOpen(true)}

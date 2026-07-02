@@ -1,8 +1,9 @@
 import React from "react";
-import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone } from "lucide-react";
+import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette } from "lucide-react";
 import { C } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT } from "../lib/sport.js";
+import { SPORT_THEMES } from "./theme.js";
 
 const DAYS = [
   { i: 1, l: "Lun" }, { i: 2, l: "Mar" }, { i: 3, l: "Mer" }, { i: 4, l: "Jeu" },
@@ -20,6 +21,8 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   const toggleSound = () => setSport((s) => ({ ...s, soundEnabled: !(s.soundEnabled !== false) }));
   const toggleHaptics = () => setSport((s) => ({ ...s, hapticsEnabled: !(s.hapticsEnabled !== false) }));
   const toggleVoice = () => setSport((s) => ({ ...s, voiceEnabled: !(s.voiceEnabled !== false) }));
+  const sportTheme = sport.sportTheme || "hybride";
+  const setTheme = (id) => setSport((s) => ({ ...s, sportTheme: id }));
   const setWeek = (w) => setSport((s) => ({ ...s, currentWeek: Math.min(14, Math.max(1, w)), weekManuallySet: true }));
   const autoWeek = () => setSport((s) => ({ ...s, weekManuallySet: false }));
   const vacationMode = !!sport.vacationMode;
@@ -29,6 +32,22 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
 
   return (
     <Sheet open={open} onClose={onClose} title="Réglages Sport" subtitle="Semaine · jours · minuteurs" icon={<Settings size={18} />} iconColor={C.accent}>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Thème de la section</p>
+      <div className="mb-5 space-y-2">
+        {SPORT_THEMES.map((th) => {
+          const on = sportTheme === th.id;
+          return (
+            <button key={th.id} onClick={() => setTheme(th.id)} className="flex w-full items-center gap-3 rounded-2xl p-3.5 text-left active:scale-[0.99]" style={{ backgroundColor: C.paper, border: `1.5px solid ${on ? C.accent : C.line}` }}>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: on ? C.accent : C.card, color: on ? "#fff" : C.muted }}>{on ? <Check size={18} /> : <Palette size={16} />}</span>
+              <span className="flex-1">
+                <span className="text-sm font-bold" style={{ color: C.ink }}>{th.name}{th.reco && <span className="ml-1.5 text-[10px] font-extrabold uppercase" style={{ color: C.green }}>conseillé</span>}</span>
+                <span className="block text-xs" style={{ color: C.sub }}>{th.desc}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Semaine du programme</p>
       <div className="mb-5 rounded-2xl cm-card" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
         <div className="flex items-center justify-center gap-4">
