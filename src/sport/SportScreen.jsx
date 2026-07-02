@@ -106,6 +106,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
     const session = active.session;
     const props = {
       session, week: currentWeek, sound: sport.soundEnabled !== false, resume: active.resume,
+      sportTheme: sport.sportTheme,
       onCancel: () => setActive(null), onFinish: (d) => finishSession(active.sessionId, d),
     };
     return session.type === "cardio"

@@ -1,30 +1,42 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Pause, RotateCcw, Flame, Target, Repeat, Clock, Timer } from "lucide-react";
-import { C, cardStyle } from "../core.js";
+import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Pause, RotateCcw, Flame, Target, Repeat, Clock, Timer, Feather, Check } from "lucide-react";
+import { cardStyle } from "../core.js";
+import { sportTokens, SPORT_FONT as FONT } from "./theme.js";
 import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
-import { NumberFlow, DurationFlow, PrescriptionBadge, StatTile, DIFFS, diffColor } from "./components.jsx";
+import { NumberFlow, DurationFlow, PrescriptionBadge, DIFFS } from "./components.jsx";
 import { SessionShell, Stage, CountdownStage, PhaseStage, RestStage, IntervalStage } from "./SessionShell.jsx";
 import { SessionSummary } from "./SessionSummary.jsx";
 import { useCountdown } from "./timers.jsx";
 import { saveLive, clearLive } from "./liveSession.js";
 
-const FONT = "'Space Grotesk', system-ui";
 const PREP_SECONDS = 5; // « prépare-toi » avant chaque exercice / série (force)
 
-// Cible numérique de reps depuis "8", "8/jambe", "40s"… (pour préremplir le compteur
-// avec l'OBJECTIF plutôt qu'un 0 qu'il faudrait remonter à la main).
 const repsNum = (r) => {
   if (typeof r === "number") return r;
   if (typeof r === "string") { const m = r.match(/\d+/); if (m) return parseInt(m[0], 10); }
   return null;
 };
 
+// Icône + couleur d'un bouton de ressenti selon la direction. Couleurs distinctes
+// garanties (en gym, good/effort/accent sont tous néon → on force vert/rouge/neutre).
+const diffMeta = (ss, hint) => {
+  const gym = ss.variant === "gym";
+  if (hint === "up") return { col: gym ? "#6ee787" : ss.good, Ic: Feather };   // trop facile
+  if (hint === "down") return { col: gym ? "#ff6a4d" : ss.effort, Ic: Flame }; // trop dur
+  return { col: ss.sub, Ic: Check };                                            // bien
+};
+
 // ════════════════════════════════════════════════════════════════════════════
-// ForceWorkout — séance de force PLEIN ÉCRAN (synthèse F) :
-//  prépare → compte à rebours 5s → série → repos (départ manuel) → …
-//  Progression PERSISTÉE (reprise auto si la PWA est rechargée en arrière-plan).
+// ForceWorkout — séance de force PLEIN ÉCRAN. Rendu via le skin de séance `ss`
+// (theme.js) : "timer" = aplats de couleur · "gym" = noir + néon/cyan. Le récap
+// utilise le skin HUB (chaleureux en hybride).
 // ════════════════════════════════════════════════════════════════════════════
-export function ForceWorkout({ session, week, workouts, sound = true, onCancel, onFinish, resume }) {
+export function ForceWorkout({ session, week, workouts, sound = true, onCancel, onFinish, resume, sportTheme }) {
+  const ss = sportTokens(sportTheme, "session");
+  const hub = sportTokens(sportTheme, "hub");
+  const isGym = ss.variant === "gym";
+  const panel = isGym ? { backgroundColor: ss.panel, border: `1px solid ${ss.line}` } : cardStyle();
+
   const exs = session.exercises;
   const steps = useMemo(() => {
     const s = [{ kind: "warmup" }];
@@ -55,7 +67,6 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     };
   })));
 
-  // Chrono : recalculé depuis le timestamp de départ → exact même après arrière-plan.
   useEffect(() => {
     if (stepIdx >= recapIdx) return;
     const tick = () => setElapsed(Math.floor((Date.now() - startTsRef.current) / 1000));
@@ -64,7 +75,6 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     return () => clearInterval(t);
   }, [stepIdx, recapIdx]);
 
-  // Persistance de la progression (sauf au récap).
   useEffect(() => {
     if (stepIdx >= recapIdx) { clearLive(); return; }
     saveLive({ kind: "force", sessionId: session.id, week, session, stepIdx, setIdx, phase, log, startTs: startTsRef.current });
@@ -72,8 +82,6 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
   const stop = () => { clearLive(); onCancel(); };
   const goNextStep = () => { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); setPhase("prepare"); setSetIdx(0); setShowTips(false); };
-  // Passe à l'exercice suivant DIRECTEMENT sur la 1ʳᵉ série (sans écran d'annonce ni
-  // « prépare-toi » 5s) : l'annonce a déjà été montrée dans le repos qui précède.
   const goNextExerciseSet = () => { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); setSetIdx(0); setPhase("set"); setShowTips(false); };
   const setReps = (exIdx, delta) => setLog((prev) => prev.map((e, i) => i !== exIdx ? e : { ...e, sets: e.sets.map((s, j) => j !== setIdx ? s : { ...s, repsDone: Math.max(0, (s.repsDone ?? s.repsTarget ?? 0) + delta) }) }));
   const adjustCharge = (exIdx, delta) => setLog((prev) => prev.map((e, i) => {
@@ -85,10 +93,10 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     const ex = exs[exIdx];
     setLog((prev) => prev.map((e, i) => i !== exIdx ? e : { ...e, sets: e.sets.map((s, j) => j !== setIdx ? s : { ...s, difficulty: diff }) }));
     const next = exs[exIdx + 1];
-    if (setIdx < ex.sets - 1) setPhase("rest");          // repos entre séries → série suivante
-    else if (next && ex.superset && next.superset === ex.superset) goNextExerciseSet(); // superset : enchaîne sans repos
-    else if (next) setPhase("restNext");                 // repos (avec annonce) après la DERNIÈRE série → exo suivant
-    else goNextStep();                                   // dernier exo → finition / retour au calme
+    if (setIdx < ex.sets - 1) setPhase("rest");
+    else if (next && ex.superset && next.superset === ex.superset) goNextExerciseSet();
+    else if (next) setPhase("restNext");
+    else goNextStep();
   };
 
   const totalSets = log.reduce((a, e) => a + e.sets.length, 0);
@@ -106,14 +114,15 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     return payload;
   };
 
-  // ── Récap ────────────────────────────────────────────────────────────────────
+  // ── Récap (skin HUB) ─────────────────────────────────────────────────────────
   if (step.kind === "recap") {
     const data = log.map(({ exercise, sets }) => ({ exercise, sets }));
     const pr = isVolumePR({ sessionId: session.id, week, completed: true, data }, workouts);
     return (
-      <SessionShell onStop={stop} onColor={false} statusColor={C.bg}>
+      <SessionShell ss={hub} onStop={stop} onColor={false} statusColor={hub.surface}>
         <Stage scroll>
           <SessionSummary
+            t={hub}
             sessionName={session.name} subtitle={`${session.subtitle} · S${week}`}
             stats={{ durationSec: elapsed, doneSets, totalSets, exercises: exs.length, volumeKg: sessionVolume({ data }) }}
             isPR={pr}
@@ -125,22 +134,22 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   }
 
   const isRest = phase === "rest" || phase === "restNext";
-  const colored = step.kind === "warmup" || step.kind === "cooldown" || (step.kind === "finishCardio" && phase === "run") || (step.kind === "exercise" && (phase === "countdown" || isRest));
-  const statusColor =
-    step.kind === "warmup" || step.kind === "cooldown" ? C.weight
-      : step.kind === "finishCardio" ? (phase === "run" ? null : C.bg)
-        : step.kind === "exercise" ? (phase === "countdown" ? C.protein : isRest ? C.weight : C.bg)
-          : C.bg;
+  const colored = !isGym && (step.kind === "warmup" || step.kind === "cooldown" || (step.kind === "finishCardio" && phase === "run") || (step.kind === "exercise" && (phase === "countdown" || isRest)));
+  const statusColor = isGym ? ss.surface : (
+    step.kind === "warmup" || step.kind === "cooldown" ? ss.warm
+      : step.kind === "finishCardio" ? (phase === "run" ? ss.effort : ss.surface)
+        : step.kind === "exercise" ? (phase === "countdown" ? ss.effort : isRest ? ss.rest : ss.surface)
+          : ss.surface);
 
   return (
-    <SessionShell onStop={stop} onColor={colored} statusColor={statusColor}>
-      {step.kind === "warmup" && <PhaseStage title="Échauffement" detail={session.warmup.details} seconds={session.warmup.seconds} sound={sound} onDone={goNextStep} />}
-      {step.kind === "cooldown" && <PhaseStage title="Retour au calme" detail={session.cooldown.details} seconds={session.cooldown.seconds} sound={sound} onDone={goNextStep} />}
+    <SessionShell ss={ss} onStop={stop} onColor={colored} statusColor={statusColor}>
+      {step.kind === "warmup" && <PhaseStage ss={ss} title="Échauffement" detail={session.warmup.details} seconds={session.warmup.seconds} sound={sound} onDone={goNextStep} />}
+      {step.kind === "cooldown" && <PhaseStage ss={ss} title="Retour au calme" detail={session.cooldown.details} seconds={session.cooldown.seconds} sound={sound} onDone={goNextStep} />}
 
       {step.kind === "finishCardio" && (
         phase === "run"
-          ? <IntervalStage count={session.finishCardio.intervals.count} work={session.finishCardio.intervals.work} rest={session.finishCardio.intervals.rest} machine="Corde" label="Finition" sound={sound} onDone={goNextStep} />
-          : <PrepareGeneric title={session.finishCardio.name} lines={[`${session.finishCardio.intervals.count} × ${session.finishCardio.intervals.work}s effort / ${session.finishCardio.intervals.rest}s récup`, session.finishCardio.tip]} onReady={() => setPhase("run")} />
+          ? <IntervalStage ss={ss} count={session.finishCardio.intervals.count} work={session.finishCardio.intervals.work} rest={session.finishCardio.intervals.rest} machine="Corde" label="Finition" sound={sound} onDone={goNextStep} />
+          : <PrepareGeneric ss={ss} panel={panel} title={session.finishCardio.name} lines={[`${session.finishCardio.intervals.count} × ${session.finishCardio.intervals.work}s effort / ${session.finishCardio.intervals.rest}s récup`, session.finishCardio.tip]} onReady={() => setPhase("run")} />
       )}
 
       {step.kind === "exercise" && (() => {
@@ -154,72 +163,75 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
         if (phase === "prepare") {
           const chargeLine = entry.charge != null ? `${entry.charge} kg${ex.loadLabel ? ` · ${ex.loadLabel}` : ""}${canAdjust ? ` · ${getDiscPlan(entry.charge)}` : ""}` : (ex.type === "bodyweight" ? "Poids du corps" : "");
-          return <PrepareExercise ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} exIdx={exIdx} total={exs.length} onReady={() => { setSetIdx(0); setPhase("countdown"); }} />;
+          return <PrepareExercise ss={ss} panel={panel} ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} exIdx={exIdx} total={exs.length} onReady={() => { setSetIdx(0); setPhase("countdown"); }} />;
         }
         if (phase === "countdown") {
-          return <CountdownStage seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}`} sound={sound} onDone={() => setPhase("set")} />;
+          return <CountdownStage ss={ss} seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}`} sound={sound} onDone={() => setPhase("set")} />;
         }
         if (phase === "rest") {
-          // Repos entre séries → la fin enchaîne DIRECTEMENT la série (pas de 5s en plus).
-          return <RestStage seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("set"); }} />;
+          return <RestStage ss={ss} seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("set"); }} />;
         }
         if (phase === "restNext") {
-          // Repos inter-exercices : on intègre l'ANNONCE de l'exo suivant (plus d'écran séparé).
           const nx = exs[exIdx + 1];
           const nxEntry = log[exIdx + 1];
           const nxIsTime = nx.type === "bodyweight" && nx.repsSeconds;
           const nxCharge = nxEntry.charge != null ? `${nxEntry.charge} kg${nx.loadLabel ? ` · ${nx.loadLabel}` : ""}` : (nx.type === "bodyweight" ? "Poids du corps" : "");
           const nxReps = nxIsTime ? nx.reps : (typeof nx.reps === "string" ? nx.reps : `${nxEntry.sets[0].repsTarget ?? nx.reps} reps`);
-          return <RestStage seconds={ex.rest} sound={sound} next={{ name: nx.name, target: `${nx.sets} × ${nxReps}`, charge: nxCharge, tech: nx.tech }} onReady={goNextExerciseSet} />;
+          return <RestStage ss={ss} seconds={ex.rest} sound={sound} next={{ name: nx.name, target: `${nx.sets} × ${nxReps}`, charge: nxCharge, tech: nx.tech }} onReady={goNextExerciseSet} />;
         }
         // phase === "set"
         return (
           <Stage>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="truncate text-lg font-extrabold leading-tight" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
-                <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: C.accent }}>Série {setIdx + 1}/{ex.sets}</span>
+                <p className="truncate text-lg font-extrabold leading-tight" style={{ color: ss.ink, fontFamily: FONT }}>{ex.name}</p>
+                <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: ss.accent }}>Série {setIdx + 1}/{ex.sets}</span>
               </div>
-              <button onClick={() => setShowTips((v) => !v)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: showTips ? `${C.accent}1a` : C.paper, color: showTips ? C.accent : C.sub }}><Info size={13} /> Technique</button>
+              <button onClick={() => setShowTips((v) => !v)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: showTips ? `${ss.accent}1a` : ss.panel, color: showTips ? ss.accent : ss.sub }}><Info size={13} /> Technique</button>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: C.muted }}>{isTime ? "Tenir" : "Répétitions"}</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: ss.muted }}>{isTime ? "Tenir" : "Répétitions"}</p>
               {isTime ? (
-                <HoldTimer key={`hold-${exIdx}-${setIdx}`} seconds={ex.repsSeconds || repsNum(ex.reps) || 30} sound={sound} perSide={ex.perSide} />
+                <HoldTimer key={`hold-${exIdx}-${setIdx}`} ss={ss} seconds={ex.repsSeconds || repsNum(ex.reps) || 30} sound={sound} perSide={ex.perSide} />
               ) : (
                 <>
-                  <NumberFlow value={curSet.repsDone ?? curSet.repsTarget ?? 0} size={116} color={C.ink} />
+                  <NumberFlow value={curSet.repsDone ?? curSet.repsTarget ?? 0} size={116} color={ss.ink} />
                   <div className="mt-1 flex items-center gap-4">
-                    <button onClick={() => setReps(exIdx, -1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, color: C.sub }}><Minus size={22} /></button>
-                    <button onClick={() => setReps(exIdx, 1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, color: C.sub }}><Plus size={22} /></button>
+                    <button onClick={() => setReps(exIdx, -1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: ss.panel, color: ss.sub }}><Minus size={22} /></button>
+                    <button onClick={() => setReps(exIdx, 1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: ss.panel, color: ss.sub }}><Plus size={22} /></button>
                   </div>
                 </>
               )}
 
               {entry.charge != null && (
-                <div className="mt-5 flex items-center gap-4 rounded-2xl px-4 py-2.5" style={{ backgroundColor: C.ink }}>
-                  {canAdjust && <button onClick={() => adjustCharge(exIdx, -1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.bg}33`, color: C.bg }}><Minus size={17} /></button>}
-                  <span className="tabular-nums" style={{ color: C.bg, fontFamily: FONT }}><span className="text-xl font-extrabold">{entry.charge}</span><span className="text-sm font-bold"> kg{ex.loadLabel ? ` · ${ex.loadLabel}` : ""}</span></span>
-                  {canAdjust && <button onClick={() => adjustCharge(exIdx, 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.bg}33`, color: C.bg }}><Plus size={17} /></button>}
+                <div className="mt-5 flex items-center gap-4 rounded-2xl px-4 py-2.5" style={{ backgroundColor: isGym ? "rgba(255,255,255,0.08)" : ss.ink }}>
+                  {canAdjust && <button onClick={() => adjustCharge(exIdx, -1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: isGym ? `${ss.accent}22` : `${ss.surface}33`, color: isGym ? ss.accent : ss.surface }}><Minus size={17} /></button>}
+                  <span className="tabular-nums" style={{ color: isGym ? "#fff" : ss.surface, fontFamily: FONT }}><span className="text-xl font-extrabold">{entry.charge}</span><span className="text-sm font-bold"> kg{ex.loadLabel ? ` · ${ex.loadLabel}` : ""}</span></span>
+                  {canAdjust && <button onClick={() => adjustCharge(exIdx, 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: isGym ? `${ss.accent}22` : `${ss.surface}33`, color: isGym ? ss.accent : ss.surface }}><Plus size={17} /></button>}
                 </div>
               )}
-              {canAdjust && entry.charge != null && <p className="mt-1.5 text-[11px]" style={{ color: C.muted }}>{getDiscPlan(entry.charge)}</p>}
-              {last && <p className="mt-2 flex items-center gap-1.5 text-xs" style={{ color: C.muted }}><HistoryIcon size={12} style={{ color: C.weight }} /> Dernière fois : <b style={{ color: C.sub }}>{last.weight ? `${last.weight} kg · ` : ""}{last.reps.join("/")}</b></p>}
-              {entry.presc.note && <p className="mt-2 max-w-xs rounded-lg px-2.5 py-1.5 text-xs" style={{ backgroundColor: C.paper, color: entry.presc.direction === "down" ? C.over : entry.presc.direction === "up" ? C.green : C.sub }}>{entry.presc.note}</p>}
+              {canAdjust && entry.charge != null && <p className="mt-1.5 text-[11px]" style={{ color: ss.muted }}>{getDiscPlan(entry.charge)}</p>}
+              {last && <p className="mt-2 flex items-center gap-1.5 text-xs" style={{ color: ss.muted }}><HistoryIcon size={12} style={{ color: ss.rest }} /> Dernière fois : <b style={{ color: ss.sub }}>{last.weight ? `${last.weight} kg · ` : ""}{last.reps.join("/")}</b></p>}
+              {entry.presc.note && <p className="mt-2 max-w-xs rounded-lg px-2.5 py-1.5 text-xs" style={{ backgroundColor: ss.panel, color: entry.presc.direction === "down" ? ss.effort : entry.presc.direction === "up" ? ss.good : ss.sub }}>{entry.presc.note}</p>}
 
               {showTips && (
-                <div className="mt-3 max-w-sm rounded-2xl p-3 text-left" style={cardStyle()}>
-                  <p className="text-xs" style={{ color: C.sub }}>{ex.tech}</p>
-                  {ex.tips?.length > 0 && <ul className="mt-2 space-y-1">{ex.tips.map((t, i) => <li key={i} className="flex gap-1.5 text-xs" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span>{t}</li>)}</ul>}
+                <div className="mt-3 max-w-sm rounded-2xl p-3 text-left" style={panel}>
+                  <p className="text-xs" style={{ color: ss.sub }}>{ex.tech}</p>
+                  {ex.tips?.length > 0 && <ul className="mt-2 space-y-1">{ex.tips.map((tp, i) => <li key={i} className="flex gap-1.5 text-xs" style={{ color: ss.sub }}><span style={{ color: ss.good }}>•</span>{tp}</li>)}</ul>}
                 </div>
               )}
             </div>
 
             <div>
-              <p className="mb-2 text-center text-xs font-semibold" style={{ color: C.sub }}>C'était comment ?</p>
+              <p className="mb-2 text-center text-xs font-semibold" style={{ color: ss.sub }}>C'était comment ?</p>
               <div className="flex gap-2">
-                {DIFFS.map((o) => <button key={o.v} onClick={() => rate(exIdx, o.v)} className="flex-1 rounded-2xl py-4 text-sm font-bold active:scale-95" style={{ backgroundColor: "transparent", color: diffColor(o.hint), border: `1.5px solid ${diffColor(o.hint)}` }}>{o.l}</button>)}
+                {DIFFS.map((o) => { const { col, Ic } = diffMeta(ss, o.hint); return (
+                  <button key={o.v} onClick={() => rate(exIdx, o.v)} className="flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 active:scale-95" style={{ backgroundColor: `${col}1a`, border: `1px solid ${col}3a` }}>
+                    <Ic size={18} style={{ color: col }} />
+                    <span className="text-xs font-bold" style={{ color: col }}>{o.l}</span>
+                  </button>
+                ); })}
               </div>
             </div>
           </Stage>
@@ -229,106 +241,115 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   );
 }
 
-// Annonce d'un exercice (force) — écran « hero » premium, harmonisé avec l'accueil
-// Sport (carte teintée + tuiles StatTile à dégradé radial). N'apparaît que pour le
-// 1ᵉʳ exo (les suivants sont annoncés dans le repos qui précède).
-function PrepareExercise({ ex, entry, chargeLine, last, isTime, exIdx, total, onReady }) {
+// Annonce d'un exercice (force) — écran « hero » harmonisé au skin de séance.
+function PrepareExercise({ ss, panel, ex, entry, chargeLine, last, isTime, exIdx, total, onReady }) {
+  const isGym = ss.variant === "gym";
   const presc = entry.presc;
-  const heroCol = ex.type === "heavy" ? C.protein : ex.type === "bodyweight" ? C.green : ex.type === "fixed" ? C.weight : C.accent;
-  const noteCol = presc.direction === "down" ? C.over : presc.direction === "up" ? C.green : C.sub;
+  const heroCol = isGym ? ss.effort : (ex.type === "heavy" ? ss.effort : ex.type === "bodyweight" ? ss.good : ex.type === "fixed" ? ss.warm : ss.accent);
+  const noteCol = presc.direction === "down" ? ss.effort : presc.direction === "up" ? ss.good : ss.sub;
   const perSideLike = ex.perSide || (typeof ex.reps === "string" && /\//.test(ex.reps));
   const repsVal = isTime ? `${ex.repsSeconds || repsNum(ex.reps)}s` : `${entry.sets[0].repsTarget ?? repsNum(ex.reps) ?? ex.reps}`;
   const repsLab = isTime ? (perSideLike ? "Tenir/côté" : "Tenir") : (perSideLike ? "Reps/côté" : "Reps");
+  const Tile = ({ icon: Ic, col, value, label }) => (
+    <div className="rounded-2xl p-3 text-center" style={panel}>
+      <span className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-full" style={{ backgroundColor: `${col}22`, color: col }}><Ic size={16} /></span>
+      <p className="text-xl font-extrabold" style={{ color: ss.ink, fontFamily: FONT }}>{value}</p>
+      <p className="text-[11px] font-medium" style={{ color: ss.sub }}>{label}</p>
+    </div>
+  );
   return (
     <Stage scroll>
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        {/* Hero teinté */}
-        <div className="rounded-3xl p-5" style={cardStyle({ background: `radial-gradient(135% 120% at 0% 0%, ${heroCol}2e, transparent 62%), ${C.cardGrad}` })}>
-          <div className="mb-2.5 flex items-center justify-between gap-2">
+        <div className="relative overflow-hidden rounded-3xl p-5" style={isGym ? { backgroundColor: ss.panel, border: `1px solid ${ss.line}` } : cardStyle({ background: `radial-gradient(135% 120% at 0% 0%, ${heroCol}2e, transparent 62%), ${ssCardGrad(ss)}` })}>
+          {isGym && <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: heroCol }} />}
+          <div className="relative mb-2.5 flex items-center justify-between gap-2">
             <span className="flex items-center gap-1.5">
               <span className="rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: `${heroCol}1f`, color: heroCol }}>Exo {exIdx + 1}/{total}</span>
-              {ex.superset && <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>Superset</span>}
+              {ex.superset && <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide" style={{ backgroundColor: `${ss.warm}1a`, color: ss.warm }}>Superset</span>}
             </span>
             <PrescriptionBadge presc={presc} ex={ex} />
           </div>
-          <p className="text-[28px] font-extrabold leading-[1.05]" style={{ color: C.ink, fontFamily: FONT }}>{ex.name}</p>
+          <p className="relative text-[28px] font-extrabold leading-[1.05]" style={{ color: ss.ink, fontFamily: FONT }}>{ex.name}</p>
           {chargeLine && (
-            <div className="mt-3.5 flex items-center gap-2.5 rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.ink }}>
-              <Dumbbell size={16} style={{ color: C.bg }} />
-              <span className="text-sm font-extrabold" style={{ color: C.bg, fontFamily: FONT }}>{chargeLine}</span>
+            <div className="relative mt-3.5 flex items-center gap-2.5 rounded-2xl px-3.5 py-3" style={{ backgroundColor: isGym ? "rgba(255,255,255,0.08)" : ss.ink }}>
+              <Dumbbell size={16} style={{ color: isGym ? ss.accent : ss.surface }} />
+              <span className="text-sm font-extrabold" style={{ color: isGym ? "#fff" : ss.surface, fontFamily: FONT }}>{chargeLine}</span>
             </div>
           )}
         </div>
 
-        {/* Cible : 3 tuiles harmonisées avec l'accueil Sport */}
         <div className="grid grid-cols-3 gap-2">
-          <StatTile icon={Target} color={C.accent} value={ex.sets} label="Séries" size={22} />
-          <StatTile icon={isTime ? Timer : Repeat} color={C.green} value={repsVal} label={repsLab} size={22} />
-          <StatTile icon={Clock} color={C.weight} value={`${ex.rest}s`} label="Repos" size={22} />
+          <Tile icon={Target} col={ss.accent} value={ex.sets} label="Séries" />
+          <Tile icon={isTime ? Timer : Repeat} col={ss.good} value={repsVal} label={repsLab} />
+          <Tile icon={Clock} col={ss.rest} value={`${ex.rest}s`} label="Repos" />
         </div>
 
-        {presc.note && <p className="rounded-xl px-3 py-2 text-xs font-medium" style={{ backgroundColor: C.paper, color: noteCol }}>{presc.note}</p>}
+        {presc.note && <p className="rounded-xl px-3 py-2 text-xs font-medium" style={{ backgroundColor: ss.panel, color: noteCol }}>{presc.note}</p>}
 
         {last && (
-          <div className="flex items-center gap-2.5 rounded-2xl p-3.5" style={cardStyle()}>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}><HistoryIcon size={15} /></span>
-            <span className="text-sm" style={{ color: C.sub }}>Dernière fois : <b style={{ color: C.ink }}>{last.weight ? `${last.weight} kg · ` : ""}{last.reps.join("/")}</b></span>
+          <div className="flex items-center gap-2.5 rounded-2xl p-3.5" style={panel}>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${ss.rest}1a`, color: ss.rest }}><HistoryIcon size={15} /></span>
+            <span className="text-sm" style={{ color: ss.sub }}>Dernière fois : <b style={{ color: ss.ink }}>{last.weight ? `${last.weight} kg · ` : ""}{last.reps.join("/")}</b></span>
           </div>
         )}
 
-        <div className="rounded-2xl p-4" style={cardStyle()}>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: C.muted }}><Info size={12} /> Comment faire</p>
-          <p className="text-sm" style={{ color: C.sub }}>{ex.tech}</p>
-          {ex.tips?.length > 0 && <ul className="mt-2 space-y-1.5">{ex.tips.map((t, i) => <li key={i} className="flex gap-1.5 text-sm" style={{ color: C.sub }}><span style={{ color: C.green }}>•</span>{t}</li>)}</ul>}
+        <div className="rounded-2xl p-4" style={panel}>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: ss.muted }}><Info size={12} /> Comment faire</p>
+          <p className="text-sm" style={{ color: ss.sub }}>{ex.tech}</p>
+          {ex.tips?.length > 0 && <ul className="mt-2 space-y-1.5">{ex.tips.map((tp, i) => <li key={i} className="flex gap-1.5 text-sm" style={{ color: ss.sub }}><span style={{ color: ss.good }}>•</span>{tp}</li>)}</ul>}
         </div>
       </div>
-      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Je suis prêt</button>
+      <button onClick={onReady} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold active:scale-95" style={{ backgroundColor: ss.good, color: isGym ? ss.onAccent : "#fff" }}><Play size={18} /> Je suis prêt</button>
     </Stage>
   );
 }
 
+// Dégradé de carte pour la variante timer (proche de l'app).
+const ssCardGrad = (ss) => (ss.variant === "gym" ? ss.panel : "linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018))");
+
 // Chrono de maintien pour les gainages (compte à rebours réel, carillon, +15 s).
-// perSide → enchaîne les 2 côtés (Côté 1/2 puis Côté 2/2), comme l'ancienne app.
-function HoldTimer({ seconds, sound, perSide }) {
+function HoldTimer({ ss, seconds, sound, perSide }) {
+  const isGym = ss.variant === "gym";
   const totalSides = perSide ? 2 : 1;
   const [side, setSide] = useState(1);
   const [running, setRunning] = useState(false);
   const [left, setLeft] = useCountdown(seconds, running, { sound });
-  const doneSide = left <= 0;          // côté courant terminé
+  const doneSide = left <= 0;
   const allDone = doneSide && side >= totalSides;
   const started = left < seconds;
   const startNextSide = () => { setSide((s) => s + 1); setLeft(seconds); setRunning(true); };
   const restart = () => { setSide(1); setLeft(seconds); setRunning(true); };
   return (
     <div className="flex flex-col items-center">
-      {perSide && <p className="mb-1 text-xs font-bold uppercase tracking-wide" style={{ color: doneSide && !allDone ? C.weight : C.muted }}>Côté {side}/2</p>}
-      <DurationFlow seconds={Math.max(0, left)} size={104} color={doneSide ? C.green : C.ink} />
+      {perSide && <p className="mb-1 text-xs font-bold uppercase tracking-wide" style={{ color: doneSide && !allDone ? ss.warm : ss.muted }}>Côté {side}/2</p>}
+      <DurationFlow seconds={Math.max(0, left)} size={104} color={doneSide ? ss.good : ss.ink} />
       <div className="mt-3 flex items-center gap-2.5">
         {doneSide && !allDone ? (
-          <button onClick={startNextSide} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Play size={16} /> Démarrer côté 2</button>
+          <button onClick={startNextSide} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: ss.good, color: isGym ? ss.onAccent : "#fff" }}><Play size={16} /> Démarrer côté 2</button>
         ) : (
-          <button onClick={() => { if (allDone) restart(); else setRunning((r) => !r); }} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: running ? C.weight : C.green }}>
+          <button onClick={() => { if (allDone) restart(); else setRunning((r) => !r); }} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: running ? ss.warm : ss.good, color: isGym ? ss.onAccent : "#fff" }}>
             {running ? <><Pause size={16} /> Pause</> : allDone ? <><RotateCcw size={16} /> Refaire</> : started ? <><Play size={16} /> Reprendre</> : <><Play size={16} /> Démarrer</>}
           </button>
         )}
-        {started && !doneSide && <button onClick={() => setLeft((l) => l + 15)} className="rounded-2xl px-4 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: C.card, color: C.sub }}>+15 s</button>}
+        {started && !doneSide && <button onClick={() => setLeft((l) => l + 15)} className="rounded-2xl px-4 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: ss.panel, color: ss.sub }}>+15 s</button>}
       </div>
     </div>
   );
 }
 
 // Annonce de la finition cardio — hero énergique centré.
-function PrepareGeneric({ title, lines, onReady }) {
+function PrepareGeneric({ ss, panel, title, lines, onReady }) {
+  const isGym = ss.variant === "gym";
   return (
     <Stage>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-        <div className="w-full rounded-3xl p-6 text-center" style={cardStyle({ background: `radial-gradient(140% 110% at 50% 0%, ${C.protein}26, transparent 60%), ${C.cardGrad}` })}>
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: `${C.protein}1a`, color: C.protein }}><Flame size={26} /></span>
-          <p className="text-xl font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>{title}</p>
-          {lines.filter(Boolean).map((l, i) => <p key={i} className="mt-2 text-sm" style={{ color: C.sub }}>{l}</p>)}
+        <div className="w-full overflow-hidden rounded-3xl p-6 text-center" style={isGym ? { backgroundColor: ss.panel, border: `1px solid ${ss.line}` } : cardStyle({ background: `radial-gradient(140% 110% at 50% 0%, ${ss.effort}26, transparent 60%), ${ssCardGrad(ss)}` })}>
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: `${ss.effort}1a`, color: ss.effort }}><Flame size={26} /></span>
+          <p className="text-xl font-extrabold" style={{ color: ss.ink, fontFamily: FONT }}>{title}</p>
+          {lines.filter(Boolean).map((l, i) => <p key={i} className="mt-2 text-sm" style={{ color: ss.sub }}>{l}</p>)}
         </div>
       </div>
-      <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold text-white active:scale-95" style={{ backgroundColor: C.green, boxShadow: `0 12px 28px -12px ${C.green}` }}><Play size={18} /> Je suis prêt</button>
+      <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold active:scale-95" style={{ backgroundColor: ss.good, color: isGym ? ss.onAccent : "#fff" }}><Play size={18} /> Je suis prêt</button>
     </Stage>
   );
 }

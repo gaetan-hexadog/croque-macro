@@ -5,6 +5,7 @@ import { NumberFlow, DurationFlow } from "./components.jsx";
 import { useCountdown } from "./timers.jsx";
 
 const FONT = "'Space Grotesk', system-ui";
+const up = (ss, s) => (ss.uppercase ? String(s).toUpperCase() : s);
 
 // Empêche la mise en veille de l'écran pendant la séance (Wake Lock API).
 export function useWakeLock(active) {
@@ -20,33 +21,34 @@ export function useWakeLock(active) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// SessionShell — séance PLEIN ÉCRAN (couvre header + tabbar). Bouton Stop flottant
-// (avec confirmation) toujours accessible. `onColor` adapte le Stop sur fond coloré.
+// SessionShell — séance PLEIN ÉCRAN (couvre header + tabbar). Rendu piloté par le
+// « skin de séance » `ss` (theme.js) : variant "timer" = aplats de couleur (look
+// d'origine) · variant "gym" = noir profond + accent néon/cyan, typo massive.
 // ════════════════════════════════════════════════════════════════════════════
-export function SessionShell({ onStop, onColor, statusColor, children }) {
+export function SessionShell({ ss, onStop, onColor, statusColor, children }) {
   useWakeLock(true);
   const [confirm, setConfirm] = useState(false);
-  // Status bar (theme-color) accordée à l'écran courant ; restaurée en sortie.
+  const isGym = ss.variant === "gym";
   useEffect(() => { if (statusColor) setThemeColor(statusColor); }, [statusColor]);
   useEffect(() => () => setThemeColor(C.bg), []);
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 80, background: C.bg, backgroundImage: C.bgImage, color: C.ink, display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 80, background: isGym ? ss.surface : C.bg, backgroundImage: isGym ? "none" : C.bgImage, color: ss.ink, display: "flex", flexDirection: "column" }}>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
 
       <button onClick={() => setConfirm(true)} aria-label="Arrêter la séance"
         style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 12, zIndex: 6, width: 38, height: 38, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center",
-          background: onColor ? "rgba(255,255,255,0.22)" : C.card, border: onColor ? "none" : `1px solid ${C.line}`, color: onColor ? "#fff" : C.sub, backdropFilter: "blur(6px)" }}>
+          background: onColor ? "rgba(255,255,255,0.22)" : ss.panel, border: onColor ? "none" : `1px solid ${ss.line}`, color: onColor ? "#fff" : ss.sub, backdropFilter: "blur(6px)" }}>
         <X size={18} />
       </button>
 
       {confirm && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 10, background: C.overlay, backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setConfirm(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xs rounded-3xl p-5 text-center" style={{ backgroundColor: C.sheet, border: `1px solid ${C.line}` }}>
-            <p className="text-base font-extrabold" style={{ color: C.ink, fontFamily: FONT }}>Arrêter la séance ?</p>
-            <p className="mt-1 mb-4 text-sm" style={{ color: C.sub }}>Ta progression de cette séance sera perdue.</p>
+        <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setConfirm(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xs rounded-3xl p-5 text-center" style={{ backgroundColor: isGym ? "#15131b" : C.sheet, border: `1px solid ${ss.line}` }}>
+            <p className="text-base font-extrabold" style={{ color: ss.ink, fontFamily: FONT }}>Arrêter la séance ?</p>
+            <p className="mt-1 mb-4 text-sm" style={{ color: ss.sub }}>Ta progression de cette séance sera perdue.</p>
             <div className="flex flex-col gap-2">
-              <button onClick={() => setConfirm(false)} className="rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}>Reprendre</button>
-              <button onClick={onStop} className="rounded-2xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${C.over}14`, color: C.over, border: `1px solid ${C.over}33` }}>Arrêter</button>
+              <button onClick={() => setConfirm(false)} className="rounded-2xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: ss.good, color: isGym ? ss.onAccent : "#fff" }}>Reprendre</button>
+              <button onClick={onStop} className="rounded-2xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${ss.effort}1f`, color: ss.effort, border: `1px solid ${ss.effort}44` }}>Arrêter</button>
             </div>
           </div>
         </div>
@@ -60,104 +62,125 @@ export function Stage({ children, scroll }) {
   return <div className="flex min-h-0 flex-1 flex-col px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 56px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)", overflowY: scroll ? "auto" : "visible" }}>{children}</div>;
 }
 
-// Scène COLORÉE plein cadre (countdown, repos, cardio, échauffement) : dégradé
-// EDGE-TO-EDGE (jusque sous la status bar + safe-areas), contenu centré géant.
-export function ColorStage({ from, to, children, actions }) {
+// Scène COLORÉE plein cadre. timer → aplat de couleur (dégradé même teinte).
+// gym → noir + barre/halo/ghost teintés (effort=néon, calme=cyan).
+export function ColorStage({ ss, hue, ghost, children, actions }) {
+  const isGym = ss.variant === "gym";
+  const background = isGym ? ss.surface : `linear-gradient(160deg, ${hue}, ${hue}bb)`;
   return (
-    <div style={{ height: "100%", background: `linear-gradient(160deg, ${from}, ${to})`, display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top) + 64px) 18px calc(env(safe-area-inset-bottom) + 18px)" }}>
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">{children}</div>
-      {actions && <div className="shrink-0">{actions}</div>}
+    <div style={{ height: "100%", background, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top) + 64px) 18px calc(env(safe-area-inset-bottom) + 18px)" }}>
+      {isGym && <>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: hue }} />
+        <div style={{ position: "absolute", left: "50%", top: "30%", width: 300, height: 300, transform: "translateX(-50%)", background: `radial-gradient(circle, ${hue}22, transparent 70%)`, pointerEvents: "none" }} />
+        {ghost && <span style={{ position: "absolute", right: -14, bottom: -46, fontSize: 230, fontWeight: 800, lineHeight: 1, color: `${hue}14`, fontFamily: FONT, pointerEvents: "none" }}>{ghost}</span>}
+      </>}
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center text-center">{children}</div>
+      {actions && <div className="relative shrink-0">{actions}</div>}
     </div>
   );
 }
 
-// ── Compte à rebours « Prépare-toi » (NOUVEAU) — début d'exercice / de série ──
-export function CountdownStage({ seconds = 5, what, sound, onDone }) {
+// Bouton d'action sur une scène colorée (adapté timer/gym).
+function StageBtn({ ss, hue, children, primary, onClick }) {
+  const isGym = ss.variant === "gym";
+  const style = isGym
+    ? (primary ? { backgroundColor: hue, color: ss.onAccent } : { backgroundColor: "rgba(255,255,255,0.10)", color: "#fff", border: `1px solid ${hue}55` })
+    : { backgroundColor: primary ? "#fff" : "rgba(255,255,255,0.2)", color: primary ? hue : "#fff" };
+  return <button onClick={onClick} className="flex items-center justify-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-extrabold active:scale-95" style={{ ...style, fontFamily: FONT }}>{children}</button>;
+}
+
+const bigColor = (ss, hue) => (ss.variant === "gym" ? hue : "#fff");
+const labelColor = (ss, hue) => (ss.variant === "gym" ? hue : "rgba(255,255,255,0.9)");
+const SUBW = "rgba(255,255,255,0.85)";
+
+// ── Compte à rebours « Prépare-toi » — début d'exercice / de série ───────────
+export function CountdownStage({ ss, seconds = 5, what, sound, onDone }) {
   const [left] = useCountdown(seconds, true, { sound, onDone });
+  const hue = ss.effort;
   return (
-    <ColorStage from={C.protein} to={C.green}>
-      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.9)" }}>Prépare-toi</p>
-      <div style={{ margin: "6px 0" }}><NumberFlow value={Math.max(1, left)} size={150} color="#fff" /></div>
-      {what && <p className="text-base font-bold" style={{ color: "#fff" }}>{what}</p>}
-      <p className="mt-1 text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>Mets-toi en place 💪</p>
+    <ColorStage ss={ss} hue={hue}>
+      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, hue) }}>Prépare-toi</p>
+      <div style={{ margin: "6px 0" }}><NumberFlow value={Math.max(1, left)} size={150} color={bigColor(ss, hue)} /></div>
+      {what && <p className="text-base font-bold text-white">{up(ss, what)}</p>}
+      <p className="mt-1 text-sm" style={{ color: SUBW }}>Mets-toi en place 💪</p>
     </ColorStage>
   );
 }
 
 // ── Échauffement / retour au calme (durée fixe, auto à 0) ────────────────────
-export function PhaseStage({ title, detail, seconds, sound, onDone }) {
+export function PhaseStage({ ss, title, detail, seconds, sound, onDone }) {
   const [running, setRunning] = useState(true);
   const [left, setLeft] = useCountdown(seconds, running, { sound, onDone });
+  const hue = ss.warm;
   return (
-    <ColorStage from={C.weight} to={`${C.weight}bb`} actions={
+    <ColorStage ss={ss} hue={hue} actions={
       <div className="flex justify-center gap-2">
-        <button onClick={() => setRunning((r) => !r)} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff" }}>{running ? <><Pause size={16} /> Pause</> : <><Play size={16} /> Reprendre</>}</button>
-        <button onClick={() => setLeft((l) => l + 30)} className="rounded-2xl px-4 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: "rgba(255,255,255,0.2)", color: "#fff" }}>+30s</button>
-        <button onClick={onDone} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: "#fff", color: C.weight }}><SkipForward size={16} /> Passer</button>
+        <StageBtn ss={ss} hue={hue} onClick={() => setRunning((r) => !r)}>{running ? <><Pause size={16} /> Pause</> : <><Play size={16} /> Reprendre</>}</StageBtn>
+        <StageBtn ss={ss} hue={hue} onClick={() => setLeft((l) => l + 30)}>+30s</StageBtn>
+        <StageBtn ss={ss} hue={hue} primary onClick={onDone}><SkipForward size={16} /> Passer</StageBtn>
       </div>
     }>
-      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.9)" }}>{title}</p>
-      <div style={{ margin: "8px 0" }}><DurationFlow seconds={Math.max(0, left)} size={120} color="#fff" /></div>
-      {detail && <p className="mx-auto max-w-sm text-sm" style={{ color: "rgba(255,255,255,0.9)" }}>{detail}</p>}
+      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, hue) }}>{up(ss, title)}</p>
+      <div style={{ margin: "8px 0" }}><DurationFlow seconds={Math.max(0, left)} size={120} color={bigColor(ss, hue)} /></div>
+      {detail && <p className="mx-auto max-w-sm text-sm" style={{ color: SUBW }}>{detail}</p>}
     </ColorStage>
   );
 }
 
 // ── Repos inter-séries FORCE (chrono qui s'enchaîne TOUT SEUL à 0) ───────────
-// Le timer sert à quelque chose : à 0 on passe automatiquement à la suite (bip).
-// Boutons = raccourcis : passer le repos maintenant (avant 0) ou rallonger.
-export function RestStage({ seconds, sound, nextLabel, next, onReady }) {
+export function RestStage({ ss, seconds, sound, nextLabel, next, onReady }) {
   const [left, setLeft] = useCountdown(seconds, true, { sound, onDone: onReady });
+  const hue = ss.rest;
+  const isGym = ss.variant === "gym";
   return (
-    <ColorStage from={C.weight} to={`${C.weight}bb`} actions={
+    <ColorStage ss={ss} hue={hue} actions={
       <div className="space-y-2">
-        <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={{ backgroundColor: "rgba(255,255,255,0.22)", color: "#fff" }}><SkipForward size={17} /> Passer le repos</button>
-        <button onClick={() => setLeft((l) => l + 15)} className="w-full rounded-2xl py-2.5 text-sm font-bold" style={{ backgroundColor: "rgba(255,255,255,0.14)", color: "#fff" }}>+15 s</button>
+        <button onClick={onReady} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={isGym ? { backgroundColor: hue, color: ss.onAccent } : { backgroundColor: "rgba(255,255,255,0.22)", color: "#fff" }}><SkipForward size={17} /> Passer le repos</button>
+        <button onClick={() => setLeft((l) => l + 15)} className="w-full rounded-2xl py-2.5 text-sm font-bold" style={isGym ? { backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", border: `1px solid ${hue}44` } : { backgroundColor: "rgba(255,255,255,0.14)", color: "#fff" }}>+15 s</button>
       </div>
     }>
-      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.9)" }}>Repos</p>
-      <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={next ? 100 : 120} color="#fff" /></div>
+      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, hue) }}>Repos</p>
+      <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={next ? 100 : 120} color={bigColor(ss, hue)} /></div>
       {next ? (
-        // Annonce de l'exo suivant DANS le repos (plus d'écran d'annonce séparé).
-        <div className="mt-2 w-full max-w-sm rounded-2xl px-4 py-3 text-left" style={{ backgroundColor: "rgba(255,255,255,0.16)" }}>
-          <p className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.85)" }}>Ensuite</p>
-          <p className="mt-0.5 text-base font-extrabold leading-tight" style={{ color: "#fff" }}>{next.name}</p>
-          <p className="mt-0.5 text-sm font-semibold" style={{ color: "rgba(255,255,255,0.92)" }}>{next.target}{next.charge ? ` · ${next.charge}` : ""}</p>
-          {next.tech && <p className="mt-1.5 text-xs leading-snug" style={{ color: "rgba(255,255,255,0.82)" }}>{next.tech}</p>}
+        <div className="mt-2 w-full max-w-sm rounded-2xl px-4 py-3 text-left" style={{ backgroundColor: isGym ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.16)", border: isGym ? `1px solid ${hue}33` : "none" }}>
+          <p className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: labelColor(ss, hue) }}>Ensuite</p>
+          <p className="mt-0.5 text-base font-extrabold leading-tight text-white">{up(ss, next.name)}</p>
+          <p className="mt-0.5 text-sm font-semibold" style={{ color: SUBW }}>{next.target}{next.charge ? ` · ${next.charge}` : ""}</p>
+          {next.tech && <p className="mt-1.5 text-xs leading-snug" style={{ color: isGym ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.82)" }}>{next.tech}</p>}
         </div>
       ) : nextLabel ? (
-        <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>Ensuite : {nextLabel}</p>
+        <p className="text-sm font-bold" style={{ color: SUBW }}>Ensuite : {nextLabel}</p>
       ) : null}
     </ColorStage>
   );
 }
 
 // ── Intervalles CARDIO/tabata (repos chronométré, auto-enchaîné) ─────────────
-function Segment({ seconds, label, hint, sound, onEnd }) {
+function Segment({ ss, seconds, label, hint, sound, onEnd, hue }) {
   const [left] = useCountdown(seconds, true, { sound, onDone: onEnd });
   return (
     <>
-      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.95)" }}>{label}</p>
-      <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={130} color="#fff" /></div>
-      <p className="text-base font-bold" style={{ color: "#fff" }}>{hint}</p>
+      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, hue) }}>{label}</p>
+      <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={130} color={bigColor(ss, hue)} /></div>
+      <p className="text-base font-bold text-white">{up(ss, hint)}</p>
     </>
   );
 }
-export function IntervalStage({ count, work, rest, machine, label, sound, onDone }) {
+export function IntervalStage({ ss, count, work, rest, machine, label, sound, onDone }) {
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("work");
   const effort = phase === "work";
-  const accent = effort ? C.protein : C.weight;
-  useEffect(() => { setThemeColor(accent); }, [phase]); // eslint-disable-line
+  const hue = effort ? ss.effort : ss.rest;
+  useEffect(() => { setThemeColor(ss.variant === "gym" ? ss.surface : hue); }, [phase]); // eslint-disable-line
   const onEnd = () => {
     if (effort) { if (rest > 0) setPhase("rest"); else if (idx + 1 < count) setIdx((i) => i + 1); else onDone(); }
     else { if (idx + 1 < count) { setIdx((i) => i + 1); setPhase("work"); } else onDone(); }
   };
   return (
-    <ColorStage from={accent} to={`${accent}bb`} actions={
-      <button onClick={onDone} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={{ backgroundColor: "rgba(255,255,255,0.18)", color: "#fff" }}><SkipForward size={16} /> Passer le bloc</button>
+    <ColorStage ss={ss} hue={hue} actions={
+      <button onClick={onDone} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={ss.variant === "gym" ? { backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", border: `1px solid ${hue}44` } : { backgroundColor: "rgba(255,255,255,0.18)", color: "#fff" }}><SkipForward size={16} /> Passer le bloc</button>
     }>
-      <Segment key={`${idx}-${phase}`} seconds={effort ? work : rest} label={`${effort ? "Effort" : "Récup"} · ${idx + 1}/${count}`} hint={`${label} · ${machine}`} sound={sound} onEnd={onEnd} />
+      <Segment key={`${idx}-${phase}`} ss={ss} hue={hue} seconds={effort ? work : rest} label={`${effort ? "Effort" : "Récup"} · ${idx + 1}/${count}`} hint={`${label} · ${machine}`} sound={sound} onEnd={onEnd} />
     </ColorStage>
   );
 }
