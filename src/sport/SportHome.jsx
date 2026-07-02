@@ -17,6 +17,7 @@ import { Sparkline } from "./components.jsx";
 // ════════════════════════════════════════════════════════════════════════════
 export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, startDate, onOpen, onOpenDetail, onManualLog, onCoach }) {
   const t = sportTokens(sport.sportTheme, "hub");
+  const isGym = t.variant === "gym";
   const [open, setOpen] = useState({});
   const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
 
@@ -61,18 +62,20 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
 
   return (
     <div className="pb-3" style={{ fontFamily: SPORT_FONT }}>
-      {/* ── Héros dominant : la séance à faire, coach intégré, Démarrer ── */}
+      {/* ── Héros dominant : la séance à faire, coach intégré, Démarrer ──
+          timer/hybride → aplat de couleur (bleu) · gym → sombre + accents néon. */}
       {heroSession && (
-        <div className="relative mb-3 overflow-hidden rounded-3xl p-5" style={{ background: `linear-gradient(165deg, ${t.accent}, ${t.accent}d0)` }}>
-          <span className="pointer-events-none absolute -bottom-10 -right-3 select-none text-[170px] font-extrabold leading-none" style={{ color: "rgba(255,255,255,0.10)" }}>{heroSession.id}</span>
+        <div className="relative mb-3 overflow-hidden rounded-3xl p-5" style={isGym ? { backgroundColor: t.panel, border: `1px solid ${t.line}` } : { background: `linear-gradient(165deg, ${t.accent}, ${t.accent}d0)` }}>
+          {isGym && <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: t.accent }} />}
+          <span className="pointer-events-none absolute -bottom-10 -right-3 select-none text-[170px] font-extrabold leading-none" style={{ color: isGym ? `${t.accent}14` : "rgba(255,255,255,0.10)" }}>{heroSession.id}</span>
           <div className="relative">
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.85)" }}>{heroLabel} · {heroSession.day}</p>
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: isGym ? t.accent : "rgba(255,255,255,0.85)" }}>{heroLabel} · {heroSession.day}</p>
             <p className="mt-1 text-[40px] font-extrabold leading-none text-white">{heroSession.name}</p>
-            <p className="mt-1.5 text-sm font-semibold" style={{ color: "rgba(255,255,255,0.92)" }}>{heroSession.subtitle} · {heroSession.duration}</p>
+            <p className="mt-1.5 text-sm font-semibold" style={{ color: isGym ? t.sub : "rgba(255,255,255,0.92)" }}>{heroSession.subtitle} · {heroSession.duration}</p>
 
-            <Coach brief={brief} onCoach={onCoach} />
+            <Coach t={t} isGym={isGym} brief={brief} onCoach={onCoach} />
 
-            <button onClick={() => onOpen(heroSession.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-sm font-extrabold active:scale-95" style={{ color: t.accent }}>
+            <button onClick={() => onOpen(heroSession.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={isGym ? { backgroundColor: t.accent, color: t.onAccent } : { backgroundColor: "#fff", color: t.accent }}>
               {todayDone ? <><Check size={17} /> Refaire / consulter</> : <><Play size={17} /> Démarrer la séance</>}
             </button>
           </div>
@@ -150,18 +153,24 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
 }
 
 // Coach intégré au héros : avatar + briefing motivant, tappable → chat sport (si dispo).
-function Coach({ brief, onCoach }) {
+function Coach({ t, isGym, brief, onCoach }) {
+  const style = isGym
+    ? { backgroundColor: "rgba(255,255,255,0.05)", border: `1px solid ${t.accent}33` }
+    : { backgroundColor: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.22)" };
+  const avatarBg = isGym ? `${t.accent}22` : "rgba(255,255,255,0.22)";
+  const avatarCol = isGym ? t.accent : "#fff";
+  const labelCol = isGym ? t.accent : "rgba(255,255,255,0.8)";
+  const textCol = isGym ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.95)";
   const inner = (
     <>
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.22)", color: "#fff" }}><Sprout size={14} /></span>
-        <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.8)" }}>Coach · aujourd'hui</span>
-        {onCoach && <ChevronRight size={15} className="ml-auto" style={{ color: "rgba(255,255,255,0.8)" }} />}
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: avatarBg, color: avatarCol }}><Sprout size={14} /></span>
+        <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: labelCol }}>Coach · aujourd'hui</span>
+        {onCoach && <ChevronRight size={15} className="ml-auto" style={{ color: labelCol }} />}
       </div>
-      <p className="text-xs leading-snug" style={{ color: "rgba(255,255,255,0.95)" }}>{brief}</p>
+      <p className="text-xs leading-snug" style={{ color: textCol }}>{brief}</p>
     </>
   );
-  const style = { backgroundColor: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.22)" };
   return onCoach
     ? <button onClick={onCoach} className="mb-4 mt-4 block w-full rounded-2xl p-3 text-left active:scale-95" style={style}>{inner}</button>
     : <div className="mb-4 mt-4 rounded-2xl p-3" style={style}>{inner}</div>;

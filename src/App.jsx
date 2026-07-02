@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles, Sprout } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
+  SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, recompSignal } from "./lib/sport.js";
+import { sportTokens } from "./sport/theme.js";
 import { loadLive } from "./sport/liveSession.js";
 import { getLibrarySync, refreshLibrary } from "./lib/library.js";
 import { supabase } from "./lib/supabaseClient.js";
@@ -767,16 +768,31 @@ export default function PiocheRepas() {
     if (obj.sport && typeof obj.sport === "object") setSport((prev) => ({ ...prev, ...obj.sport }));
   };
 
+  // Châssis (fond, header, tab bar) accordé au thème de la section Sport quand elle
+  // est active — sinon style app standard. Le thème « Contraste brut » passe tout en
+  // noir/néon ; « Timer vivant »/« Hybride » restent proches de l'app (accent bleu).
+  const sportChromeOn = view === "sport";
+  const sportTh = sportChromeOn ? sportTokens(sport.sportTheme, "hub") : null;
+  const chrome = sportTh
+    ? { bg: sportTh.surface, nav: `${sportTh.surface}e6`, ink: sportTh.ink, sub: sportTh.sub, muted: sportTh.muted, line: sportTh.line, btn: sportTh.panel, accent: sportTh.accent }
+    : { bg: C.bg, nav: C.nav, ink: C.ink, sub: C.sub, muted: C.muted, line: C.line, btn: C.card, accent: C.green };
+
+  // Fond du body + status bar suivent le châssis (overscroll/rubber-band inclus).
+  useEffect(() => {
+    if (typeof document !== "undefined") document.body.style.backgroundColor = chrome.bg;
+    setThemeColor(chrome.bg);
+  }, [chrome.bg]);
+
   // Multi-utilisateur : tant que la session n'est pas vérifiée, écran neutre ;
   // sans session → gate de connexion obligatoire (chacun accède à SES données).
   if (!sessionChecked) return <div className="min-h-screen w-full" style={{ backgroundColor: C.bg }} />;
   if (!session) return <AuthGate />;
 
   return (
-    <div className="min-h-screen w-full" style={{ color: C.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: chrome.bg, color: chrome.ink, fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}>
       {/* Header global FIXE + blur (cohérent avec la tab bar du bas) — piloté par
           screenHeader { title, subtitle, badge, onSettings, onBack } selon l'écran. */}
-      <div ref={headerRef} className="fixed inset-x-0 top-0 z-30" style={{ background: C.nav, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: `1px solid ${C.line}`, paddingTop: "env(safe-area-inset-top)" }}>
+      <div ref={headerRef} className="fixed inset-x-0 top-0 z-30" style={{ background: chrome.nav, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: `1px solid ${chrome.line}`, paddingTop: "env(safe-area-inset-top)" }}>
         {(() => {
           const TITLES = { journal: "Coach", progres: "Coach", cuisine: "Ma cuisine", idees: "Planifier", guide: "Guide", reglages: "Réglages", sport: "Sport" };
           const h = screenHeader;
@@ -785,24 +801,24 @@ export default function PiocheRepas() {
           return (
             <header className="mx-auto flex max-w-md items-center gap-2.5 px-4 py-2.5">
               {onBack && (
-                <button onClick={onBack} aria-label="Retour" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><ChevronLeft size={20} /></button>
+                <button onClick={onBack} aria-label="Retour" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><ChevronLeft size={20} /></button>
               )}
               <div className="min-w-0 flex-1">
                 {view === "jour" && !h
                   ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
-                  : <h1 className="truncate text-2xl font-extrabold leading-tight" style={{ color: C.ink, fontFamily: "'Space Grotesk', system-ui" }}>{h?.title || TITLES[view]}</h1>}
-                {h?.subtitle && <p className="truncate text-xs" style={{ color: C.sub }}>{h.subtitle}</p>}
+                  : <h1 className="truncate text-2xl font-extrabold leading-tight" style={{ color: chrome.ink, fontFamily: "'Space Grotesk', system-ui" }}>{h?.title || TITLES[view]}</h1>}
+                {h?.subtitle && <p className="truncate text-xs" style={{ color: chrome.sub }}>{h.subtitle}</p>}
               </div>
               {badge && <span className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: badge.tone === "weight" ? `${C.weight}22` : `${C.green}1a`, color: badge.tone === "weight" ? C.weight : C.green }}>{badge.text}</span>}
               <div className="flex shrink-0 items-center gap-2">
                 {h?.onSettings && (
-                  <button onClick={h.onSettings} aria-label="Réglages de la séance" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><SlidersHorizontal size={18} /></button>
+                  <button onClick={h.onSettings} aria-label="Réglages de la séance" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><SlidersHorizontal size={18} /></button>
                 )}
                 {!onBack && view !== "sport" && (
                   <button onClick={openChat} aria-label="Coach — discuter" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Sprout size={18} /></button>
                 )}
                 {!onBack && view !== "reglages" && (
-                  <button onClick={openSettings} aria-label="Réglages de l'app" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Settings2 size={18} /></button>
+                  <button onClick={openSettings} aria-label="Réglages de l'app" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><Settings2 size={18} /></button>
                 )}
               </div>
             </header>
@@ -864,7 +880,7 @@ export default function PiocheRepas() {
       </div>
 
       {/* Navigation */}
-      <TabBar view={view} setView={go} />
+      <TabBar view={view} setView={go} chrome={chrome} />
 
       {picker && (
         <Deck slotKey={picker.slot} rankFor={rankFor} fitOf={fitOf} slotTarget={slotTarget(picker.slot)} pool={[...library.pool, ...pantry.filter((m) => m.kcal != null)]} usage={usage} combos={combos} pantry={pantry} presets={library.presets} onAddExtra={addExtra} onChoose={choose} onApplyCombo={applyCombo} onDeleteCombo={deleteCombo}
@@ -931,7 +947,8 @@ function ScreenFallback() {
   );
 }
 
-function TabBar({ view, setView }) {
+function TabBar({ view, setView, chrome }) {
+  const u = chrome || { nav: C.nav, line: C.line, ink: C.ink, muted: C.muted };
   // 4 onglets. Le coach vit dans Jour + Suivi + le chat ; Progrès dans le header.
   const tabs = [
     { k: "jour", l: "Jour", icon: Sun },
@@ -942,14 +959,14 @@ function TabBar({ view, setView }) {
   const Tab = ({ t }) => {
     const Icon = t.icon, active = view === t.k;
     return (
-      <button onClick={() => setView(t.k)} className="flex flex-1 flex-col items-center gap-0.5 py-2.5 active:scale-95" style={{ color: active ? C.ink : C.muted }}>
+      <button onClick={() => setView(t.k)} className="flex flex-1 flex-col items-center gap-0.5 py-2.5 active:scale-95" style={{ color: active ? u.ink : u.muted }}>
         <Icon size={20} strokeWidth={active ? 2.4 : 1.8} />
         <span className="text-xs font-semibold" style={{ opacity: active ? 1 : 0.8 }}>{t.l}</span>
       </button>
     );
   };
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: C.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${C.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div className="fixed inset-x-0 bottom-0 z-20" style={{ backgroundColor: u.nav, backdropFilter: "blur(12px)", borderTop: `1px solid ${u.line}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div className="mx-auto flex max-w-md">
         <Tab t={tabs[0]} />
         <Tab t={tabs[1]} />
