@@ -66,7 +66,9 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
       setHeader({ title: s.name, subtitle: `${s.subtitle} · ${s.day} · ${s.duration}`, onBack: () => setPreview(null) });
     } else if (detail) {
       const s = SESSIONS[detail.sessionId];
-      setHeader({ title: s ? s.name : detail.sessionId, subtitle: `${s ? s.subtitle + " · " : ""}S${detail.week}${detail.manual ? " · manuel" : ""}`, onBack: () => setDetail(null) });
+      const title = detail.free ? "Cardio libre" : (s ? s.name : detail.sessionId);
+      const subtitle = detail.free ? `Rameur · S${detail.week}` : `${s ? s.subtitle + " · " : ""}S${detail.week}${detail.manual ? " · manuel" : ""}`;
+      setHeader({ title, subtitle, onBack: () => setDetail(null) });
     } else {
       setHeader({
         title: "Sport",

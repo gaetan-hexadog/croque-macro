@@ -596,7 +596,7 @@ export function strengthSeries(workouts) {
 export function assiduitySeries(workouts, currentWeek, weeks = 6) {
   const done = {};
   for (const e of Object.values(workouts || {})) {
-    if (!e?.completed || e.week == null) continue;
+    if (!e?.completed || e.week == null || e.free) continue; // le cardio libre ne compte pas dans l'assiduité A/B/C
     (done[e.week] = done[e.week] || new Set()).add(e.sessionId);
   }
   const start = Math.max(1, (currentWeek || 1) - weeks + 1);
@@ -724,6 +724,29 @@ export function sessionNeedsAdapt(session, equipment) {
   const eq = { ...DEFAULT_EQUIPMENT, ...(equipment || {}) };
   if (session.type === "cardio") return session.blocks.some((b) => adaptBlock(b, eq) !== b);
   return session.exercises.some((ex) => adaptExercise(ex, eq) !== ex) || (session.finishCardio && !eq.corde);
+}
+
+// ── Cardio libre (rameur off-day) : entrées à part du programme A/B/C ─────────
+// Flag `free: true`, sessionId "cardio-libre", pas de `data` (donc invisible pour
+// force/PR/assiduité). Compte seulement pour la SÉRIE de semaines actives + l'histo.
+export const FREE_CARDIO_ID = "cardio-libre";
+export function makeFreeCardio({ week, minutes, distance = "", rowerLevel = "", rpe = "", notes = "" }) {
+  return {
+    id: `free-${Date.now()}`, date: new Date().toISOString(), completed: true, free: true,
+    sessionId: FREE_CARDIO_ID, week, cardioData: { minutes, distance, rowerLevel, rpe, notes },
+  };
+}
+
+// Série de semaines actives (≥1 activité, programme OU cardio libre). La semaine en
+// cours ne casse pas la série si elle est encore vide (elle n'est pas finie).
+export function activeWeekStreak(workouts, currentWeek) {
+  const weeks = new Set();
+  for (const e of Object.values(workouts || {})) if (e?.completed && e.week != null) weeks.add(e.week);
+  let w = currentWeek || 1;
+  if (!weeks.has(w)) w -= 1; // semaine en cours pas encore active → on compte jusqu'à la précédente
+  let n = 0;
+  for (; w >= 1; w--) { if (weeks.has(w)) n++; else break; }
+  return n;
 }
 
 // ── Coach sportif (chat dédié) : prompt système + ouverture proactive ────────

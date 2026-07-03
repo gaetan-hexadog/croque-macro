@@ -48,6 +48,7 @@ export function SessionDetail({ entry, onBack, onSave, onDelete, sportTheme }) {
 
       <div className="mb-4 grid grid-cols-3 gap-2.5">
         {entry.durationSec ? <Tile icon={Timer} color={t.rest} value={formatTime(entry.durationSec)} label="Durée" /> : null}
+        {entry.free && cd.minutes ? <Tile icon={Timer} color={t.rest} value={cd.minutes} unit="min" label="Durée" /> : null}
         {!cardio && <Tile icon={Dumbbell} color={t.rest} value={data.length} label="Exercices" />}
         {!cardio && vol > 0 && <Tile icon={Flame} color={t.effort} value={vol} unit="kg" label="Volume" />}
         {cardio && cd.rpe ? <Tile icon={Flame} color={t.effort} value={cd.rpe} unit="/10" label="Effort" /> : null}
@@ -87,7 +88,9 @@ export function SessionDetail({ entry, onBack, onSave, onDelete, sportTheme }) {
 
       {cardio && (
         <div className="mb-2.5 rounded-2xl p-4" style={panel}>
-          {[["distance", "Distance rameur (m)"], ["rowerLevel", "Résistance rameur"], ["ropeJumps", "Sauts à la corde"], ["rpe", "Effort perçu /10"]].map(([k, label]) => (
+          {(entry.free
+            ? [["minutes", "Durée (min)"], ["distance", "Distance (m)"], ["rowerLevel", "Résistance"], ["rpe", "Effort /10"]]
+            : [["distance", "Distance rameur (m)"], ["rowerLevel", "Résistance rameur"], ["ropeJumps", "Sauts à la corde"], ["rpe", "Effort perçu /10"]]).map(([k, label]) => (
             <div key={k} className="flex items-center justify-between py-1.5">
               <span className="text-sm" style={{ color: t.sub }}>{label}</span>
               {editing

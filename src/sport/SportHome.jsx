@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import {
   Dumbbell, Check, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Minus as Flat, Play,
-  AlertTriangle, Flame, PenLine, Sprout, CalendarCheck, LineChart, History as HistoryIcon,
+  AlertTriangle, Flame, PenLine, Sprout, CalendarCheck, LineChart, History as HistoryIcon, Activity,
 } from "lucide-react";
 import { sportTokens, SPORT_FONT } from "./theme.js";
 import {
   SESSIONS, SESSION_ORDER, getAdaptiveSuggestion, getCatchUp, daysBetween,
-  strengthTrend, strengthSeries, assiduitySeries,
+  strengthTrend, strengthSeries, assiduitySeries, activeWeekStreak,
 } from "../lib/sport.js";
 import { Sparkline } from "./components.jsx";
 
@@ -33,7 +33,7 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
   const trendPct = trend && trend.older ? Math.round(((trend.recent - trend.older) / trend.older) * 100) : null;
   const pts = strengthSeries(workouts).map((p) => p.value);
   const ass = assiduitySeries(workouts, currentWeek, 6);
-  let streak = 0; for (let i = ass.length - 1; i >= 0; i--) { if (ass[i].done > 0) streak++; else break; }
+  const streak = activeWeekStreak(workouts, currentWeek);
   const TrendIcon = trend?.direction === "up" ? TrendingUp : trend?.direction === "down" ? TrendingDown : Flat;
   const trendCol = trend?.direction === "up" ? t.good : trend?.direction === "down" ? t.effort : t.sub;
   const trendLabel = trend?.direction === "up" ? "Force en hausse" : trend?.direction === "down" ? "Force en baisse" : "Force stable";
@@ -202,12 +202,14 @@ function RecentHistory({ t, workouts, onOpenDetail }) {
       {list.map((e) => {
         const d = daysBetween(new Date(e.date), new Date());
         const rel = d === 0 ? "aujourd'hui" : d === 1 ? "hier" : `il y a ${d} j`;
+        const isFree = e.free;
         const s = SESSIONS[e.sessionId];
-        const cardio = s?.type === "cardio";
+        const cardio = isFree || s?.type === "cardio";
+        const label = isFree ? `Cardio libre${e.cardioData?.minutes ? ` · ${e.cardioData.minutes} min` : ""}` : `S${e.week} · ${s ? s.name : e.sessionId}${e.manual ? " · manuel" : ""}`;
         return (
           <button key={e.id} onClick={() => onOpenDetail(e)} className="flex w-full items-center gap-2.5 rounded-xl px-1 py-2 text-left active:scale-[0.99]">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: cardio ? `${t.rest}1a` : `${t.good}1a`, color: cardio ? t.rest : t.good }}><Dumbbell size={14} /></span>
-            <span className="flex-1 text-sm font-semibold" style={{ color: t.ink }}>S{e.week} · {s ? s.name : e.sessionId}{e.manual ? " · manuel" : ""}</span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: cardio ? `${t.rest}1a` : `${t.good}1a`, color: cardio ? t.rest : t.good }}>{isFree ? <Activity size={14} /> : <Dumbbell size={14} />}</span>
+            <span className="flex-1 text-sm font-semibold" style={{ color: t.ink }}>{label}</span>
             <span className="text-xs" style={{ color: t.muted }}>{rel}</span>
             <ChevronRight size={15} style={{ color: t.muted }} />
           </button>
