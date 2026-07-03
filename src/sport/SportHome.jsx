@@ -144,7 +144,7 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
         </QuietSection>
 
         <QuietSection t={t} icon={HistoryIcon} label="Historique" open={open.historique} onToggle={() => toggle("historique")}
-          action={<span onClick={(e) => { e.stopPropagation(); onManualLog(); }} className="flex items-center gap-1 text-xs font-semibold" style={{ color: t.accent }}><PenLine size={13} /> Ajouter</span>}>
+          action={<span onClick={(e) => { e.stopPropagation(); onManualLog(); }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold active:scale-95" style={{ backgroundColor: `${t.accent}1a`, color: t.accent }}><PenLine size={13} /> Loguer</span>}>
           <RecentHistory t={t} workouts={workouts} onOpenDetail={onOpenDetail} />
         </QuietSection>
       </div>
@@ -185,7 +185,7 @@ function QuietSection({ t, icon: Icon, label, open, onToggle, badge, action, chi
         <span className="text-sm font-bold" style={{ color: t.ink }}>{label}</span>
         {badge && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: badge.col }}>{badge.text}</span>}
         <span className="ml-auto flex items-center gap-2">
-          {open && action}
+          {action}
           <ChevronDown size={16} style={{ color: t.muted, transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
         </span>
       </button>
