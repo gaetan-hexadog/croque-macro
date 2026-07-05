@@ -166,6 +166,54 @@ function Segment({ ss, seconds, label, hint, sound, onEnd, hue }) {
     </>
   );
 }
+// ── Gainage / maintien chronométré : prépa 5s → tenue → (côté 2) → fin ───────
+// Flow : (prêt via l'écran d'annonce ou le repos) → 5s pour se positionner → tenue
+// chronométrée → si perSide, gate « change de côté » → 5s → tenue → onDone().
+// Pas de notation « trop lourd » (ça n'a aucun sens sur un gainage).
+function PrepSeg({ ss, seconds, side, what, sound, onDone }) {
+  const [left] = useCountdown(seconds, true, { sound, onDone });
+  const hue = ss.rest;
+  return (
+    <ColorStage ss={ss} hue={hue}>
+      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, hue) }}>Prépare-toi{side ? ` · Côté ${side}/2` : ""}</p>
+      <div style={{ margin: "6px 0" }}><NumberFlow value={Math.max(1, left)} size={140} color={bigColor(ss, hue)} /></div>
+      {what && <p className="text-base font-bold text-white">{up(ss, what)}</p>}
+      <p className="mt-1 text-sm" style={{ color: SUBW }}>En position 🧍</p>
+    </ColorStage>
+  );
+}
+function HoldSeg({ ss, seconds, side, setIdx, totalSets, sound, onDone }) {
+  const [left] = useCountdown(seconds, true, { sound, onDone });
+  const hue = ss.effort;
+  return (
+    <ColorStage ss={ss} hue={hue} actions={
+      <button onClick={onDone} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-bold active:scale-95" style={ss.variant === "gym" ? { backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", border: `1px solid ${hue}44` } : { backgroundColor: "rgba(255,255,255,0.18)", color: "#fff" }}><SkipForward size={16} /> Terminer la position</button>
+    }>
+      <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, hue) }}>Tiens la position !{side ? ` · Côté ${side}/2` : ""}</p>
+      <div style={{ margin: "6px 0" }}><DurationFlow seconds={Math.max(0, left)} size={140} color={bigColor(ss, hue)} /></div>
+      <p className="text-base font-bold text-white">Série {setIdx + 1}/{totalSets}</p>
+    </ColorStage>
+  );
+}
+export function HoldStage({ ss, seconds, perSide, what, setIdx, totalSets, sound, onDone }) {
+  const totalSides = perSide ? 2 : 1;
+  const [side, setSide] = useState(1);
+  const [sub, setSub] = useState("prep"); // "prep" (5s) | "hold" (tenue) | "switch" (gate côté 2)
+  if (sub === "switch") {
+    return (
+      <ColorStage ss={ss} hue={ss.rest} actions={
+        <button onClick={() => { setSide(2); setSub("prep"); }} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={ss.variant === "gym" ? { backgroundColor: ss.rest, color: ss.onAccent } : { backgroundColor: "#fff", color: ss.rest }}><Play size={17} /> Démarrer le côté 2</button>
+      }>
+        <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, ss.rest) }}>Côté 1 terminé ✓</p>
+        <p className="mt-1 text-3xl font-extrabold text-white" style={{ fontFamily: FONT }}>Change de côté</p>
+        <p className="mt-2 text-sm" style={{ color: SUBW }}>Mets-toi en place, puis démarre.</p>
+      </ColorStage>
+    );
+  }
+  if (sub === "prep") return <PrepSeg ss={ss} seconds={5} side={perSide ? side : 0} what={what} sound={sound} onDone={() => setSub("hold")} />;
+  return <HoldSeg ss={ss} seconds={seconds} side={perSide ? side : 0} setIdx={setIdx} totalSets={totalSets} sound={sound} onDone={() => { if (side < totalSides) setSub("switch"); else onDone(); }} />;
+}
+
 export function IntervalStage({ ss, count, work, rest, machine, label, sound, onDone }) {
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState("work");

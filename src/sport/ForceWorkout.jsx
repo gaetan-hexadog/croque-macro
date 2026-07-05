@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Pause, RotateCcw, Flame, Target, Repeat, Clock, Timer, Feather, Check } from "lucide-react";
+import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Flame, Target, Repeat, Clock, Timer, Feather, Check } from "lucide-react";
 import { cardStyle } from "../core.js";
 import { sportTokens, SPORT_FONT as FONT } from "./theme.js";
 import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
-import { NumberFlow, DurationFlow, PrescriptionBadge, DIFFS } from "./components.jsx";
-import { SessionShell, Stage, CountdownStage, PhaseStage, RestStage, IntervalStage } from "./SessionShell.jsx";
+import { NumberFlow, PrescriptionBadge, DIFFS } from "./components.jsx";
+import { SessionShell, Stage, CountdownStage, PhaseStage, RestStage, IntervalStage, HoldStage } from "./SessionShell.jsx";
 import { SessionSummary } from "./SessionSummary.jsx";
-import { useCountdown } from "./timers.jsx";
 import { saveLive, clearLive } from "./liveSession.js";
 
 const PREP_SECONDS = 5; // « prépare-toi » avant chaque exercice / série (force)
@@ -163,7 +162,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
         if (phase === "prepare") {
           const chargeLine = entry.charge != null ? `${entry.charge} kg${ex.loadLabel ? ` · ${ex.loadLabel}` : ""}${canAdjust ? ` · ${getDiscPlan(entry.charge)}` : ""}` : (ex.type === "bodyweight" ? "Poids du corps" : "");
-          return <PrepareExercise ss={ss} panel={panel} ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} exIdx={exIdx} total={exs.length} onReady={() => { setSetIdx(0); setPhase("countdown"); }} />;
+          return <PrepareExercise ss={ss} panel={panel} ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} exIdx={exIdx} total={exs.length} onReady={() => { setSetIdx(0); setPhase(isTime ? "set" : "countdown"); }} />;
         }
         if (phase === "countdown") {
           return <CountdownStage ss={ss} seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}`} sound={sound} onDone={() => setPhase("set")} />;
@@ -180,6 +179,8 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
           return <RestStage ss={ss} seconds={ex.rest} sound={sound} next={{ name: nx.name, target: `${nx.sets} × ${nxReps}`, charge: nxCharge, tech: nx.tech }} onReady={goNextExerciseSet} />;
         }
         // phase === "set"
+        // Gainage / maintien → flow dédié plein écran (5s prépa → tenue → côté 2 → …).
+        if (isTime) return <HoldStage key={`hold-${exIdx}-${setIdx}`} ss={ss} seconds={ex.repsSeconds || repsNum(ex.reps) || 30} perSide={ex.perSide} what={ex.name} setIdx={setIdx} totalSets={ex.sets} sound={sound} onDone={() => rate(exIdx, "parfait")} />;
         return (
           <Stage>
             <div className="flex items-start justify-between gap-2">
@@ -191,18 +192,12 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: ss.muted }}>{isTime ? "Tenir" : "Répétitions"}</p>
-              {isTime ? (
-                <HoldTimer key={`hold-${exIdx}-${setIdx}`} ss={ss} seconds={ex.repsSeconds || repsNum(ex.reps) || 30} sound={sound} perSide={ex.perSide} />
-              ) : (
-                <>
-                  <NumberFlow value={curSet.repsDone ?? curSet.repsTarget ?? 0} size={116} color={ss.ink} />
-                  <div className="mt-1 flex items-center gap-4">
-                    <button onClick={() => setReps(exIdx, -1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: ss.panel, color: ss.sub }}><Minus size={22} /></button>
-                    <button onClick={() => setReps(exIdx, 1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: ss.panel, color: ss.sub }}><Plus size={22} /></button>
-                  </div>
-                </>
-              )}
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: ss.muted }}>Répétitions</p>
+              <NumberFlow value={curSet.repsDone ?? curSet.repsTarget ?? 0} size={116} color={ss.ink} />
+              <div className="mt-1 flex items-center gap-4">
+                <button onClick={() => setReps(exIdx, -1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: ss.panel, color: ss.sub }}><Minus size={22} /></button>
+                <button onClick={() => setReps(exIdx, 1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: ss.panel, color: ss.sub }}><Plus size={22} /></button>
+              </div>
 
               {entry.charge != null && (
                 <div className="mt-5 flex items-center gap-4 rounded-2xl px-4 py-2.5" style={{ backgroundColor: isGym ? "rgba(255,255,255,0.08)" : ss.ink }}>
@@ -306,36 +301,6 @@ function PrepareExercise({ ss, panel, ex, entry, chargeLine, last, isTime, exIdx
 
 // Dégradé de carte pour la variante timer (proche de l'app).
 const ssCardGrad = (ss) => (ss.variant === "gym" ? ss.panel : "linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018))");
-
-// Chrono de maintien pour les gainages (compte à rebours réel, carillon, +15 s).
-function HoldTimer({ ss, seconds, sound, perSide }) {
-  const isGym = ss.variant === "gym";
-  const totalSides = perSide ? 2 : 1;
-  const [side, setSide] = useState(1);
-  const [running, setRunning] = useState(false);
-  const [left, setLeft] = useCountdown(seconds, running, { sound });
-  const doneSide = left <= 0;
-  const allDone = doneSide && side >= totalSides;
-  const started = left < seconds;
-  const startNextSide = () => { setSide((s) => s + 1); setLeft(seconds); setRunning(true); };
-  const restart = () => { setSide(1); setLeft(seconds); setRunning(true); };
-  return (
-    <div className="flex flex-col items-center">
-      {perSide && <p className="mb-1 text-xs font-bold uppercase tracking-wide" style={{ color: doneSide && !allDone ? ss.warm : ss.muted }}>Côté {side}/2</p>}
-      <DurationFlow seconds={Math.max(0, left)} size={104} color={doneSide ? ss.good : ss.ink} />
-      <div className="mt-3 flex items-center gap-2.5">
-        {doneSide && !allDone ? (
-          <button onClick={startNextSide} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: ss.good, color: isGym ? ss.onAccent : "#fff" }}><Play size={16} /> Démarrer côté 2</button>
-        ) : (
-          <button onClick={() => { if (allDone) restart(); else setRunning((r) => !r); }} className="flex items-center gap-1.5 rounded-2xl px-5 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: running ? ss.warm : ss.good, color: isGym ? ss.onAccent : "#fff" }}>
-            {running ? <><Pause size={16} /> Pause</> : allDone ? <><RotateCcw size={16} /> Refaire</> : started ? <><Play size={16} /> Reprendre</> : <><Play size={16} /> Démarrer</>}
-          </button>
-        )}
-        {started && !doneSide && <button onClick={() => setLeft((l) => l + 15)} className="rounded-2xl px-4 py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: ss.panel, color: ss.sub }}>+15 s</button>}
-      </div>
-    </div>
-  );
-}
 
 // Annonce de la finition cardio — hero énergique centré.
 function PrepareGeneric({ ss, panel, title, lines, onReady }) {
