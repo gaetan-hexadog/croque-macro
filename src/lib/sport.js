@@ -485,15 +485,6 @@ export function getExercisePrescription(exercise, week, history) {
   return { mode: "charge", value: charge, unit: "kg", direction, note };
 }
 
-// Charge représentative d'une séance de force = moyenne des poids travaillés (hors PdC).
-function sessionLoad(entry) {
-  let sum = 0, n = 0;
-  for (const ex of entry?.data || []) for (const s of ex.sets || []) {
-    if (s.weight != null && !isNaN(s.weight) && s.weight > 0) { sum += s.weight; n++; }
-  }
-  return n ? sum / n : null;
-}
-
 // Tendance de FORCE — comparaison LIKE-FOR-LIKE : chaque exercice vs lui-même dans le temps.
 // Les séances A/B/C ont des charges très différentes → une moyenne globale (choux+carottes)
 // dirait n'importe quoi selon le mix de séances de la fenêtre. On compare donc exo par exo,
@@ -595,19 +586,37 @@ export function isVolumePR(entry, history) {
   return vol > best;
 }
 
-// Courbe de force : charge moyenne (sessionLoad) par semaine de programme.
+// Courbe de force par semaine — LIKE-FOR-LIKE : chaque exercice est normalisé par sa 1re
+// charge (baseline), puis on moyenne les RATIOS de la semaine (1.00 = base, 1.20 = +20 %).
+// Non confondu par le mix de séances (contrairement à une moyenne de kg bruts). Décharge exclue.
 // Renvoie [{ week, value }] trié par semaine (pour une sparkline).
 export function strengthSeries(workouts) {
-  const byWeek = {};
-  for (const e of Object.values(workouts || {})) {
-    if (!e?.completed || !Array.isArray(e?.data) || e.week == null) continue;
-    const load = sessionLoad(e);
-    if (load == null) continue;
-    (byWeek[e.week] = byWeek[e.week] || []).push(load);
+  const entries = Object.values(workouts || {})
+    .filter((e) => e?.completed && Array.isArray(e?.data) && e.week != null && getCurrentBlock(e.week)?.phase !== "Décharge")
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const byExWeek = {}; // nom → { semaine → charge max }
+  const baseline = {}; // nom → 1re charge enregistrée
+  for (const e of entries) {
+    for (const ex of e.data) {
+      let mx = 0;
+      for (const s of ex.sets || []) if (s.weight != null && s.weight > 0) mx = Math.max(mx, s.weight);
+      if (mx <= 0) continue;
+      (byExWeek[ex.exercise] = byExWeek[ex.exercise] || {});
+      byExWeek[ex.exercise][e.week] = Math.max(byExWeek[ex.exercise][e.week] || 0, mx);
+      if (baseline[ex.exercise] == null) baseline[ex.exercise] = mx;
+    }
   }
-  return Object.keys(byWeek).map(Number).sort((a, b) => a - b).map((w) => ({
-    week: w, value: Math.round((byWeek[w].reduce((s, x) => s + x, 0) / byWeek[w].length) * 10) / 10,
-  }));
+  const weeks = [...new Set(entries.map((e) => e.week))].sort((a, b) => a - b);
+  const out = [];
+  for (const w of weeks) {
+    const ratios = [];
+    for (const name in byExWeek) {
+      const c = byExWeek[name][w];
+      if (c != null && baseline[name] > 0) ratios.push(c / baseline[name]);
+    }
+    if (ratios.length) out.push({ week: w, value: Math.round((ratios.reduce((s, x) => s + x, 0) / ratios.length) * 100) / 100 });
+  }
+  return out;
 }
 
 // Assiduité : séances distinctes complétées par semaine, sur les `weeks` dernières
