@@ -191,14 +191,15 @@ export async function shoppingAdvice({ system, prompt }, { onProgress, ...opts }
     return { intro: out.intro || "", items: out.items };
   }
 
-  // Flux SSE : on accumule le partial_json de l'outil `shopping`.
+  // Flux SSE : on reconstruit le JSON de l'outil `shopping` (bloc tool_use), comme le chat.
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  let buf = "", toolJson = "";
+  let buf = "", inTool = false, toolJson = "", result = null;
   const readNext = () => { let t; return Promise.race([
     reader.read(),
     new Promise((_, rej) => { t = setTimeout(() => rej(new AssistantError("L'assistant s'est interrompu — réessaie.", { kind: "offline" })), 60000); }),
   ]).finally(() => clearTimeout(t)); };
+  const tryParse = () => { try { const p = JSON.parse(toolJson || "{}"); if (p && Array.isArray(p.items)) result = p; } catch (_) {} };
   try {
     for (;;) {
       const { done, value } = await readNext();
@@ -212,9 +213,15 @@ export async function shoppingAdvice({ system, prompt }, { onProgress, ...opts }
         const payload = line.slice(5).trim();
         if (!payload || payload === "[DONE]") continue;
         let ev; try { ev = JSON.parse(payload); } catch { continue; }
-        if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") {
-          toolJson += ev.delta.partial_json || "";
-          if (onProgress) onProgress((toolJson.match(/"category"/g) || []).length);
+        if (ev.type === "content_block_start") {
+          if (ev.content_block?.type === "tool_use") { inTool = true; toolJson = ""; }
+        } else if (ev.type === "content_block_delta") {
+          if (ev.delta?.type === "input_json_delta") {
+            toolJson += ev.delta.partial_json || "";
+            if (onProgress) onProgress((toolJson.match(/"category"/g) || []).length);
+          }
+        } else if (ev.type === "content_block_stop") {
+          if (inTool) { tryParse(); inTool = false; }
         } else if (ev.type === "error") {
           throw new AssistantError(ev.error?.message || "Erreur de l'assistant.", { kind: "server" });
         }
@@ -225,9 +232,12 @@ export async function shoppingAdvice({ system, prompt }, { onProgress, ...opts }
     if (e instanceof AssistantError) throw e;
     throw new AssistantError("Flux interrompu — réessaie.", { kind: "offline" });
   }
-  let out = null; try { out = toolJson ? JSON.parse(toolJson) : null; } catch { out = null; }
-  if (!out || !Array.isArray(out.items)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
-  return { intro: out.intro || "", items: out.items };
+  if (!result) tryParse(); // flux terminé sans content_block_stop (repli)
+  if (!result || !Array.isArray(result.items)) {
+    const detail = toolJson ? `JSON ${toolJson.length} car. — probable troncature` : "aucun contenu reçu du flux";
+    throw new AssistantError(`Réponse inattendue de l'assistant (${detail}).`, { kind: "server" });
+  }
+  return { intro: result.intro || "", items: result.items };
 }
 
 // Analyse une photo de repas (base64 sans préfixe data:) → repas estimé (meals[0]).

@@ -414,7 +414,7 @@ async function shoppingStream(body: any, apiKey: string): Promise<Response> {
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Contexte manquant." });
   let res: Response;
   try {
-    res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" }, stream: true }) });
+    res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.6, max_tokens: 2048, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" }, stream: true }) });
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
   if (!res.ok || !res.body) { const t = await res.text().catch(() => ""); return json(res.status || 502, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
   return new Response(res.body, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", ...CORS } });
