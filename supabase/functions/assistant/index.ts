@@ -402,25 +402,22 @@ Deno.serve(async (req: Request) => {
   if (body && typeof body.image === "string") return keepAlive(analyzePhoto(body.image, body.media_type, apiKey));
   if (body && body.workout) return keepAlive(adaptWorkoutAI(body, apiKey));
   if (body && body.explain) return keepAlive(explainText(body, apiKey));
-  if (body && body.shopping) return keepAlive(shoppingList(body, apiKey));
+  if (body && body.shopping) return shoppingStream(body, apiKey);
   if (body && body.chat) return chatText(body, apiKey);
   return keepAlive(proposeMeals(body, apiKey));
 });
 
-// Conseil courses : liste pour varier, à partir du frigo + historique + objectif (prompt côté client).
-async function shoppingList(body: any, apiKey: string): Promise<Response> {
+// Conseil courses : liste pour varier. STREAMÉ (outil forcé) → plus de mur de timeout,
+// le client reconstruit le JSON de l'outil au fil du flux (comme le chat). Passthrough SSE.
+async function shoppingStream(body: any, apiKey: string): Promise<Response> {
   const { system, prompt } = body || {};
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Contexte manquant." });
-  let data: any;
+  let res: Response;
   try {
-    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" } }, { timeoutMs: 95000, retries: 0 });
-    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
-    data = await res.json();
+    res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" }, stream: true }) });
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
-  const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "shopping");
-  const out = tool?.input;
-  if (!out || !Array.isArray(out.items)) return json(502, { error: "Réponse inattendue de Claude." });
-  return json(200, { intro: out.intro || "", items: out.items });
+  if (!res.ok || !res.body) { const t = await res.text().catch(() => ""); return json(res.status || 502, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+  return new Response(res.body, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", ...CORS } });
 }
 
 // Repas (meal/day/week) : un appel Claude via l'outil propose.

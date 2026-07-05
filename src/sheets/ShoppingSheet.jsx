@@ -13,15 +13,16 @@ export function ShoppingSheet({ pantry = [], overused = [], favorites = [], know
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null); // { intro, items }
+  const [progress, setProgress] = useState(0); // nb d'articles détectés en cours de stream
   const [added, setAdded] = useState(() => new Set());
   const [shared, setShared] = useState("");
   const mounted = useRef(true);
   const thinking = useRotatingLine(THINKING.shopping, busy);
 
   const run = async () => {
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setProgress(0);
     try {
-      const out = await shoppingAdvice(buildShoppingPrompt({ pantry, overused, favorites, knownFoods, settings, recipes }));
+      const out = await shoppingAdvice(buildShoppingPrompt({ pantry, overused, favorites, knownFoods, settings, recipes }), { onProgress: (n) => { if (mounted.current) setProgress(n); } });
       if (mounted.current) setData(out);
     } catch (e) { if (mounted.current) setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue.")); }
     finally { if (mounted.current) setBusy(false); }
@@ -39,7 +40,7 @@ export function ShoppingSheet({ pantry = [], overused = [], favorites = [], know
   return (
     <Sheet open onClose={onClose} title="Courses pour varier" subtitle="Pour sortir de la routine" icon={<ShoppingCart size={18} />} iconColor={C.weight} z={50}>
       {busy ? (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" style={{ color: C.weight }} /> {thinking}</div>
+        <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: C.muted }}><Loader2 size={18} className="animate-spin" style={{ color: C.weight }} /> {thinking}{progress > 0 ? ` · ${progress} article${progress > 1 ? "s" : ""}` : ""}</div>
       ) : error ? (
         <div className="flex items-start gap-2 rounded-2xl px-3 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.over}` }}>
           <AlertCircle size={16} style={{ color: C.over, flexShrink: 0, marginTop: 1 }} />

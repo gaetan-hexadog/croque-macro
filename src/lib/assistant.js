@@ -172,16 +172,60 @@ export async function importRecipeFromText(text, opts = {}) {
   return out.recipe;
 }
 
-// Conseil COURSES pour varier. payload = { system, prompt }. Renvoie { intro, items:[{name,category,why,unlocks}] }.
-export async function shoppingAdvice({ system, prompt }, opts = {}) {
+// Conseil COURSES pour varier. STREAMÉ (outil forcé, comme le chat) : on draine le SSE et
+// on reconstruit le JSON de l'outil au fil du flux → plus de mur de timeout. `onProgress(n)`
+// = nb d'articles détectés (compteur live). Renvoie { intro, items:[{name,category,why,unlocks}] }.
+export async function shoppingAdvice({ system, prompt }, { onProgress, ...opts } = {}) {
   const res = await postAssistant({ shopping: true, system, prompt }, { ...opts, authMsg: "Connecte-toi pour les idées courses." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie.", { status: res.status, kind: "offline" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError(out?.error || `Idées courses impossibles (${res.status}).`, { status: res.status, kind: "server" });
+
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  // Pas de flux (erreur applicative en JSON, ou environnement sans streaming) → repli.
+  if (!ct.includes("event-stream") || !res.body || !res.body.getReader) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError(out?.error || `Idées courses impossibles (${res.status}).`, { status: res.status, kind: "server" });
+    if (!out || !Array.isArray(out.items)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+    return { intro: out.intro || "", items: out.items };
+  }
+
+  // Flux SSE : on accumule le partial_json de l'outil `shopping`.
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "", toolJson = "";
+  const readNext = () => { let t; return Promise.race([
+    reader.read(),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new AssistantError("L'assistant s'est interrompu — réessaie.", { kind: "offline" })), 60000); }),
+  ]).finally(() => clearTimeout(t)); };
+  try {
+    for (;;) {
+      const { done, value } = await readNext();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let ev; try { ev = JSON.parse(payload); } catch { continue; }
+        if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") {
+          toolJson += ev.delta.partial_json || "";
+          if (onProgress) onProgress((toolJson.match(/"category"/g) || []).length);
+        } else if (ev.type === "error") {
+          throw new AssistantError(ev.error?.message || "Erreur de l'assistant.", { kind: "server" });
+        }
+      }
+    }
+  } catch (e) {
+    try { reader.cancel(); } catch (_) {}
+    if (e instanceof AssistantError) throw e;
+    throw new AssistantError("Flux interrompu — réessaie.", { kind: "offline" });
+  }
+  let out = null; try { out = toolJson ? JSON.parse(toolJson) : null; } catch { out = null; }
   if (!out || !Array.isArray(out.items)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
   return { intro: out.intro || "", items: out.items };
 }
