@@ -733,14 +733,39 @@ function correctMacros(meal, knownFoods = [], pantry = []) {
 // ── Frigo : catégories + stock ───────────────────────────────────────────────
 // Range un aliment dans une catégorie par mots-clés. « lait d'amande » → boissons
 // (testé AVANT laitiers : Bob ne boit pas de lait de vache), « amandes » → placard.
+// Rangement auto d'un aliment par mots-clés. L'ORDRE compte (1er match gagne) : les
+// exceptions qui collisionnent (haricot vert = légume, pomme de terre = féculent) passent
+// AVANT les règles génériques. C'est un PREMIER TRI, corrigeable et mémorisable par aliment
+// via `cat` (voir itemCat). Élargir ici quand un aliment tombe à tort dans « Autre ».
 function catOf(name) {
   const s = String(name || "").toLowerCase();
-  if (/lait d.amande|lait v[ée]g[ée]tal|boisson|jus|eau|caf[eé]/.test(s)) return "boisson";
-  if (/skyr|tofu|œuf|oeuf|feta|fromage|prot[eé]ine|pois chiche|tempeh|cacahu|seitan|yaourt|lentille|haricot/.test(s)) return "proteine";
-  if (/amande|avoine|flocon|chocolat|riz|p[aâ]te|sucre|huile|farine|noix|granola|miel|c[ée]r[ée]al/.test(s)) return "placard";
-  if (/[ée]pinard|banane|compote|pomme|tomate|salade|courgette|fruit|l[ée]gume|carotte|avocat|poivron/.test(s)) return "frais";
-  if (/lait|yaourt|cr[eè]me|beurre/.test(s)) return "laitier";
+  // Exceptions (mots qui collisionneraient avec une règle plus bas)
+  if (/haricots?.?verts?|pois.?gourmand|mange.?tout|petits?.?pois/.test(s)) return "frais";        // légumes, pas légumineuses sèches
+  if (/pommes?.?de.?terre|patate/.test(s)) return "placard";                                        // féculent
+  // Boissons
+  if (/lait d.amande|lait (de |d.)?(soja|avoine|coco|riz|noisette|v[ée]g)|lait v[ée]g[ée]tal|boisson|jus\b|smoothie|\beau\b|caf[eé]|th[eé]\b|infusion|kombucha|soda|limonade|sirop\b/.test(s)) return "boisson";
+  // Protéines : laitiers protéinés (fromage blanc/skyr/cottage), œufs, tofu & substituts,
+  // légumineuses sèches, poudres, oléagineux "beurre" — choix assumé (app orientée protéines).
+  if (/skyr|fromage.?blanc|cottage|tofu|tempeh|seitan|edamame|prot[eé]ine|poudre prot|\bwhey\b|cas[eé]ine|isolate|all.?in.?one|vegan|spiruline|\bœuf|\boeuf|pois.?chiche|lentille|haricot|f[eè]ve|flageolet|\bsoja\b|steak v[ée]g|galette v[ée]g|nugget|falafel|houmous|hummus|beurre de (cacahu|amande|noisette)|cacahu[eè]te/.test(s)) return "proteine";
+  // Frais & laitiers « gras » (produits laitiers de vache)
+  if (/yaourt|yogourt|ricotta|mozz|mascarpone|comt[eé]|emmental|gruy[eè]re|cheddar|parmesan|feta|fromage|cr[eè]me fra[iî]|\bbeurre\b|petit.?suisse|kiri|babybel|cancoillotte/.test(s)) return "laitier";
+  // Fruits & légumes frais + herbes
+  if (/[ée]pinard|salade|laitue|roquette|m[aâ]che|cresson|tomate|concombre|courgette|aubergine|poivron|brocoli|chou|carotte|navet|radis|betterave|c[eé]leri|fenouil|poireau|oignon|[eé]chalote|\bail\b|champignon|courge|potiron|butternut|asperge|artichaut|endive|blette|panais|avocat|ma[iï]s|l[eé]gume|banane|\bpomme\b|poire|p[eê]che|abricot|prune|raisin|fraise|framboise|myrtille|m[ûu]re|cassis|cerise|kiwi|orange|cl[eé]mentine|mandarine|citron|pamplemousse|mangue|ananas|melon|past[eè]que|figue|grenade|litchi|papaye|\bfruit|compote|basilic|persil|coriandre|menthe|ciboulette|gingembre|herbe/.test(s)) return "frais";
+  // Placard : secs, féculents, épicerie
+  if (/amande|noisette|\bnoix|cajou|pistache|graine|avoine|flocon|m[üu]esli|granola|c[ée]r[ée]al|\briz\b|p[aâ]tes?\b|semoule|boulgour|quinoa|sarrasin|couscous|farine|sucre|miel|sirop|huile|vinaigre|\bsel\b|[ée]pice|chocolat|cacao|conserve|bocal|coulis|\bsauce|bouillon|\bpain\b|biscotte|galette de riz|\bbarre|tortilla|\bwrap|levure/.test(s)) return "placard";
   return "autre";
+}
+// Catégorie effective d'un aliment : override manuel `cat` (mémorisé) sinon auto.
+function itemCat(it) { return (it && it.cat) || catOf(it && it.name); }
+// Mappe un libellé de catégorie (assistant courses / OFF) vers nos clés — null si inconnu.
+function catFromLabel(label) {
+  const s = String(label || "").toLowerCase();
+  if (/prot[eé]ine|l[eé]gumineuse|tofu|œuf|oeuf/.test(s)) return "proteine";
+  if (/fruit|l[eé]gume|verdure/.test(s)) return "frais";
+  if (/laitier|fromage|yaourt/.test(s)) return "laitier";
+  if (/f[eé]culent|c[eé]r[ée]ale|placard|[eé]picerie/.test(s)) return "placard";
+  if (/boisson|jus/.test(s)) return "boisson";
+  return null;
 }
 const CAT_ORDER = ["proteine", "frais", "laitier", "placard", "boisson", "autre"];
 // Métadonnées d'affichage d'une catégorie (lit C → suit le thème).
@@ -1047,5 +1072,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, itemCat, catFromLabel, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
 };

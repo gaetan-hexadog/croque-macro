@@ -534,6 +534,7 @@ export default function PiocheRepas() {
       const q = Math.round((data.qty || 0) * 10) / 10; if (q > 0) extra.qty = q;
       const k = Math.round(data.kcal100 || 0); if (k > 0) extra.kcal100 = k;
       const p = Math.round((data.p100 || 0) * 10) / 10; if (p > 0) extra.p100 = p;
+      if (data.cat) extra.cat = data.cat;
     }
     setPantry((cur) => [{ id: newId("pan"), name: n, out: false, slots: ["pdj", "dej", "diner", "snack"], ...extra }, ...cur].slice(0, 120));
     showToast(`${n} ajouté au frigo`);

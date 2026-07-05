@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ShoppingCart, Loader2, Plus, Check, Share2, Sparkles, AlertCircle } from "lucide-react";
-import { C, cardStyle, buildShoppingPrompt } from "../core.js";
+import { C, cardStyle, buildShoppingPrompt, catFromLabel } from "../core.js";
 import { shoppingAdvice, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { shareOrCopy } from "../lib/share.js";
@@ -29,7 +29,7 @@ export function ShoppingSheet({ pantry = [], overused = [], favorites = [], know
   };
   useEffect(() => { mounted.current = true; run(); return () => { mounted.current = false; }; }, []);
 
-  const add = (it) => { onAddPantry?.(it.name, {}); setAdded((s) => new Set(s).add(it.name)); };
+  const add = (it) => { onAddPantry?.(it.name, { cat: catFromLabel(it.category) || undefined }); setAdded((s) => new Set(s).add(it.name)); };
   const share = async () => {
     if (!data) return;
     const txt = "🛒 Courses pour varier" + (data.intro ? `\n\n${data.intro}` : "") + "\n\n" + data.items.map((i) => `• ${i.name}${i.why ? ` — ${i.why}` : ""}`).join("\n");

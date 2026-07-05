@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ChevronLeft, Share2, Check, ScanLine, Plus, Pencil, Trash2, RotateCcw, ChevronDown, ShoppingCart, Keyboard, Search, Sparkles, Loader2 } from "lucide-react";
-import { C, cardStyle, catOf, catMeta, CAT_ORDER, protStock } from "../core.js";
+import { C, cardStyle, itemCat, catMeta, CAT_ORDER, protStock } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import OffSearch from "../components/OffSearch.jsx";
 import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
@@ -104,7 +104,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   };
 
   const dispo = pantry.filter((x) => !x.out), rupture = pantry.filter((x) => x.out);
-  const groups = CAT_ORDER.map((k) => ({ k, items: dispo.filter((it) => catOf(it.name) === k) })).filter((g) => g.items.length);
+  const groups = CAT_ORDER.map((k) => ({ k, items: dispo.filter((it) => itemCat(it) === k) })).filter((g) => g.items.length);
   const pct = pantry.length ? Math.round((dispo.length / pantry.length) * 100) : 0;
 
 
@@ -233,6 +233,19 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
           </>
         ) : (
           <div className="space-y-2">
+            <div className="rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+              <p className="mb-2 text-xs font-semibold" style={{ color: C.muted }}>Ranger dans…</p>
+              <div className="flex flex-wrap gap-1.5">
+                {CAT_ORDER.map((k) => {
+                  const m = catMeta(k), on = itemCat(action) === k;
+                  return (
+                    <button key={k} onClick={() => { onUpdate && onUpdate(action.id, { cat: k }); closeAction(); }} className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-bold active:scale-95" style={on ? { backgroundColor: m.color, color: "#fff" } : { backgroundColor: `${m.color}1a`, color: m.color, border: `1px solid ${m.color}33` }}>
+                      <span>{m.emoji}</span> {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <button onClick={() => startEdit(action)} className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
               <Pencil size={17} style={{ color: C.weight }} /><span className="text-sm font-bold" style={{ color: C.ink }}>Modifier les valeurs</span>
             </button>
