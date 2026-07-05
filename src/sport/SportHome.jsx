@@ -30,7 +30,7 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
   const weekDone = SESSION_ORDER.filter(doneThisWeek).length;
 
   const trend = strengthTrend(workouts);
-  const trendPct = trend && trend.older ? Math.round(((trend.recent - trend.older) / trend.older) * 100) : null;
+  const trendPct = trend && typeof trend.pct === "number" ? trend.pct : null;
   const pts = strengthSeries(workouts).map((p) => p.value);
   const ass = assiduitySeries(workouts, currentWeek, 6);
   const streak = activeWeekStreak(workouts, currentWeek);

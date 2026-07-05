@@ -494,22 +494,41 @@ function sessionLoad(entry) {
   return n ? sum / n : null;
 }
 
-// Tendance de FORCE sur ~4 semaines : compare charge moyenne récente vs précédente.
-// Renvoie { direction:"up"|"down"|"flat", recent, older } ou null si trop peu de données.
+// Tendance de FORCE — comparaison LIKE-FOR-LIKE : chaque exercice vs lui-même dans le temps.
+// Les séances A/B/C ont des charges très différentes → une moyenne globale (choux+carottes)
+// dirait n'importe quoi selon le mix de séances de la fenêtre. On compare donc exo par exo,
+// et on EXCLUT les semaines de décharge (charges volontairement réduites = dip planifié).
+// Renvoie { direction, pct, recent, older, exercises } ou null si trop peu de données.
 export function strengthTrend(workouts, now = new Date()) {
-  const force = Object.values(workouts || {})
-    .filter((e) => e?.completed && Array.isArray(e?.data))
-    .map((e) => ({ t: new Date(e.date), load: sessionLoad(e) }))
-    .filter((e) => e.load != null)
-    .sort((a, b) => b.t - a.t);
-  if (force.length < 4) return null;
-  const recent = force.filter((e) => daysBetween(e.t, now) <= 14);
-  const older = force.filter((e) => { const d = daysBetween(e.t, now); return d > 14 && d <= 35; });
-  if (!recent.length || !older.length) return null;
-  const avg = (a) => a.reduce((s, x) => s + x.load, 0) / a.length;
-  const r = avg(recent), o = avg(older);
-  const delta = (r - o) / o;
-  return { direction: delta > 0.02 ? "up" : delta < -0.02 ? "down" : "flat", recent: Math.round(r * 10) / 10, older: Math.round(o * 10) / 10 };
+  const byEx = {}; // nom d'exo → [{ t, charge }] (charge = max des séries de la séance)
+  for (const e of Object.values(workouts || {})) {
+    if (!e?.completed || !Array.isArray(e?.data)) continue;
+    if (getCurrentBlock(e.week)?.phase === "Décharge") continue; // hors tendance
+    const t = new Date(e.date);
+    for (const ex of e.data) {
+      let mx = 0;
+      for (const s of ex.sets || []) if (s.weight != null && s.weight > 0) mx = Math.max(mx, s.weight);
+      if (mx > 0) (byEx[ex.exercise] = byEx[ex.exercise] || []).push({ t, charge: mx });
+    }
+  }
+  const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+  const deltas = []; let rSum = 0, oSum = 0, k = 0;
+  for (const name in byEx) {
+    const arr = byEx[name];
+    const recent = arr.filter((x) => daysBetween(x.t, now) <= 21).map((x) => x.charge);
+    const older = arr.filter((x) => { const d = daysBetween(x.t, now); return d > 21 && d <= 56; }).map((x) => x.charge);
+    if (!recent.length || !older.length) continue;
+    const r = avg(recent), o = avg(older);
+    if (o <= 0) continue;
+    deltas.push((r - o) / o); rSum += r; oSum += o; k++;
+  }
+  if (deltas.length < 2) return null; // pas assez d'exercices comparables → pas de tendance
+  const delta = avg(deltas);
+  return {
+    direction: delta > 0.02 ? "up" : delta < -0.02 ? "down" : "flat",
+    pct: Math.round(delta * 100),
+    recent: Math.round((rSum / k) * 10) / 10, older: Math.round((oSum / k) * 10) / 10, exercises: deltas.length,
+  };
 }
 
 // Signal recomposition : croise tendance de force et rythme de perte (kg/sem, négatif=perte).
