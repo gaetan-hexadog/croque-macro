@@ -413,7 +413,7 @@ async function shoppingList(body: any, apiKey: string): Promise<Response> {
   if (!prompt || typeof prompt !== "string") return json(400, { error: "Contexte manquant." });
   let data: any;
   try {
-    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" } }, { timeoutMs: 55000, retries: 1 });
+    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.6, max_tokens: 1300, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [SHOPPING_TOOL], tool_choice: { type: "tool", name: "shopping" } }, { timeoutMs: 95000, retries: 0 });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
