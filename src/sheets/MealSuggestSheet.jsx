@@ -42,6 +42,7 @@ export function MealSuggestSheet({
   const [wish, setWish] = useState("");
   const [chips, setChips] = useState(() => new Set());
   const [indulge, setIndulge] = useState(false); // « je me fais plaisir » → budget = restant du jour entier
+  const [fridgeStrict, setFridgeStrict] = useState(false); // opt-in : ne cuisine QU'AVEC le frigo (sinon frigo = bonus, invention libre)
   const [pantryOpen, setPantryOpen] = useState(false);
   const [localCollapsed, setLocalCollapsed] = useState(true); // R3 actions-first : tes recettes en secondaire (repliées) ; l'action mène l'IA
   const [dirOpen, setDirOpen] = useState(false); // consignes repliées par défaut (elles mangeaient l'écran)
@@ -82,6 +83,7 @@ export function MealSuggestSheet({
   }, [local, chips, excludeTerms]);
 
   const mounted = useRef(true);
+  const seenTitles = useRef([]); // plats déjà proposés dans cette session → passés en excludeTitles pour que « Régénérer » VARIE
   useEffect(() => () => { mounted.current = false; }, []);
   // Dès que l'assistant travaille ou a répondu → on replie « Dans tes recettes » pour mettre ses
   // idées en avant (le toggle reste dispo pour ré-ouvrir le filet de secours).
@@ -98,15 +100,23 @@ export function MealSuggestSheet({
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim(), ov.wishText || ""].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
         mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, sweet, useSoon, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
-        fridgeOnly: !dining, noCook, // « une idée de repas » = cuisine avec ce que j'ai (sauf au resto)
+        // frigo = BONUS par défaut (invention libre) ; strict seulement si Bob l'active (jamais au resto).
+        fridgeOnly: dining ? false : (ov.fridgeStrict ?? fridgeStrict), noCook,
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...excludeTerms],
+        excludeTitles: seenTitles.current, // ne repropose pas ce qu'on a déjà vu → « Régénérer » varie
         dateLabel,
       });
       const { meals } = await askAssistant({ system, prompt, mode });
       if (!mounted.current) return;
-      // Filet diététique : si un plat non conforme passe malgré le prompt, on le RETIRE (pas d'alerte « régénère »).
-      setResults(meals.map((m) => correctMacros(m, knownFoods, pantry)).filter((m) => dietaryWarnings(m).length === 0));
+      // Filet diététique : on RETIRE un plat non conforme s'il en passe un — mais on ne VIDE JAMAIS
+      // l'écran : si le filtre retire tout, on garde les repas bruts (le prompt durci les rend rares).
+      const cleaned = meals.map((m) => correctMacros(m, knownFoods, pantry));
+      const safe = cleaned.filter((m) => dietaryWarnings(m).length === 0);
+      const finalMeals = safe.length ? safe : cleaned;
+      setResults(finalMeals);
+      const newTitles = finalMeals.map((m) => m.title).filter(Boolean);
+      if (newTitles.length) seenTitles.current = [...newTitles, ...seenTitles.current].slice(0, 24);
     } catch (e) {
       if (mounted.current) setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
     } finally { if (mounted.current) setBusy(false); }
@@ -133,7 +143,7 @@ export function MealSuggestSheet({
   const composer = (
     <>
       <div className="flex items-center gap-2 rounded-full py-1 pl-4 pr-1" style={{ backgroundColor: C.bg, border: `1px solid ${C.line}` }}>
-        <input value={wish} onChange={(e) => setWish(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(); }} placeholder="Ton envie, ou ce que tu évites (des pâtes, sans tofu…)" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none" style={{ color: C.ink }} />
+        <input value={wish} onChange={(e) => setWish(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(); }} placeholder="Dis tout : « frais, sans cuisson, <650 kcal, max protéines »" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none" style={{ color: C.ink }} />
         <button onClick={ask} disabled={busy} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-95 disabled:opacity-60" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Demander à l'assistant">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         </button>
@@ -185,6 +195,7 @@ export function MealSuggestSheet({
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <Tog on={indulge} onClick={() => setIndulge((v) => !v)}>😋 Plaisir</Tog>
         <Tog on={chips.has("resto")} onClick={() => toggleChip("resto")}>🍽️ Au resto</Tog>
+        {!chips.has("resto") && <Tog on={fridgeStrict} onClick={() => setFridgeStrict((v) => !v)}>🔒 Frigo strict</Tog>}
         <button onClick={() => setPantryOpen(true)} className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Refrigerator size={13} /> Frigo{dispoN ? ` · ${dispoN}` : ""}</button>
       </div>
 

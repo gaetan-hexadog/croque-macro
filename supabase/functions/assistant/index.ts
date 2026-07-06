@@ -66,7 +66,7 @@ const PROPOSE_TOOL = {
     type: "object",
     properties: {
       meals: {
-        type: "array", description: "Repas proposés.",
+        type: "array", minItems: 1, description: "Repas proposés (au moins un — ne renvoie JAMAIS un tableau vide).",
         items: {
           type: "object",
           properties: {
@@ -429,7 +429,11 @@ async function proposeMeals(body: any, apiKey: string): Promise<Response> {
     // Timeout adapté : semaine (56 repas, 8k tokens) et jour sont longs → marge large, pas de retry (sinon
     // on dépasserait le timeout client de 120 s). Repas simple → court, avec 1 retry si Anthropic surchargé.
     const big = mode === "week" || mode === "day";
-    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.2, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 65000, retries: big ? 0 : 1 });
+    // Température : 0.7 pour l'invention de repas (mode meal) → variété, moins de répétition (0.2 était
+    // quasi déterministe → toujours les mêmes plats). Planif jour/semaine reste plus basse (0.4) pour
+    // rester cohérent sur 8 à 56 repas. (Sonnet 4.6 accepte `temperature` ; Sonnet 5 / Opus la refusent.)
+    const temperature = big ? 0.4 : 0.7;
+    const res = await callClaude(apiKey, { model: MODEL, temperature, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 65000, retries: big ? 0 : 1 });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 400) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
