@@ -137,6 +137,33 @@ export const SESSION_B = {
 export const SESSIONS = { A: SESSION_A, B: SESSION_B, C: SESSION_C };
 export const SESSION_ORDER = ["A", "B", "C"];
 
+// ── Correctif déséquilibre bras (Curl kettlebell) ────────────────────────────
+// Tant que `sport.curlBalanced` n'est pas vrai (défaut), le Curl passe en UNILATÉRAL
+// avec 1 série de plus pour le bras GAUCHE (faible) : séries 1-3 gauche+droite, série 4
+// gauche seule → gauche 4×, droite 3×. Bob coupe le correctif via les réglages Sport
+// quand ses deux bras sont au même niveau (retour au curl bilatéral d'origine).
+// Le « superset bras » est conservé : il ne fait que retirer le repos avant le triceps,
+// donc la 4e série ne pose aucun problème de flux.
+export function applyArmCorrection(session, sport) {
+  if (!session || !session.exercises || sport?.curlBalanced) return session;
+  const exercises = session.exercises.map((ex) => {
+    if (ex.name !== "Curl kettlebell") return ex;
+    return {
+      ...ex,
+      sets: 4,
+      loadLabel: "1×12 kg · unilatéral",
+      tech: "Un bras à la fois (une seule KB de 12 kg), pas les deux ensemble. Commence TOUJOURS par le bras GAUCHE (le faible). Séries 1 à 3 : gauche puis droite, 8 reps chacun. Série 4 : GAUCHE seulement (rattrapage).",
+      tips: [
+        "Correctif déséquilibre : +1 série pour le gauche, le temps qu'il rattrape le droit.",
+        "Toujours démarrer par le gauche (il arrive frais).",
+        "Même charge des deux côtés ; si le gauche cale, baisse les reps du GAUCHE, pas le poids.",
+        "Quand tes deux bras sont au même niveau → coupe le correctif dans les réglages Sport (retour au curl bilatéral).",
+      ],
+    };
+  });
+  return { ...session, exercises };
+}
+
 export const ADAPT_TIPS = [
   { situation: "Je n'ai pas pu finir toutes les séries proprement", response: "Refaire le bloc la semaine suivante au même poids. Pas de honte, c'est prévu. On ne progresse que quand 3 séances complètes passent en forme parfaite." },
   { situation: "J'ai sauté une ou deux séances", response: "Reprendre exactement où on en était, au même poids. Si on a sauté plus d'une semaine entière, redescendre d'un bloc." },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell } from "lucide-react";
 import { C } from "../core.js";
-import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT } from "../lib/sport.js";
+import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT, applyArmCorrection } from "../lib/sport.js";
 import { SportHome } from "./SportHome.jsx";
 import { SessionPreview } from "./SessionPreview.jsx";
 import { ForceWorkout } from "./ForceWorkout.jsx";
@@ -42,9 +42,12 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
 
   // Séance effective : override ponctuel > mode vacances (adaptation auto) > programme.
   const effectiveSession = (sid) => {
-    if (overrides[sid]) return overrides[sid];
-    if (sport.vacationMode) return adaptSession(SESSIONS[sid], { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) });
-    return SESSIONS[sid];
+    const base = overrides[sid]
+      ? overrides[sid]
+      : sport.vacationMode
+        ? adaptSession(SESSIONS[sid], { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) })
+        : SESSIONS[sid];
+    return applyArmCorrection(base, sport);
   };
 
   // Reprise auto d'une séance interrompue (PWA rechargée en arrière-plan).

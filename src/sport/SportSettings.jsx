@@ -1,5 +1,5 @@
 import React from "react";
-import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette } from "lucide-react";
+import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette, Scale } from "lucide-react";
 import { Sheet } from "../components/Sheet.jsx";
 import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT } from "../lib/sport.js";
 import { SPORT_THEMES, sheetTokens, SPORT_FONT } from "./theme.js";
@@ -29,6 +29,8 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   const equipment = { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) };
   const toggleVacation = () => setSport((s) => ({ ...s, vacationMode: !s.vacationMode }));
   const toggleEquip = (id) => setSport((s) => ({ ...s, equipment: { ...DEFAULT_EQUIPMENT, ...(s.equipment || {}), [id]: !({ ...DEFAULT_EQUIPMENT, ...(s.equipment || {}) }[id]) } }));
+  const correctiveOn = sport.curlBalanced !== true; // correctif bras gauche actif par défaut
+  const toggleCorrection = () => setSport((s) => ({ ...s, curlBalanced: !s.curlBalanced }));
   const Lbl = ({ children }) => <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>{children}</p>;
 
   return (
@@ -96,6 +98,13 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
             })}
           </div>
         )}
+      </div>
+
+      <Lbl>Correctif bras (curl)</Lbl>
+      <div className="mb-5">
+        <SignalToggle T={T} icon={Scale} label="Curl : correctif bras gauche"
+          hint={correctiveOn ? "Unilatéral + 1 série de plus à gauche. Coupe-le quand tes 2 bras sont au même niveau." : "Off — curl bilatéral normal (2×12 kg)."}
+          on={correctiveOn} onToggle={toggleCorrection} />
       </div>
 
       <Lbl>Signaux en séance</Lbl>
