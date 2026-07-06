@@ -186,14 +186,14 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
 
         {/* Contexte (aujourd'hui) : nudges coach rapides + accès aux aliments de saison (→ modale) */}
-        {isToday && (
+        {/* {isToday && (
           <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3" style={{ borderColor: C.line }}>
             {coachChips.map((s, i) => (
               <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
             ))}
             <button onClick={() => { nav(() => setSeasonOpen(false)); setSeasonOpen(true); }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.warn}1f`, color: C.warn, border: `1px solid ${C.warn}40` }}><Leaf size={12} /> De saison</button>
           </div>
-        )}
+        )} */}
       </section>
 
       {/* ── Sport : séance / rattrapage / recomposition — condensés en UNE carte ── */}
