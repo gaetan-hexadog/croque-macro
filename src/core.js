@@ -841,6 +841,7 @@ function buildAssistantPrompt({
   userWish, dining,          // mode meal : consigne libre de l'utilisateur + flag « au restaurant »
   reserveKcal,               // mode meal : budget réservé aux repas pas encore décidés (le budget ci-dessus = marge réelle)
   indulge,                   // mode meal : « je me fais plaisir » → budget = restant du jour entier, prévenir de l'impact
+  sweet,                     // mode meal : envie de SUCRÉ / dessert / goûter → propose un dessert, pas un plat salé
   dateLabel, startLabel,
   training = false, workout, trend, // jour de sport (ajuster glucides/protéines) + tendance poids observée
   overused = [],            // [{name,n}] aliments revenus souvent ces derniers jours → varier
@@ -937,10 +938,18 @@ function buildAssistantPrompt({
   } else {
     const n = count || 3;
     const slotTxt = SLOT_LABELS[slot] || "repas";
-    L.push(budget
-      ? `Propose-moi ${n} options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
-      : `Propose-moi ${n} options de ${slotTxt}, équilibrées et protéinées.`);
-    if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
+    if (sweet) {
+      // Envie de sucré / dessert / goûter → on IGNORE le cadrage « plat du créneau » : c'est une gourmandise.
+      L.push(budget
+        ? `Je veux un DESSERT / une gourmandise SUCRÉE (frais et simple), PAS un plat salé ni un repas complet. Propose-moi ${n} idées de dessert ou d'en-cas SUCRÉ qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
+        : `Je veux un DESSERT / une gourmandise SUCRÉE (frais et simple), PAS un plat salé ni un repas complet. Propose-moi ${n} idées de dessert ou d'en-cas SUCRÉ.`);
+      L.push("C'est une GOURMANDISE sucrée : mise sur des bases plaisir raisonnables (fruits, skyr/fromage blanc, yaourt, chocolat noir, compote, oléagineux, miel, avoine…). La protéine peut être plus BASSE que pour un repas — ne force PAS un « dessert protéiné » façon plat ; garde-le simple, gourmand et net côté budget.");
+    } else {
+      L.push(budget
+        ? `Propose-moi ${n} options de ${slotTxt} qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
+        : `Propose-moi ${n} options de ${slotTxt}, équilibrées et protéinées.`);
+      if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
+    }
     if (dining) L.push("CONTEXTE : je mange AU RESTAURANT (pas de cuisine maison) — IGNORE mon frigo. Propose des PLATS À COMMANDER réalistes (pas de recette à cuisiner) ; `ingredients` = composantes principales du plat. Estime les macros de façon CONSERVATRICE (portions resto généreuses, arrondis kcal vers le haut). Dans `note`, glisse 1 conseil de commande (ex. sauce à part, doubler la protéine, pain en moins).");
     if (userWish && userWish.trim()) L.push(`MA DEMANDE (à respecter en PRIORITÉ) : « ${userWish.trim()} ». Respecte-la même si ça sort de mes habitudes, tout en gardant le budget et les règles diététiques.`);
     if (noCook) L.push("SANS CUISSON (RÈGLE DURE) — ce repas doit se préparer À FROID, par simple ASSEMBLAGE (ouvrir, égoutter, mélanger, verser, tartiner). AUCUNE cuisson : ni four, ni poêle, ni casserole, ni micro-ondes, ni eau bouillante, ni cuisson vapeur. N'emploie que des aliments consommables tels quels (crus, en conserve/bocal égouttés, déjà cuits/prêts). Si un aliment nécessite normalement une cuisson (riz, pâtes, lentilles/pois chiches secs, œuf à cuire, pomme de terre…), ne l'utilise QUE s'il est déjà cuit ou en conserve dans mon frigo, sinon EXCLUS-le. Dans les étapes, décris uniquement l'assemblage à froid.");
