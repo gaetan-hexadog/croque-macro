@@ -52,6 +52,7 @@ export default function PiocheRepas() {
   const [workouts, setWorkouts] = useState({});         // séances loggées : { id: { date, sessionId, week, data… } } — table workout_logs
   const [sport, setSport] = useState({});               // config sport (blob app_state.sport) : { startDate, currentWeek, preferences… }
   const [ideaSlot, setIdeaSlot] = useState(null);       // créneau pour lequel l'idée contextuelle est ouverte (écran Jour)
+  const [cookPriority, setCookPriority] = useState(null); // « cuisiner avec ça » : aliments à utiliser en priorité (anti-gaspi)
   const [library, setLibrary] = useState(getLibrarySync); // { presets, recipes } — cache → Supabase
   const [activeDate, setActiveDate] = useState(TODAY);
   const [view, setView] = useState("jour");    // jour | journal | progres
@@ -111,7 +112,16 @@ export default function PiocheRepas() {
   const openReview = useCallback(() => { pushNav(() => setReviewOpen(false)); setReviewOpen(true); }, [pushNav]);
   const openTool = useCallback(() => { pushNav(() => setToolOpen(false)); setToolOpen(true); }, [pushNav]);
   const openFrigo = useCallback(() => { pushNav(() => setFrigoOpen(false)); setFrigoOpen(true); }, [pushNav]);
-  const openIdea = useCallback((slot) => { pushNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [pushNav]);
+  const openIdea = useCallback((slot) => { setCookPriority(null); pushNav(() => setIdeaSlot(null)); setIdeaSlot(slot); }, [pushNav]);
+  // « Cuisiner avec ça » (anti-gaspi) : ouvre l'idée repas sur le créneau du moment, avec les
+  // aliments qui périment à utiliser EN PRIORITÉ. Ferme le frigo au passage.
+  const openIdeaCook = useCallback((names) => {
+    const slot = (() => { const h = new Date().getHours(); return h < 11 ? "pdj" : h < 15 ? "dej" : h < 18 ? "snack" : "diner"; })();
+    setFrigoOpen(false);
+    setCookPriority(Array.isArray(names) && names.length ? names : null);
+    pushNav(() => { setIdeaSlot(null); setCookPriority(null); });
+    setIdeaSlot(slot);
+  }, [pushNav]);
   const openQuickLog = useCallback(() => { pushNav(() => setQuickLogOpen(false)); setQuickLogOpen(true); }, [pushNav]);
   // Depuis la pioche : on bascule vers Photo / Assistant en réutilisant l'entrée d'historique
   // de la pioche (le geste retour ferme alors la nouvelle sheet, pas l'écran derrière).
@@ -526,8 +536,21 @@ export default function PiocheRepas() {
   const addPantry = (name, data) => {
     const n = String(name || "").trim();
     if (!n) return;
-    const dup = pantry.find((x) => x.name.toLowerCase() === n.toLowerCase());
-    if (dup) { showToast(dup.out ? `${dup.name} était en rupture — remis dispo` : `${n} est déjà dans ton frigo`); if (dup.out) togglePantry(dup.id); return; }
+    // Anti-doublon : normalise (accents, casse, quantité entre parenthèses) → même clé = déjà là.
+    const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s*\([^)]*\)\s*$/, "").trim();
+    const key = norm(n);
+    const dup = pantry.find((x) => norm(x.name) === key);
+    if (dup) {
+      if (dup.out) { showToast(`${dup.name} était en rupture — remis dispo`); togglePantry(dup.id); return; }
+      const addQ = Math.round((data?.qty || 0) * 10) / 10;
+      if (addQ > 0 && (!data.unit || data.unit === (dup.unit || "g"))) { // même unité → complète le stock au lieu d'un doublon
+        const u = dup.unit || "g";
+        updatePantry(dup.id, { qty: Math.round(((dup.qty || 0) + addQ) * 10) / 10, ...(data.exp ? { exp: data.exp } : {}) });
+        showToast(`${dup.name} : stock complété (+${addQ} ${u})`);
+        return;
+      }
+      showToast(`${n} est déjà dans ton frigo`); return;
+    }
     const extra = {};
     if (data) {
       if (data.unit) extra.unit = data.unit;
@@ -535,6 +558,7 @@ export default function PiocheRepas() {
       const k = Math.round(data.kcal100 || 0); if (k > 0) extra.kcal100 = k;
       const p = Math.round((data.p100 || 0) * 10) / 10; if (p > 0) extra.p100 = p;
       if (data.cat) extra.cat = data.cat;
+      if (data.exp) extra.exp = data.exp;
     }
     setPantry((cur) => [{ id: newId("pan"), name: n, out: false, slots: ["pdj", "dej", "diner", "snack"], ...extra }, ...cur].slice(0, 120));
     showToast(`${n} ajouté au frigo`);
@@ -863,7 +887,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} favs={favs} onToggleFav={toggleFav} knownFoods={assistKnownFoods} onCoachPrompt={openChatWith} />
+          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} favs={favs} onToggleFav={toggleFav} knownFoods={assistKnownFoods} onCoachPrompt={openChatWith} onCook={openIdeaCook} />
         )}
         {view === "sport" && (
           <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} onCoach={openSportCoach} />
@@ -899,7 +923,7 @@ export default function PiocheRepas() {
         </Sheet>
       )}
       {frigoOpen && (
-        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} onShop={openShop} />
+        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} onShop={openShop} onCook={openIdeaCook} />
       )}
       {quickLogOpen && (
         <QuickLogSheet
@@ -918,7 +942,7 @@ export default function PiocheRepas() {
           dayContext={["pdj", "dej", "diner", "snacks", "extras"].flatMap((k) => picks?.[k] || []).filter(Boolean).map((it) => { const ings = (it.ingredients || []).map((x) => (typeof x === "string" ? x : x && x.name)).filter(Boolean).slice(0, 5); return `${it.name}${ings.length ? ` (${ings.join(", ")})` : ""}`; })}
           recentMeals={(() => { const out = []; for (let i = 1; i <= 4; i++) { const d = days[addDays(activeDate, -i)]; if (!d?.picks) continue; ["pdj", "dej", "diner", "snacks", "extras"].forEach((k) => (d.picks[k] || []).forEach((it) => { if (it && it.name && !it.planned) out.push(it.name); })); } return [...new Set(out)]; })()}
           pantry={pantry} onAddPantry={addPantry} onTogglePantry={togglePantry} onUpdatePantry={updatePantry} onRemovePantry={removePantry}
-          onLog={logSuggestion} onSaveRecipe={saveSuggestion}
+          onLog={logSuggestion} onSaveRecipe={saveSuggestion} priority={cookPriority}
           dateLabel={fmtFull(activeDate)} onClose={navBack} />
       )}
       <Suspense fallback={null}>

@@ -757,6 +757,24 @@ function catOf(name) {
 }
 // Catégorie effective d'un aliment : override manuel `cat` (mémorisé) sinon auto.
 function itemCat(it) { return (it && it.cat) || catOf(it && it.name); }
+
+// Péremption (anti-gaspi) : `exp` = date ISO "YYYY-MM-DD". Jours restants + badge.
+function daysUntil(iso, today = TODAY) {
+  if (!iso) return null;
+  const d = Math.round((parseISO(iso).getTime() - parseISO(today).getTime()) / 86400000);
+  return Number.isFinite(d) ? d : null;
+}
+// { days, txt, col, urgent } ou null. urgent = périmé ou ≤5 j (→ « à consommer vite »).
+function expiryMeta(iso) {
+  const d = daysUntil(iso);
+  if (d == null) return null;
+  if (d < 0) return { days: d, txt: "Périmé", col: C.over, urgent: true };
+  if (d === 0) return { days: 0, txt: "Auj.", col: C.over, urgent: true };
+  if (d <= 2) return { days: d, txt: `J-${d}`, col: C.over, urgent: true };
+  if (d <= 5) return { days: d, txt: `J-${d}`, col: C.warn, urgent: true };
+  if (d <= 14) return { days: d, txt: `${d} j`, col: C.sub, urgent: false };
+  return { days: d, txt: null, col: C.muted, urgent: false }; // lointain → pas de badge
+}
 // Mappe un libellé de catégorie (assistant courses / OFF) vers nos clés — null si inconnu.
 function catFromLabel(label) {
   const s = String(label || "").toLowerCase();
@@ -825,6 +843,7 @@ function buildAssistantPrompt({
   favorites = [],            // noms d'aliments/plats préférés
   knownFoods = [],           // [{name, kcal, p, unit}] macros EXACTES à réutiliser
   have = [],                 // aliments disponibles (frigo/placard)
+  useSoon = [],              // mode meal : aliments qui PÉRIMENT bientôt → à utiliser en priorité (anti-gaspi)
   avoid = [],                // aliments à exclure (pas dispo / pas envie aujourd'hui)
   loggedByDay = [],          // semaine : [{kcal,p}] déjà consommés par jour (index = dayIndex)
   slots = [],                // jour : créneaux RESTANT à planifier (les autres sont déjà loggés)
@@ -951,6 +970,7 @@ function buildAssistantPrompt({
       if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
     }
     if (dining) L.push("CONTEXTE : je mange AU RESTAURANT (pas de cuisine maison) — IGNORE mon frigo. Propose des PLATS À COMMANDER réalistes (pas de recette à cuisiner) ; `ingredients` = composantes principales du plat. Estime les macros de façon CONSERVATRICE (portions resto généreuses, arrondis kcal vers le haut). Dans `note`, glisse 1 conseil de commande (ex. sauce à part, doubler la protéine, pain en moins).");
+    if (useSoon && useSoon.length) L.push(`PRIORITÉ ANTI-GASPI : ces aliments PÉRIMENT bientôt — ${useSoon.slice(0, 8).join(", ")}. Construis les options AUTOUR d'eux (utilise-en le plus possible, en premier), sans dépasser le budget ni enfreindre les règles diététiques.`);
     if (userWish && userWish.trim()) L.push(`MA DEMANDE (à respecter en PRIORITÉ) : « ${userWish.trim()} ». Respecte-la même si ça sort de mes habitudes, tout en gardant le budget et les règles diététiques.`);
     if (noCook) L.push("SANS CUISSON (RÈGLE DURE) — ce repas doit se préparer À FROID, par simple ASSEMBLAGE (ouvrir, égoutter, mélanger, verser, tartiner). AUCUNE cuisson : ni four, ni poêle, ni casserole, ni micro-ondes, ni eau bouillante, ni cuisson vapeur. N'emploie que des aliments consommables tels quels (crus, en conserve/bocal égouttés, déjà cuits/prêts). Si un aliment nécessite normalement une cuisson (riz, pâtes, lentilles/pois chiches secs, œuf à cuire, pomme de terre…), ne l'utilise QUE s'il est déjà cuit ou en conserve dans mon frigo, sinon EXCLUS-le. Dans les étapes, décris uniquement l'assemblage à froid.");
     if (indulge) L.push("Je veux me FAIRE PLAISIR sur ce repas : le budget ci-dessus est mon restant du jour ENTIER (j'assume de rééquilibrer ensuite). Propose quelque chose de satisfaisant dans ce budget, et PRÉVIENS-moi dans la `note` que mes repas suivants devront être plus légers (donne un ordre de grandeur, ex. « dîner ~450 kcal du coup »).");
@@ -1081,5 +1101,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, itemCat, catFromLabel, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, itemCat, catFromLabel, daysUntil, expiryMeta, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, BookOpen, ChevronRight, Refrigerator, ClipboardPaste, Sprout, ArrowDownUp } from "lucide-react";
-import { C, cardStyle, oneEmoji, protStock, seasonalProduce, TODAY } from "../core.js";
+import { C, cardStyle, oneEmoji, protStock, seasonalProduce, expiryMeta, TODAY } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
 import { importRecipeFromUrl, importRecipeFromText } from "../lib/assistant.js";
@@ -42,7 +42,7 @@ const SORTS = [{ k: "recent", l: "Récents" }, { k: "az", l: "A→Z" }, { k: "pr
 
 // « Ma cuisine » — hub condensé (recherche + « + » → Créer/Importer/Scanner, Frigo en carte)
 // + contenu rangé en carrousels par type. Recherche active → liste à plat tous types.
-export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], favs = [], onToggleFav, knownFoods = [], onCoachPrompt }) {
+export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], favs = [], onToggleFav, knownFoods = [], onCoachPrompt, onCook }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("recent");
@@ -93,6 +93,13 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
     .sort((a, b) => sort === "az" ? a.name.localeCompare(b.name) : sort === "prot" ? (b.p || 0) - (a.p || 0) : (usage[b.name]?.last || 0) - (usage[a.name]?.last || 0));
   const empty = meals.length === 0;
   const dispo = pantry.filter((x) => !x.out);
+  // Pont Frigo → Cuisine : recettes faisables avec ce que j'ai (≥60 % des ingrédients au frigo),
+  // + aliments qui périment (priorité anti-gaspi passée à l'assistant).
+  const pantryNames = dispo.map((x) => deburr(x.name)).filter(Boolean);
+  const expiringNames = dispo.filter((x) => expiryMeta(x.exp)?.urgent).map((x) => x.name);
+  const matchFrac = (m) => { const ings = (m.ingredients || []).map((i) => deburr(typeof i === "string" ? i : i.name)).filter(Boolean); if (!ings.length) return 0; return ings.filter((ing) => pantryNames.some((pn) => pn.length > 2 && (ing.includes(pn) || pn.includes(ing)))).length / ings.length; };
+  const doable = meals.filter((m) => (m.kind === "recette" || m.kind === "combo") && matchFrac(m) >= 0.6).map((m) => ({ m, f: matchFrac(m) })).sort((a, b) => b.f - a.f).slice(0, 6).map((x) => x.m);
+  const cookNames = expiringNames.length ? expiringNames : dispo.slice(0, 6).map((x) => x.name);
 
   const ADD = [
     { i: Plus, l: "Créer une recette", d: "Saisir nom, ingrédients, macros", c: C.green, act: () => setAdding(true) },
@@ -112,6 +119,25 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
         </div>
         <button onClick={() => setAddMenu(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Ajouter"><Plus size={20} /></button>
       </div>
+
+      {/* Pont Frigo → Cuisine : « cuisiner avec mon frigo » (anti-gaspi prioritaire) */}
+      {onCook && dispo.length > 0 && !nq && (
+        <div className="rounded-2xl p-3.5" style={cardStyle({ background: `radial-gradient(130% 120% at 0% 0%, ${C.green}1c, transparent 60%), ${C.cardGrad}` })}>
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Refrigerator size={18} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold" style={{ color: C.ink }}>Cuisiner avec mon frigo</span>
+              <span className="block text-[11px]" style={{ color: C.muted }}>{expiringNames.length ? `${expiringNames.length} aliment${expiringNames.length > 1 ? "s" : ""} à finir vite` : `${dispo.length} aliments dispo`}</span>
+            </span>
+            <button onClick={() => onCook(cookNames)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold text-white active:scale-95" style={{ background: `linear-gradient(150deg, ${C.green}, ${C.weight})` }}><Sprout size={13} /> Idées ✨</button>
+          </div>
+          {doable.length > 0 && (
+            <div className="mt-2.5 flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
+              {doable.map((m) => <button key={`${m.kind}-${m.id}`} onClick={() => setDetail(m)} className="w-32 shrink-0 rounded-2xl p-2.5 text-left active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}><span className="text-lg">{oneEmoji(m.emoji) || "🍽️"}</span><p className="mt-1 line-clamp-2 text-xs font-bold leading-tight" style={{ color: C.ink }}>{m.name}</p><p className="mt-1 text-[10px] font-semibold" style={{ color: C.green }}>✓ tu as le nécessaire</p></button>)}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Frigo en carte d'état */}
       {onOpenFrigo && (

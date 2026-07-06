@@ -37,7 +37,7 @@ export function MealSuggestSheet({
   favorites = [], knownFoods = [], localIdeas = [], dayContext = [], recentMeals = [], overused = [],
   directives = [], onRemoveDirective,
   pantry = [], onAddPantry, onTogglePantry, onUpdatePantry, onRemovePantry,
-  onLog, onSaveRecipe, dateLabel, onClose,
+  onLog, onSaveRecipe, dateLabel, onClose, priority = null,
 }) {
   const [wish, setWish] = useState("");
   const [chips, setChips] = useState(() => new Set());
@@ -93,7 +93,7 @@ export function MealSuggestSheet({
       const sweet = chips.has("sucre") || /dessert|go[uû]ter|sucr|gourmand|p[aâ]tiss|g[aâ]teau|cr[eê]pe|glace|biscuit|cookie|gaufre|donut|beignet/.test(deburr(wish));
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, sweet, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
+        mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, sweet, useSoon: priority || [], reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
         fridgeOnly: !dining, noCook, // « une idée de repas » = cuisine avec ce que j'ai (sauf au resto)
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...excludeTerms],
@@ -107,6 +107,10 @@ export function MealSuggestSheet({
       if (mounted.current) setError(e instanceof AssistantError ? e : new AssistantError("Une erreur est survenue."));
     } finally { if (mounted.current) setBusy(false); }
   };
+
+  // « Cuisiner avec ça » : ouvert avec des aliments qui périment → lance direct l'assistant.
+  const autoRan = useRef(false);
+  useEffect(() => { if (!autoRan.current && priority && priority.length) { autoRan.current = true; setWish(`Avec ce qui périme : ${priority.join(", ")}`); ask(); } }, []); // eslint-disable-line
 
   const save = (cust, i) => { onSaveRecipe?.(cust); setSavedKeys((s) => new Set(s).add(i)); };
   const dispoN = pantry.filter((x) => !x.out).length;
