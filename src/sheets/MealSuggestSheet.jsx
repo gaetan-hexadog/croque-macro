@@ -83,6 +83,9 @@ export function MealSuggestSheet({
 
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
+  // Dès que l'assistant travaille ou a répondu → on replie « Dans tes recettes » pour mettre ses
+  // idées en avant (le toggle reste dispo pour ré-ouvrir le filet de secours).
+  useEffect(() => { if (busy || results) setLocalCollapsed(true); }, [busy, results]);
   const ask = async () => {
     // On NE replie PAS les recettes : elles restent le filet de secours si l'assistant
     // rame, ne rend rien ou plante. La zone assistant (loading/résultats/vide) s'empile dessous.
