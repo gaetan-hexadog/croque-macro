@@ -19,7 +19,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ||
 const MODEL = Deno.env.get("ASSISTANT_MODEL") || "claude-sonnet-4-6";
 // Généreux : 3 options de repas avec macros PAR ingrédient (#4) + étapes + variantes dépassaient
 // 1800 → réponse tronquée → tool `propose` invalide → « réponse inattendue ». Marge confortable.
-const MAX_TOKENS: Record<string, number> = { meal: 4000, day: 6000, week: 8000 };
+// meal : 5000 (marge pour le tokenizer de Sonnet 5, ~+30 % vs 4.6, + 3 options riches). day/week sur 4.6.
+const MAX_TOKENS: Record<string, number> = { meal: 5000, day: 6000, week: 8000 };
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
 
 const CORS: Record<string, string> = {
@@ -429,11 +430,25 @@ async function proposeMeals(body: any, apiKey: string): Promise<Response> {
     // Timeout adapté : semaine (56 repas, 8k tokens) et jour sont longs → marge large, pas de retry (sinon
     // on dépasserait le timeout client de 120 s). Repas simple → court, avec 1 retry si Anthropic surchargé.
     const big = mode === "week" || mode === "day";
-    // Température : 0.7 pour l'invention de repas (mode meal) → variété, moins de répétition (0.2 était
-    // quasi déterministe → toujours les mêmes plats). Planif jour/semaine reste plus basse (0.4) pour
-    // rester cohérent sur 8 à 56 repas. (Sonnet 4.6 accepte `temperature` ; Sonnet 5 / Opus la refusent.)
-    const temperature = big ? 0.4 : 0.7;
-    const res = await callClaude(apiKey, { model: MODEL, temperature, max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal, system: sysCache(system), messages: [{ role: "user", content: prompt }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 65000, retries: big ? 0 : 1 });
+    // Modèle PAR-MODE : l'invention d'une idée de repas (mode meal) tourne sur Sonnet 5 (plus créatif,
+    // proche Opus) ; la planif jour/semaine reste sur le MODEL global (Sonnet 4.6) — moins cher/latent
+    // sur 8 à 56 repas. Surchargeable via l'env ASSISTANT_MEAL_MODEL.
+    const model = big ? MODEL : (Deno.env.get("ASSISTANT_MEAL_MODEL") || "claude-sonnet-5");
+    // Sonnet 5 / Opus 4.7-4.8 / Fable 5 REFUSENT `temperature` (400) et ont le thinking adaptatif par
+    // défaut — or `tool_choice` forcé est incompatible avec le thinking. Sur ces modèles : pas de
+    // temperature, thinking désactivé. Sur Sonnet 4.6 (et antérieurs) : temperature pour la variété.
+    const rejectsSampling = /^claude-(sonnet-5|opus-4-[78]|fable-5|mythos-5)/.test(model);
+    const payload: Record<string, unknown> = {
+      model,
+      max_tokens: MAX_TOKENS[mode] || MAX_TOKENS.meal,
+      system: sysCache(system),
+      messages: [{ role: "user", content: prompt }],
+      tools: [PROPOSE_TOOL],
+      tool_choice: { type: "tool", name: "propose" },
+    };
+    if (rejectsSampling) payload.thinking = { type: "disabled" };
+    else payload.temperature = big ? 0.4 : 0.7; // 0.7 = variété sur l'idée de repas ; 0.4 = cohérence sur la planif
+    const res = await callClaude(apiKey, payload, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 65000, retries: big ? 0 : 1 });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 400) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
