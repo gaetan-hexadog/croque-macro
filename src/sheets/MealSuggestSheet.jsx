@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, ChevronDown, Pin, X } from "lucide-react";
-import { C, buildAssistantPrompt, correctMacros, dietaryWarnings } from "../core.js";
+import { C, buildAssistantPrompt, correctMacros, dietaryWarnings, expiryMeta } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
 import MealCard from "../components/MealCard.jsx";
@@ -43,7 +43,7 @@ export function MealSuggestSheet({
   const [chips, setChips] = useState(() => new Set());
   const [indulge, setIndulge] = useState(false); // « je me fais plaisir » → budget = restant du jour entier
   const [pantryOpen, setPantryOpen] = useState(false);
-  const [localCollapsed, setLocalCollapsed] = useState(false); // replié quand l'assistant répond (sinon le retour se planque sous tes recettes)
+  const [localCollapsed, setLocalCollapsed] = useState(true); // R3 actions-first : tes recettes en secondaire (repliées) ; l'action mène l'IA
   const [dirOpen, setDirOpen] = useState(false); // consignes repliées par défaut (elles mangeaient l'écran)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -86,17 +86,18 @@ export function MealSuggestSheet({
   // Dès que l'assistant travaille ou a répondu → on replie « Dans tes recettes » pour mettre ses
   // idées en avant (le toggle reste dispo pour ré-ouvrir le filet de secours).
   useEffect(() => { if (busy || results) setLocalCollapsed(true); }, [busy, results]);
-  const ask = async () => {
-    // On NE replie PAS les recettes : elles restent le filet de secours si l'assistant
-    // rame, ne rend rien ou plante. La zone assistant (loading/résultats/vide) s'empile dessous.
+  // ask(override) : le composer envoie `wish`+chips ; les cartes d'action passent une intention
+  // (ov.sweet / ov.noCook / ov.useSoon / ov.wishText) sans dépendre des chips.
+  const ask = async (ov = {}) => {
     setBusy(true); setError(null);
     try {
-      const dining = chips.has("resto");
-      const noCook = chips.has("rapide") || NOCOOK.test(deburr(wish));
-      const sweet = chips.has("sucre") || /dessert|go[uû]ter|sucr|gourmand|p[aâ]tiss|g[aâ]teau|cr[eê]pe|glace|biscuit|cookie|gaufre|donut|beignet/.test(deburr(wish));
-      const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim()].filter(Boolean).join(" · ");
+      const dining = ov.dining ?? chips.has("resto");
+      const noCook = ov.noCook ?? (chips.has("rapide") || NOCOOK.test(deburr(wish)));
+      const sweet = ov.sweet ?? (chips.has("sucre") || /dessert|go[uû]ter|sucr|gourmand|p[aâ]tiss|g[aâ]teau|cr[eê]pe|glace|biscuit|cookie|gaufre|donut|beignet/.test(deburr(wish)));
+      const useSoon = ov.useSoon ?? (priority || []);
+      const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim(), ov.wishText || ""].filter(Boolean).join(" · ");
       const { system, prompt, mode } = buildAssistantPrompt({
-        mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, sweet, useSoon: priority || [], reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
+        mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, sweet, useSoon, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
         fridgeOnly: !dining, noCook, // « une idée de repas » = cuisine avec ce que j'ai (sauf au resto)
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...excludeTerms],
@@ -117,6 +118,16 @@ export function MealSuggestSheet({
 
   const save = (cust, i) => { onSaveRecipe?.(cust); setSavedKeys((s) => new Set(s).add(i)); };
   const dispoN = pantry.filter((x) => !x.out).length;
+  const expiring = pantry.filter((x) => !x.out && expiryMeta(x.exp)?.urgent).map((x) => x.name);
+  // Carte d'action (R3) : lance l'assistant direct avec une intention.
+  const ActionCard = ({ e, t, d, c, onClick }) => (
+    <button onClick={onClick} disabled={busy} className="rounded-2xl p-3 text-left active:scale-95 disabled:opacity-50" style={{ backgroundColor: `${c}12`, border: `1px solid ${c}33` }}>
+      <span className="text-2xl">{e}</span>
+      <p className="mt-1 text-sm font-bold" style={{ color: C.ink }}>{t}</p>
+      <p className="text-[11px]" style={{ color: C.muted }}>{d}</p>
+    </button>
+  );
+  const Tog = ({ on, onClick, children }) => <button onClick={onClick} className="rounded-full px-2.5 py-1.5 text-xs font-bold active:scale-95" style={on ? { backgroundColor: C.accent, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{children}</button>;
 
   // Composer épinglé en bas de la modale (hors scroll) : saisie libre + ✨.
   const composer = (
@@ -163,13 +174,17 @@ export function MealSuggestSheet({
         </div>
       )}
 
-      {/* Réponse rapide : chips d'envie + Plaisir (toujours visible) + accès Frigo (ouvre la vraie page par-dessus) */}
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        <button onClick={() => setIndulge((v) => !v)} className="rounded-full px-2.5 py-1.5 text-xs font-bold active:scale-95" style={indulge ? { backgroundColor: C.accent, color: "#fff" } : { backgroundColor: `${C.accent}16`, color: C.accent, border: `1px solid ${C.accent}40` }}>😋 Plaisir</button>
-        {WISH_CHIPS.map((c) => {
-          const on = chips.has(c.k);
-          return <button key={c.k} onClick={() => toggleChip(c.k)} className="rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={on ? { backgroundColor: C.accent, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{c.l}</button>;
-        })}
+      {/* Actions-first (R3) : 4 cartes qui lancent l'assistant direct */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <ActionCard e="🧊" t="Avec mon frigo" d={expiring.length ? "finis ce qui périme" : "ce que j'ai"} c={C.green} onClick={() => ask({ useSoon: expiring })} />
+        <ActionCard e="🍰" t="Un truc sucré" d="dessert / goûter" c={C.accent} onClick={() => ask({ sweet: true })} />
+        <ActionCard e="⚡" t="Rapide" d="sans cuisson" c={C.weight} onClick={() => ask({ noCook: true })} />
+        <ActionCard e="🎲" t="Surprends-moi" d="varie mes habitudes" c={C.protein} onClick={() => ask({ wishText: "surprends-moi, quelque chose qui change franchement de mes habitudes" })} />
+      </div>
+      {/* Modificateurs discrets + accès frigo */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <Tog on={indulge} onClick={() => setIndulge((v) => !v)}>😋 Plaisir</Tog>
+        <Tog on={chips.has("resto")} onClick={() => toggleChip("resto")}>🍽️ Au resto</Tog>
         <button onClick={() => setPantryOpen(true)} className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Refrigerator size={13} /> Frigo{dispoN ? ` · ${dispoN}` : ""}</button>
       </div>
 
