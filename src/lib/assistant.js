@@ -145,11 +145,13 @@ export async function askAssistant(payload, opts = {}) {
   if (!isEventStream(res)) {
     let out; try { out = await res.json(); } catch { out = null; }
     if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
-    if (!out || !Array.isArray(out.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+    // Ici : réponse NON streamée mais 200. Avec l'Edge à jour c'est impossible (succès = flux SSE) →
+    // signe que l'Edge Function n'est pas redéployée (ancien keepAlive). Message actionnable.
+    if (!out || !Array.isArray(out.meals)) throw new AssistantError("Serveur assistant pas à jour — redéploie l'Edge Function (supabase functions deploy assistant).", { kind: "server" });
     return out;
   }
-  const input = await drainToolInput(res);
-  if (!input || !Array.isArray(input.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+  const input = await drainToolInput(res); // lève une erreur détaillée si le JSON ne se parse pas
+  if (!input || !Array.isArray(input.meals)) throw new AssistantError("L'assistant n'a proposé aucun repas cette fois — réessaie.", { kind: "server" });
   return { meals: input.meals };
 }
 
