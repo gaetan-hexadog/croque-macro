@@ -448,7 +448,10 @@ async function proposeMeals(body: any, apiKey: string): Promise<Response> {
     };
     if (rejectsSampling) payload.thinking = { type: "disabled" };
     else payload.temperature = big ? 0.4 : 0.7; // 0.7 = variété sur l'idée de repas ; 0.4 = cohérence sur la planif
-    const res = await callClaude(apiKey, payload, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 65000, retries: big ? 0 : 1 });
+    // Timeout : repas 100 s (Sonnet 5 est plus lent que 4.6). retries: 0 — un retry rejouait un 2e
+    // appel plein (65 s + 65 s) qui dépassait le timeout CLIENT (120 s) → « l'assistant a mis trop de
+    // temps ». Un seul appel long < 120 s ; le keepAlive tient la ligne (heartbeat 10 s).
+    const res = await callClaude(apiKey, payload, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 100000, retries: 0 });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 400) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
