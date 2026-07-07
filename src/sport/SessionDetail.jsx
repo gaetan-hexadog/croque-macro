@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Timer, Dumbbell, Flame, Plus, Minus, Trash2, Pencil, Check, X } from "lucide-react";
+import { Timer, Dumbbell, Flame, Plus, Minus, Trash2, Pencil, Check, X, Repeat } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { sportTokens, SPORT_FONT as FONT } from "./theme.js";
 import { SESSIONS, sessionVolume, formatTime } from "../lib/sport.js";
@@ -9,7 +9,7 @@ const copy = (o) => JSON.parse(JSON.stringify(o || []));
 const relDate = (iso) => { try { return new Date(iso).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" }); } catch { return ""; } };
 
 // ── Détail d'une séance passée : consulter, modifier, supprimer (skin hub) ────
-export function SessionDetail({ entry, onBack, onSave, onDelete, sportTheme }) {
+export function SessionDetail({ entry, onBack, onSave, onDelete, onRedo, sportTheme }) {
   const t = sportTokens(sportTheme, "hub");
   const isGym = t.variant === "gym";
   const panel = isGym ? { backgroundColor: t.panel, border: `1px solid ${t.line}` } : cardStyle();
@@ -122,7 +122,12 @@ export function SessionDetail({ entry, onBack, onSave, onDelete, sportTheme }) {
           </div>
         </div>
       ) : (
-        <button onClick={() => setConfirmDel(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${del}12`, color: del, border: `1px solid ${del}33` }}><Trash2 size={16} /> Supprimer la séance</button>
+        <div className="space-y-2">
+          {onRedo && s && !entry.free && (
+            <button onClick={() => onRedo(entry.sessionId)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold active:scale-95" style={{ backgroundColor: `${t.accent}1a`, color: t.accent, border: `1px solid ${t.accent}33` }}><Repeat size={16} /> Refaire cette séance</button>
+          )}
+          <button onClick={() => setConfirmDel(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: `${del}12`, color: del, border: `1px solid ${del}33` }}><Trash2 size={16} /> Supprimer la séance</button>
+        </div>
       )}
     </div>
   );

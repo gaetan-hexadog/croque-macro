@@ -26,6 +26,8 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
   const todayId = SESSION_ORDER.find((sid) => sessionDays[sid] === todayDow);
   const today = todayId ? SESSIONS[todayId] : null;
   const doneThisWeek = (sid) => !!workouts[`W${currentWeek}-${sid}`];
+  // Séance déjà validée cette semaine → on l'ouvre en CONSULTATION (détail), pas en « refaire ».
+  const openSession = (sid) => (doneThisWeek(sid) ? onOpenDetail(workouts[`W${currentWeek}-${sid}`]) : onOpen(sid));
   const todayDone = todayId && doneThisWeek(todayId);
   const weekDone = SESSION_ORDER.filter(doneThisWeek).length;
 
@@ -75,7 +77,7 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
 
             <Coach t={t} isGym={isGym} brief={brief} onCoach={onCoach} />
 
-            <button onClick={() => onOpen(heroSession.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={isGym ? { backgroundColor: t.accent, color: t.onAccent } : { backgroundColor: "#fff", color: t.accent }}>
+            <button onClick={() => openSession(heroSession.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={isGym ? { backgroundColor: t.accent, color: t.onAccent } : { backgroundColor: "#fff", color: t.accent }}>
               {todayDone ? <><Check size={17} /> Refaire / consulter</> : <><Play size={17} /> Démarrer la séance</>}
             </button>
           </div>
@@ -109,7 +111,7 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
               const missed = catchUp.includes(sid);
               const col = done ? t.good : isToday ? t.accent : missed ? t.effort : t.muted;
               return (
-                <button key={sid} onClick={() => onOpen(sid)} className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left active:scale-[0.99]" style={{ backgroundColor: t.surface, border: `1px solid ${isToday ? t.accent + "55" : missed ? t.effort + "55" : t.line}` }}>
+                <button key={sid} onClick={() => openSession(sid)} className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left active:scale-[0.99]" style={{ backgroundColor: t.surface, border: `1px solid ${isToday ? t.accent + "55" : missed ? t.effort + "55" : t.line}` }}>
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${col}1a`, color: col }}>{done ? <Check size={16} /> : missed ? <AlertTriangle size={15} /> : <Dumbbell size={15} />}</span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 text-sm font-bold" style={{ color: t.ink }}>{s.name}

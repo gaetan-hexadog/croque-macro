@@ -129,7 +129,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   }
 
   if (detail) {
-    return <SessionDetail entry={detail} onBack={() => setDetail(null)} onSave={updateWorkout} onDelete={deleteWorkout} sportTheme={sport.sportTheme} />;
+    return <SessionDetail entry={detail} onBack={() => setDetail(null)} onSave={updateWorkout} onDelete={deleteWorkout} onRedo={(sid) => { setDetail(null); startSession(sid); }} sportTheme={sport.sportTheme} />;
   }
 
   return (
