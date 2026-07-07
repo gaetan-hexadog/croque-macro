@@ -19,8 +19,9 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ||
 const MODEL = Deno.env.get("ASSISTANT_MODEL") || "claude-sonnet-4-6";
 // Généreux : 3 options de repas avec macros PAR ingrédient (#4) + étapes + variantes dépassaient
 // 1800 → réponse tronquée → tool `propose` invalide → « réponse inattendue ». Marge confortable.
-// meal : 5000 (marge pour le tokenizer de Sonnet 5, ~+30 % vs 4.6, + 3 options riches). day/week sur 4.6.
-const MAX_TOKENS: Record<string, number> = { meal: 5000, day: 6000, week: 8000 };
+// meal : 8000 — large marge pour 3 options riches sur le tokenizer de Sonnet 5 (~+30 % vs 4.6) ; sans
+// risque de latence puisqu'on STREAME (le JSON tronqué à 5000 cassait le parse → « réponse inattendue »).
+const MAX_TOKENS: Record<string, number> = { meal: 8000, day: 6000, week: 8000 };
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
 
 const CORS: Record<string, string> = {

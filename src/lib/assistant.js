@@ -110,15 +110,22 @@ async function readSSE(res, onEvent) {
 }
 
 // Reconstruit l'input JSON de l'outil forcé (propose / import_recipe / adapt_workout) au fil du flux.
+// Lève une erreur EXPLICITE si le JSON ne se parse pas (troncature vs flux vide) → plus de diagnostic
+// à l'aveugle. Renvoie l'objet input parsé.
 async function drainToolInput(res) {
-  let toolJson = "", inTool = false, result = null;
+  let toolJson = "", inTool = false, result = null, stopReason = null;
   const tryParse = () => { try { result = JSON.parse(toolJson || "{}"); } catch (_) {} };
   await readSSE(res, (ev) => {
     if (ev.type === "content_block_start") { if (ev.content_block?.type === "tool_use") { inTool = true; toolJson = ""; } }
     else if (ev.type === "content_block_delta") { if (ev.delta?.type === "input_json_delta") toolJson += ev.delta.partial_json || ""; }
     else if (ev.type === "content_block_stop") { if (inTool) { tryParse(); inTool = false; } }
+    else if (ev.type === "message_delta") { if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason; }
   });
   if (!result) tryParse(); // flux terminé sans content_block_stop (repli)
+  if (!result) {
+    const why = stopReason === "max_tokens" ? "réponse trop longue (tronquée)" : toolJson ? `JSON incomplet (${toolJson.length} car.)` : "flux vide";
+    throw new AssistantError(`Réponse inattendue de l'assistant — ${why}. Réessaie.`, { kind: "server" });
+  }
   return result;
 }
 
