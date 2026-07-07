@@ -30,7 +30,7 @@ const diffMeta = (ss, hint) => {
 // (theme.js) : "timer" = aplats de couleur · "gym" = noir + néon/cyan. Le récap
 // utilise le skin HUB (chaleureux en hybride).
 // ════════════════════════════════════════════════════════════════════════════
-export function ForceWorkout({ session, week, workouts, sound = true, onCancel, onFinish, resume, sportTheme }) {
+export function ForceWorkout({ session, week, workouts, sound = true, onCancel, onFinish, resume, sportTheme, exerciseCharges = {} }) {
   const ss = sportTokens(sportTheme, "session");
   const hub = sportTokens(sportTheme, "hub");
   const isGym = ss.variant === "gym";
@@ -57,7 +57,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   const step = steps[stepIdx];
 
   const [log, setLog] = useState(() => (isResume ? resume.log : exs.map((ex) => {
-    const presc = getExercisePrescription(ex, week, workouts);
+    const presc = getExercisePrescription(ex, week, workouts, exerciseCharges);
     const targetReps = presc.mode === "reps" ? presc.value : repsNum(ex.reps);
     const charge = presc.mode === "charge" ? presc.value : (ex.load ?? null);
     return {

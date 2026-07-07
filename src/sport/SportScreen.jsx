@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell } from "lucide-react";
 import { C } from "../core.js";
-import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT, applyArmCorrection } from "../lib/sport.js";
+import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT, applyArmCorrection, applyFeedback } from "../lib/sport.js";
 import { SportHome } from "./SportHome.jsx";
 import { SessionPreview } from "./SessionPreview.jsx";
 import { ForceWorkout } from "./ForceWorkout.jsx";
@@ -96,6 +96,8 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
     const id = `W${currentWeek}-${sessionId}`;
     const entry = { id, date: new Date().toISOString(), completed: true, sessionId, week: currentWeek, ...payload };
     setWorkouts((prev) => ({ ...prev, [id]: entry }));
+    // Phase 3 : met à jour la charge mémorisée par exercice (montée/descente selon les retours).
+    setSport((s) => ({ ...s, exerciseCharges: applyFeedback(entry, s, { ...workouts, [id]: entry }) }));
     setActive(null);
     if (showToast) showToast(`Séance ${sessionId} enregistrée 💪`);
   };
@@ -111,7 +113,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
     const session = active.session;
     const props = {
       session, week: currentWeek, sound: sport.soundEnabled !== false, resume: active.resume,
-      sportTheme: sport.sportTheme,
+      sportTheme: sport.sportTheme, exerciseCharges: sport.exerciseCharges || {},
       onCancel: () => setActive(null), onFinish: (d) => finishSession(active.sessionId, d),
     };
     return session.type === "cardio"
@@ -122,7 +124,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   if (preview) {
     return (
       <>
-        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} done={!!workouts[`W${currentWeek}-${preview}`]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
+        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} exerciseCharges={sport.exerciseCharges || {}} done={!!workouts[`W${currentWeek}-${preview}`]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
         <AdaptSheet open={!!adaptFor} onClose={() => setAdaptFor(null)} session={adaptFor ? SESSIONS[adaptFor] : null} equipment={{ ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) }} onUse={useAdapted} showToast={showToast} sportTheme={sport.sportTheme} />
       </>
     );
@@ -140,7 +142,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
         onOpen={openPreview} onOpenDetail={openDetail}
         onManualLog={() => setManualOpen(true)} onCoach={onCoach}
       />
-      <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} onSave={saveManual} showToast={showToast} sportTheme={sport.sportTheme} />
+      <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} exerciseCharges={sport.exerciseCharges || {}} onSave={saveManual} showToast={showToast} sportTheme={sport.sportTheme} />
       <SportSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} sport={sport} setSport={setSport} currentWeek={currentWeek} />
     </>
   );

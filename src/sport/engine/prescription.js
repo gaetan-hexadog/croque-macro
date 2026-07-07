@@ -115,7 +115,7 @@ const FIXED_REP_MIN = 8, FIXED_REP_MAX = 15, FIXED_REP_STEP = 1; // bornes de pr
 
 // Prescription pour la prochaine séance d'un exercice : charge ou reps + raison.
 //   { mode:"charge"|"reps", value, unit, direction:"up"|"down"|"hold", note }
-export function getExercisePrescription(exercise, week, history) {
+export function getExercisePrescription(exercise, week, history, exerciseCharges = {}) {
   const last = history ? lastEntryWithExercise(history, exercise.name) : null;
   const fb = last ? exerciseFeedback(last, exercise.name, exercise) : null;
 
@@ -141,14 +141,73 @@ export function getExercisePrescription(exercise, week, history) {
     return { mode: "reps", value: target, unit: "reps", direction, note, load: exercise.load ?? null, loadLabel: exercise.loadLabel || null };
   }
 
-  // ── Barre (standard/heavy) : progression par CHARGE ──
-  const charge = getChargeForExercise(week, exercise, history);
+  // ── Barre (standard/heavy) : charge = cible MÉMORISÉE (montée/descente réelle, Phase 3) ──
+  const exId = resolveExId(exercise.name) || exercise.name;
+  const prev = lastWeightOf(history, exercise.name);
+  const lane = exerciseCharges?.[exId];
+  const block = getCurrentBlock(week);
+  // Charge = cible mémorisée ; sinon la charge du bloc (PARITÉ). En décharge : allègement
+  // d'affichage seulement (la cible mémorisée n'est jamais écrasée par la décharge).
+  let charge = lane?.kg != null ? lane.kg : programChargeForType(week, exercise.type, exercise);
+  if (lane?.kg != null && block?.phase === "Décharge") charge = Math.max(20, Math.round((charge * 0.9) / 2.5) * 2.5);
   let direction = "hold", note = null;
-  if (fb?.anyHeavy) { direction = "down"; note = "Dernière fois trop lourd — charge prudente (bloc précédent)."; }
-  else if (fb?.allEasy && shouldSuggestProgression(history, week, last?.sessionId)) {
-    direction = "up"; note = "3 séances propres et jugées faciles — prêt pour le palier suivant.";
-  } else if (fb?.allEasy) {
-    note = "Jugé facile : continue à cette charge, le palier monte au prochain bloc.";
-  }
+  if (prev != null && charge > prev) { direction = "up"; note = "Charge en hausse — tu l'as méritée (séances propres)."; }
+  else if (prev != null && charge < prev) { direction = "down"; note = "Charge allégée après une séance difficile — on repart proprement."; }
+  else if (fb?.allEasy) { note = "Jugé facile — encore une séance propre et ça monte."; }
   return { mode: "charge", value: charge, unit: "kg", direction, note };
+}
+
+// Dernière charge réellement travaillée sur un exercice (max des séries loggées). null si jamais.
+function lastWeightOf(history, name) {
+  const entry = lastEntryWithExercise(history, name);
+  const ex = entry?.data?.find((d) => d.exercise === name);
+  if (!ex) return null;
+  const ws = ex.sets.map((s) => s.weight).filter((w) => w != null && w > 0);
+  return ws.length ? Math.max(...ws) : null;
+}
+
+// Nb de séances CONSÉCUTIVES (récentes, hors décharge) où cet exo a été jugé « tout facile ».
+function consecutiveEasy(workouts, name, def) {
+  const entries = Object.values(workouts || {})
+    .filter((e) => e?.completed && e?.data?.some((d) => d.exercise === name))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  let n = 0;
+  for (const e of entries) {
+    if (getCurrentBlock(e.week)?.phase === "Décharge") continue;
+    const f = exerciseFeedback(e, name, def);
+    if (f && f.allEasy) n++; else break;
+  }
+  return n;
+}
+
+// ── Moteur d'adaptation BIDIRECTIONNEL (Phase 3) ─────────────────────────────
+// Après une séance, met à jour la charge mémorisée de chaque exercice à la BARRE
+// (montée ET descente, par exercice). Appelé dans SportScreen.finishSession.
+//   • trop lourd / raté             → −step, borné à la barre (descente immédiate)
+//   • tout facile + N séances propres + ressenti ok + hors décharge → +step (LA vraie montée)
+// KB / poids du corps : progression par reps (getExercisePrescription) — paliers = Phase 4.
+const ADAPT = { barbellUpStreak: 2, step: 2.5, minKg: 20, feelHardThreshold: 2 };
+export function applyFeedback(entry, sport = {}, workouts = {}) {
+  const charges = { ...(sport.exerciseCharges || {}) };
+  if (!entry?.data || getCurrentBlock(entry.week)?.phase === "Décharge") return charges; // pas de MàJ en décharge
+  const now = Date.now();
+  for (const exData of entry.data) {
+    const def = findExerciseDef(exData.exercise);
+    if (!def || (def.type !== "standard" && def.type !== "heavy")) continue; // barre uniquement
+    const exId = resolveExId(exData.exercise) || exData.exercise;
+    const fb = exerciseFeedback(entry, exData.exercise, def);
+    if (!fb) continue;
+    const current = fb.lastWeight ?? charges[exId]?.kg ?? programChargeForType(entry.week, def.type, def);
+    if (current == null) continue;
+    let next = current;
+    if (fb.anyHeavy) {
+      next = Math.max(ADAPT.minKg, current - ADAPT.step);
+    } else if (fb.allEasy) {
+      const streak = consecutiveEasy(workouts, exData.exercise, def);
+      const feelOk = entry.feel == null || entry.feel > ADAPT.feelHardThreshold;
+      if (streak >= ADAPT.barbellUpStreak && feelOk) next = current + ADAPT.step;
+    }
+    if (next !== current || charges[exId]?.kg == null) charges[exId] = { kg: next, updatedAt: now, week: entry.week };
+  }
+  return charges;
 }

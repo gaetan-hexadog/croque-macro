@@ -7,7 +7,7 @@ import { sheetTokens } from "./theme.js";
 const MIN_PRESETS = [20, 30, 45];
 
 // ── Logging manuel a posteriori : séance du programme OU cardio libre (rameur) ─
-export function ManualLogSheet({ open, onClose, currentWeek, workouts, onSave, showToast, sportTheme }) {
+export function ManualLogSheet({ open, onClose, currentWeek, workouts, onSave, showToast, sportTheme, exerciseCharges = {} }) {
   const T = sheetTokens(sportTheme);
   const [type, setType] = useState("session"); // "session" (programme) | "free" (cardio libre)
   const [sid, setSid] = useState("A");
@@ -27,7 +27,7 @@ export function ManualLogSheet({ open, onClose, currentWeek, workouts, onSave, s
       entry = { ...base, cardioData: { distance: "", rowerLevel: "", ropeJumps: "", rpe: "", notes: "Ajout manuel" } };
     } else {
       const data = session.exercises.map((ex) => {
-        const presc = getExercisePrescription(ex, week, workouts);
+        const presc = getExercisePrescription(ex, week, workouts, exerciseCharges);
         const target = presc.mode === "reps" ? presc.value : (typeof ex.reps === "number" ? ex.reps : null);
         const charge = presc.mode === "charge" ? presc.value : (ex.load ?? null);
         return { exercise: ex.name, sets: Array.from({ length: ex.sets }, () => ({ weight: charge, repsTarget: target, repsDone: target, difficulty: "parfait" })) };
