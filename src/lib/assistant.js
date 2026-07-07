@@ -58,17 +58,66 @@ async function postAssistant(body, { signal, timeoutMs = 120000, authMsg } = {})
 }
 
 // payload = { system, prompt, mode }. Renvoie { meals: [...] }.
+// STREAMÉ (outil `propose` forcé, comme les courses) : le repas tourne sur Sonnet 5 (plus lent) et
+// dépassait le mur ~30 s du gateway Supabase en réponse non streamée. On draine le flux SSE et on
+// reconstruit le JSON de l'outil au fil du flux → plus de mur de timeout.
 export async function askAssistant(payload, opts = {}) {
   const res = await postAssistant(payload, { ...opts, authMsg: "Connecte-toi pour utiliser l'assistant." });
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
-  if (!out || !Array.isArray(out.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
-  return out;
+
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  // Pas de flux (erreur applicative en JSON, ou environnement sans streaming) → repli JSON classique.
+  if (!ct.includes("event-stream") || !res.body || !res.body.getReader) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
+    if (!out || !Array.isArray(out.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+    return out;
+  }
+
+  // Flux SSE : on reconstruit le JSON de l'outil `propose` (bloc tool_use), comme le chat/les courses.
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "", inTool = false, toolJson = "", result = null;
+  // Timeout d'INACTIVITÉ (60 s sans le moindre octet) → filet anti-blocage. Tant que le modèle streame,
+  // pas de coupure : c'est ce qui élimine le mur ~30 s du gateway.
+  const readNext = () => { let t; return Promise.race([
+    reader.read(),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new AssistantError("L'assistant s'est interrompu — réessaie.", { kind: "offline" })), 60000); }),
+  ]).finally(() => clearTimeout(t)); };
+  const tryParse = () => { try { const p = JSON.parse(toolJson || "{}"); if (p && Array.isArray(p.meals)) result = p; } catch (_) {} };
+  try {
+    for (;;) {
+      const { done, value } = await readNext();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const p = line.slice(5).trim();
+        if (!p || p === "[DONE]") continue;
+        let ev; try { ev = JSON.parse(p); } catch { continue; }
+        if (ev.type === "content_block_start") { if (ev.content_block?.type === "tool_use") { inTool = true; toolJson = ""; } }
+        else if (ev.type === "content_block_delta") { if (ev.delta?.type === "input_json_delta") toolJson += ev.delta.partial_json || ""; }
+        else if (ev.type === "content_block_stop") { if (inTool) { tryParse(); inTool = false; } }
+        else if (ev.type === "error") throw new AssistantError(ev.error?.message || "Erreur de l'assistant.", { kind: "server" });
+      }
+    }
+  } catch (e) {
+    try { reader.cancel(); } catch (_) {}
+    if (e instanceof AssistantError) throw e;
+    throw new AssistantError("Flux interrompu — réessaie.", { kind: "offline" });
+  }
+  if (!result) tryParse(); // flux terminé sans content_block_stop (repli)
+  if (!result || !Array.isArray(result.meals)) {
+    const detail = toolJson ? `JSON ${toolJson.length} car. — probable troncature` : "aucun contenu reçu du flux";
+    throw new AssistantError(`Réponse inattendue de l'assistant (${detail}).`, { kind: "server" });
+  }
+  return { meals: result.meals };
 }
 
 // Explique une variation de poids (texte libre) à partir des repas/pesées récents.
