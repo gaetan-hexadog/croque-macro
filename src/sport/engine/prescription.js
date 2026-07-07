@@ -2,7 +2,7 @@
 // (Phase 2-3 : charge PAR exercice + montée réelle. Ici : comportement d'origine préservé.)
 import { PROGRESSION } from "../config/programs/fullbody14.v1.js";
 import { getCurrentBlock } from "./blocks.js";
-import { findExerciseDef, lastEntryWithExercise } from "./resolve.js";
+import { findExerciseDef, lastEntryWithExercise, resolveExId } from "./resolve.js";
 import { setFailed, exerciseFeedback } from "./feedback.js";
 
 // Charge programme pour un type d'exercice à une semaine donnée.
@@ -15,12 +15,16 @@ function programChargeForType(week, type, exerciseDef = null) {
   return type === "heavy" ? block.heavy : block.standard;
 }
 
-// Renvoie la charge prudente pour un type, en regardant les 3 dernières séances.
-export function getChargeForExercise(week, type, history = null, exerciseDef = null) {
-  const programCharge = programChargeForType(week, type, exerciseDef);
+// Renvoie la charge prudente d'UN EXERCICE (clé = exId), d'après les 3 dernières séances.
+// Phase 2 : fin du partage par « type » — baisser un exo ne touche plus ses voisins.
+// Parité : historique vide → charge du bloc (identique à avant).
+export function getChargeForExercise(week, exercise, history = null) {
+  const type = exercise?.type;
+  const programCharge = programChargeForType(week, type, exercise);
   if (type === "bodyweight") return null;
   if (!history) return programCharge;
 
+  const exId = resolveExId(exercise.name) || exercise.name;
   const recent = Object.values(history)
     .filter((e) => e?.completed && e?.data)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -28,19 +32,18 @@ export function getChargeForExercise(week, type, history = null, exerciseDef = n
 
   let prudentCharge = programCharge;
   for (const entry of recent) {
-    if (entry.chargeAdjustments && entry.chargeAdjustments[type] != null) {
-      const adj = entry.chargeAdjustments[type];
+    // Ajustement mémorisé PAR EXERCICE (exId) ; fallback sur l'ancien par TYPE (logs d'avant Phase 2).
+    const adj = entry.chargeAdjustments?.[exId] ?? entry.chargeAdjustments?.[type];
+    if (adj != null) {
       if (adj < prudentCharge) prudentCharge = adj;
       break;
     }
-    if (entry.data) {
-      let failedSetsForType = 0;
-      for (const exData of entry.data) {
-        const exDef = findExerciseDef(exData.exercise);
-        if (!exDef || exDef.type !== type) continue;
-        for (const s of exData.sets) if (setFailed(s, exDef)) failedSetsForType++;
-      }
-      if (failedSetsForType >= 2) {
+    // ≥2 séries ratées SUR CET EXERCICE → charge du bloc précédent (pour cet exo seulement).
+    const exData = (entry.data || []).find((d) => (resolveExId(d.exercise) || d.exercise) === exId);
+    if (exData) {
+      let failed = 0;
+      for (const s of exData.sets) if (setFailed(s, exercise)) failed++;
+      if (failed >= 2) {
         const block = getCurrentBlock(week);
         const blockIdx = PROGRESSION.indexOf(block);
         if (blockIdx > 0) {
@@ -139,7 +142,7 @@ export function getExercisePrescription(exercise, week, history) {
   }
 
   // ── Barre (standard/heavy) : progression par CHARGE ──
-  const charge = getChargeForExercise(week, exercise.type, history, exercise);
+  const charge = getChargeForExercise(week, exercise, history);
   let direction = "hold", note = null;
   if (fb?.anyHeavy) { direction = "down"; note = "Dernière fois trop lourd — charge prudente (bloc précédent)."; }
   else if (fb?.allEasy && shouldSuggestProgression(history, week, last?.sessionId)) {

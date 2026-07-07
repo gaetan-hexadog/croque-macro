@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Flame, Target, Repeat, Clock, Timer, Feather, Check } from "lucide-react";
 import { cardStyle } from "../core.js";
 import { sportTokens, SPORT_FONT as FONT } from "./theme.js";
-import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR } from "../lib/sport.js";
+import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR, resolveExId } from "../lib/sport.js";
 import { NumberFlow, PrescriptionBadge, DIFFS } from "./components.jsx";
 import { SessionShell, Stage, CountdownStage, PhaseStage, RestStage, IntervalStage, HoldStage } from "./SessionShell.jsx";
 import { SessionSummary } from "./SessionSummary.jsx";
@@ -105,7 +105,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
     const chargeAdjustments = {};
     log.forEach((e, idx) => {
       const ex = exs[idx];
-      if ((ex.type === "standard" || ex.type === "heavy") && e.charge != null && e.charge < e.presc.value) chargeAdjustments[ex.type] = Math.min(chargeAdjustments[ex.type] ?? Infinity, e.charge);
+      if ((ex.type === "standard" || ex.type === "heavy") && e.charge != null && e.charge < e.presc.value) { const exId = resolveExId(ex.name) || ex.name; chargeAdjustments[exId] = Math.min(chargeAdjustments[exId] ?? Infinity, e.charge); }
     });
     const payload = { data: log.map(({ exercise, sets }) => ({ exercise, sets })), durationSec: elapsed };
     if (Object.keys(chargeAdjustments).length) payload.chargeAdjustments = chargeAdjustments;
