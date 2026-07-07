@@ -18,124 +18,12 @@
 //   difficulty ∈ "trop_lourd" | "parfait" | "trop_facile"  (cf. Phase 1b)
 // ════════════════════════════════════════════════════════════════
 
-// ── Programme : périodisation 14 semaines, 8 blocs ──────────────────────────
-export const PROGRESSION = [
-  { block: 1, weeks: [1, 2], phase: "Adaptation", standard: 20, heavy: 20 },
-  { block: 2, weeks: [3, 4], phase: "Progression", standard: 21, heavy: 23 },
-  { block: 3, weeks: [5, 6], phase: "Progression", standard: 23, heavy: 25 },
-  { block: 4, weeks: [7], phase: "Décharge", standard: 21, heavy: 23 },
-  { block: 5, weeks: [8, 9], phase: "Progression", standard: 24, heavy: 27 },
-  { block: 6, weeks: [10, 11], phase: "Progression", standard: 25, heavy: 28 },
-  { block: 7, weeks: [12, 13], phase: "Progression", standard: 27, heavy: 30 },
-  { block: 8, weeks: [14], phase: "Décharge", standard: 25, heavy: 28 },
-];
-
-export const SESSION_A = {
-  id: "A", name: "Séance A", subtitle: "Force full body",
-  day: "Mardi", dayIndex: 2, duration: "~45 min", type: "force",
-  warmup: { duration: "5 min", seconds: 300, details: "Rameur progressif (allure tranquille → modérée) + 1 min de mobilité épaules/hanches." },
-  cooldown: { duration: "5 min", seconds: 300, details: "Étirements doux : mollets, ischio-jambiers, fessiers, dos, épaules. Tenir chaque position 20-30 sec." },
-  exercises: [
-    {
-      name: "Squat barre", sets: 3, reps: 10, rest: 90, type: "standard",
-      tech: "Barre haute sur les trapèzes. Descendre cuisses parallèles au sol. Genoux dans l'axe des pieds. Dos gainé.",
-      tips: ["Pieds largeur d'épaules, pointes légèrement vers l'extérieur", "Regard droit devant, pas vers le sol", "Si difficulté avec la mobilité de cheville : surélever les talons sur 2 cm"]
-    },
-    {
-      name: "Rowing penché", sets: 3, reps: 10, rest: 90, type: "standard",
-      tech: "Buste à 45°, dos plat, jambes légèrement fléchies. Tirer la barre vers le bas du ventre, coudes près du corps.",
-      tips: ["Garder les abdos contractés pour protéger le bas du dos", "Ne pas tirer avec les biceps, mais avec le dos", "Coudes près du corps, pas écartés"]
-    },
-    {
-      name: "Développé militaire", sets: 3, reps: 10, rest: 90, type: "standard",
-      tech: "Debout, pieds largeur de hanches. Barre devant les épaules. Pousser à la verticale, fessiers serrés, pas de cambrure.",
-      tips: ["Si la barre à vide est trop dure → faire 5 reps au lieu de 10", "Serrer les fessiers pour éviter de cambrer le bas du dos", "La barre doit passer juste devant le visage"]
-    },
-    {
-      name: "SDT roumain", sets: 3, reps: 10, rest: 90, type: "standard",
-      tech: "Jambes quasi tendues. Pousser les fessiers vers l'arrière, dos plat. Descendre la barre le long des cuisses jusqu'à mi-tibia.",
-      tips: ["Ce n'est pas un squat : les genoux bougent peu", "On sent l'étirement à l'arrière des cuisses", "Dos plat absolument"]
-    },
-    {
-      name: "Floor press kettlebells", sets: 3, reps: 10, rest: 90, type: "fixed", load: 12, loadLabel: "2×12 kg",
-      tech: "Allongé sur le dos au sol, une kettlebell dans chaque main. Coudes à ~45°, descendre jusqu'à ce que les triceps touchent le sol, puis pousser. Pecs + triceps.",
-      tips: ["Pas de banc : le sol limite la descente et protège l'épaule", "Pousse fort, serre les pecs en haut", "Quand 3×12 passent facile → vise 3×15, puis ajoute du tempo"]
-    },
-    {
-      name: "Gainage planche", sets: 3, reps: "40s", repsSeconds: 40, rest: 30, type: "bodyweight",
-      tech: "Coudes sous les épaules, corps parfaitement aligné. Fessiers serrés, ventre rentré.",
-      tips: ["Si trop dur 40s → commencer par 20s et augmenter de 5s par semaine", "Respirer pendant le gainage"]
-    },
-  ]
-};
-
-export const SESSION_C = {
-  id: "C", name: "Séance C", subtitle: "Force + cardio",
-  day: "Samedi", dayIndex: 6, duration: "~50 min", type: "force",
-  warmup: { duration: "5 min", seconds: 300, details: "Rameur progressif + mobilité hanches (essentielle avant le soulevé de terre)." },
-  finishCardio: {
-    name: "Finition corde",
-    intervals: { count: 6, work: 60, rest: 30 },
-    tip: "6 blocs de 1 min de corde avec 30s de repos. Ajuste le nombre de blocs selon ton énergie restante.",
-  },
-  cooldown: { duration: "5 min", seconds: 300, details: "Étirements ciblés sur les zones très sollicitées : ischios, fessiers, lombaires, mollets." },
-  exercises: [
-    {
-      name: "Soulevé de terre", sets: 3, reps: 8, rest: 120, type: "heavy",
-      tech: "Pieds largeur hanches. Dos plat, fessiers en arrière. Barre proche des tibias. Pousser le sol avec les pieds.",
-      tips: ["Si tes disques sont petits, surélève la barre à ~22 cm", "La barre reste collée aux jambes", "Ne JAMAIS arrondir le dos"]
-    },
-    {
-      name: "Fentes barre", sets: 3, reps: "8/jambe", rest: 90, type: "standard",
-      tech: "Barre sur les trapèzes. Pas en avant, descendre genou arrière près du sol. Buste droit.",
-      tips: ["Si l'équilibre est difficile → faire des fentes statiques", "Genou avant ne doit pas dépasser le pied", "Pas trop court"]
-    },
-    {
-      name: "Tirage menton", sets: 3, reps: 10, rest: 90, type: "standard",
-      tech: "Prise serrée (mains à 20 cm). Tirer la barre vers le menton, coudes au-dessus des poignets.",
-      tips: ["Si gêne aux épaules → ne pas dépasser le niveau des pectoraux", "Coudes plus haut que les mains", "Mouvement contrôlé"]
-    },
-    {
-      name: "Hip thrust au sol", sets: 3, reps: 12, rest: 90, type: "heavy",
-      tech: "Allongé sur le dos, genoux pliés, barre sur les hanches (avec serviette). Pousser les hanches vers le haut.",
-      tips: ["Mettre une serviette pliée sous la barre", "Pause de 1 sec en haut", "Ne pas hyper-étendre le bas du dos"]
-    },
-    {
-      name: "Curl kettlebell", sets: 3, reps: 8, rest: 60, type: "fixed", load: 12, loadLabel: "2×12 kg", superset: "bras",
-      tech: "Debout, une kettlebell dans chaque main, coudes collés au corps. Les DEUX bras montent en même temps (pas en alternance). Monter en contractant les biceps, descendre lentement.",
-      tips: ["Les deux bras simultanément, pas en alternance", "En superset avec l'extension triceps : enchaîne sans repos, repose après les deux", "Pas d'élan avec le dos", "Objectif 8 reps propres à 2×12 kg ; quand 3×8 passent facile, ajoute des reps"]
-    },
-    {
-      name: "Extension triceps kettlebell", sets: 3, reps: 12, rest: 90, type: "fixed", load: 12, loadLabel: "1×12 kg", superset: "bras",
-      tech: "Une kettlebell tenue à deux mains derrière la tête (ou pompes diamant si gêne). Tendre les bras vers le haut, coudes serrés.",
-      tips: ["Alternative sans gêne d'épaule : pompes diamant 3×max", "Coudes pointés vers l'avant, fixes", "Contrôle la descente"]
-    },
-    {
-      name: "Gainage latéral", sets: 3, reps: "30s/côté", repsSeconds: 30, perSide: true, rest: 30, type: "bodyweight",
-      tech: "Coude sous l'épaule, corps aligné, hanches hautes.",
-      tips: ["Garder la hanche du dessous bien haute", "Si trop dur → poser le genou inférieur au sol"]
-    },
-  ]
-};
-
-export const SESSION_B = {
-  id: "B", name: "Séance B", subtitle: "Cardio intervalles",
-  day: "Jeudi", dayIndex: 4, duration: "~30 min", type: "cardio",
-  intensityGuide: [
-    { phase: "Phase forte (effort)", desc: "Tu peux dire 2-3 mots, mais pas une phrase. Effort soutenu mais soutenable." },
-    { phase: "Phase lente (repos)", desc: "Récupération vraie. Allure où tu pourrais tenir une conversation." },
-    { phase: "Si trop dur", desc: "Les 2 premières semaines, raccourcis à 30s fort / 1min30 lent au rameur." },
-  ],
-  blocks: [
-    { name: "Échauffement", machine: "Corde", duration: 180, format: "continu", intervals: null, tip: "Allure tranquille pour activer le système cardio." },
-    { name: "Bloc rameur", machine: "Rameur", format: "intervalles", intervals: { count: 8, work: 40, rest: 80 }, tip: "Tu dois être essoufflé pendant les 40s." },
-    { name: "Bloc corde", machine: "Corde", format: "intervalles", intervals: { count: 5, work: 60, rest: 30 }, tip: "Rythme soutenu pendant 1 min." },
-    { name: "Retour au calme", machine: "Étirements", duration: 300, format: "continu", intervals: null, tip: "Mollets, ischios, hanches, épaules." },
-  ]
-};
-
-export const SESSIONS = { A: SESSION_A, B: SESSION_B, C: SESSION_C };
-export const SESSION_ORDER = ["A", "B", "C"];
+// ── Données du programme : déplacées en config/ (Phase 0 — refonte). ─────────
+// sport.js les ré-exporte pour que les consommateurs ne changent pas d'import.
+import { PROGRESSION, SESSION_A, SESSION_B, SESSION_C, SESSIONS, SESSION_ORDER } from "../sport/config/programs/fullbody14.v1.js";
+import { ADAPT_TIPS, RULES } from "../sport/config/coachProfile.js";
+import { EQUIPMENT, DEFAULT_EQUIPMENT, ALTS } from "../sport/config/alternatives.js";
+export { PROGRESSION, SESSION_A, SESSION_B, SESSION_C, SESSIONS, SESSION_ORDER, ADAPT_TIPS, RULES, EQUIPMENT, DEFAULT_EQUIPMENT };
 
 // ── Correctif déséquilibre bras (Curl kettlebell) ────────────────────────────
 // Tant que `sport.curlBalanced` n'est pas vrai (défaut), le Curl passe en UNILATÉRAL
@@ -164,23 +52,7 @@ export function applyArmCorrection(session, sport) {
   return { ...session, exercises };
 }
 
-export const ADAPT_TIPS = [
-  { situation: "Je n'ai pas pu finir toutes les séries proprement", response: "Refaire le bloc la semaine suivante au même poids. Pas de honte, c'est prévu. On ne progresse que quand 3 séances complètes passent en forme parfaite." },
-  { situation: "J'ai sauté une ou deux séances", response: "Reprendre exactement où on en était, au même poids. Si on a sauté plus d'une semaine entière, redescendre d'un bloc." },
-  { situation: "Une charge me semble trop facile", response: "Sur la barre, ne pas accélérer (la progression lente protège tendons et articulations). Sur les kettlebells/poids du corps : ajoute des reps, puis monte de palier." },
-  { situation: "Douleur articulaire (pas une simple courbature)", response: "Repos 3-5 jours. Reprise au poids du bloc précédent. Si ça persiste sur le même mouvement, revoir la technique ou consulter un kiné." },
-  { situation: "Le développé militaire à 20 kg est trop dur", response: "Faire 5 reps au lieu de 10, et progresser uniquement quand 3 × 10 passent à 20 kg. Les autres mouvements continuent normalement." },
-  { situation: "Je n'arrive pas à faire 10 min de corde après la séance", response: "La corde après la séance C est un bonus, pas une obligation. Mieux vaut 5 min bien faites que 10 min épuisantes." },
-  { situation: "Je ne maigris pas", response: "L'entraînement crée le déficit musculaire. C'est l'alimentation qui crée le déficit calorique. Vérifier : déficit raisonnable, 1,6-2 g de protéines / kg, sommeil 7-9 h." },
-  { situation: "Après les 14 semaines ?", response: "Repartir sur un nouveau cycle de 14 semaines, en démarrant le bloc 1 aux poids du bloc 7-8. La progression ralentira naturellement." },
-];
-
-export const RULES = [
-  { title: "Technique avant charge", body: "Barre à vide les 2 premières semaines. On augmente le poids seulement quand toutes les séries passent en forme parfaite." },
-  { title: "Nutrition = levier n°1", body: "Déficit raisonnable. Protéines : 1,6-2 g/kg. Objectif réaliste : 0,5-1 % du poids/semaine. (Tout ça se suit dans l'onglet Jour.)" },
-  { title: "Écouter son corps", body: "Vraie fatigue ou douleur articulaire = on saute la séance. Mieux vaut 2 séances qu'une blessure à 6." },
-  { title: "Sommeil & hydratation", body: "7-9 h de sommeil, 2-3 L d'eau/jour. La récupération fait autant que l'entraînement." },
-];
+// ADAPT_TIPS et RULES → config/coachProfile.js (importés/ré-exportés en tête).
 
 // ── Dates (pures, sans dépendance) ──────────────────────────────────────────
 export function daysBetween(d1, d2) {
@@ -667,69 +539,8 @@ export function assiduitySeries(workouts, currentWeek, weeks = 6) {
 // matériel. Les exercices substitués ont un autre nom → ils ne polluent pas la
 // progression du programme principal (clé = nom).
 // ════════════════════════════════════════════════════════════════
-export const EQUIPMENT = [
-  { id: "barre", label: "Barre + disques" },
-  { id: "kettlebells", label: "Kettlebells" },
-  { id: "corde", label: "Corde à sauter" },
-  { id: "rameur", label: "Rameur" },
-  { id: "elastiques", label: "Élastiques" },
-];
-export const DEFAULT_EQUIPMENT = { barre: true, kettlebells: true, corde: true, rameur: true, elastiques: false };
-
-// Alternatives par exercice, de la plus proche (kettlebell/élastique) au poids du
-// corps. `need` = matériel requis pour l'alternative (null = poids du corps, toujours OK).
-const ALTS = {
-  "Squat barre": [
-    { need: "kettlebells", name: "Squat gobelet (kettlebell)", type: "fixed", load: 16, loadLabel: "1×16 kg", tech: "Kettlebell tenue contre la poitrine. Descendre cuisses parallèles, dos droit, talons au sol.", tips: ["Coudes à l'intérieur des genoux en bas", "Pousse dans les talons"] },
-    { need: "elastiques", name: "Squat élastique", type: "bodyweight", tech: "Élastique sous les pieds, passé sur les épaules. Squat contrôlé.", tips: ["Garde la tension de l'élastique en haut", "Descente lente"] },
-    { need: null, name: "Squat poids du corps (tempo 3s)", type: "bodyweight", tech: "Squat lent : 3 s à la descente, 1 s en bas, remontée contrôlée.", tips: ["Sans charge, ralentis pour garder l'intensité", "Bras tendus devant pour l'équilibre"] },
-  ],
-  "Rowing penché": [
-    { need: "kettlebells", name: "Rowing kettlebell (1 bras)", type: "fixed", load: 16, loadLabel: "1×16 kg/bras", perSide: true, tech: "Buste penché, dos plat, une main en appui. Tirer la kettlebell vers la hanche.", tips: ["Coude près du corps", "Ne tourne pas le buste"] },
-    { need: "elastiques", name: "Rowing élastique", type: "bodyweight", tech: "Élastique sous les pieds, buste penché. Tirer vers le bas du ventre.", tips: ["Serre les omoplates", "Garde le dos plat"] },
-    { need: null, name: "Rowing serviette / superman", type: "bodyweight", tech: "À défaut de charge : superman au sol (extensions dos) en tenue 2 s.", tips: ["Contracte le haut du dos", "Mouvement contrôlé"] },
-  ],
-  "Développé militaire": [
-    { need: "kettlebells", name: "Développé épaules kettlebell", type: "fixed", load: 12, loadLabel: "2×12 kg", tech: "Kettlebells aux épaules, pousser à la verticale, fessiers serrés.", tips: ["Pas de cambrure", "Gaine le tronc"] },
-    { need: "elastiques", name: "Développé épaules élastique", type: "bodyweight", tech: "Élastique sous les pieds, pousser au-dessus de la tête.", tips: ["Garde le tronc gainé", "Contrôle la descente"] },
-    { need: null, name: "Pompes piké (épaules)", type: "bodyweight", tech: "En V inversé, fléchir les coudes vers le sol, pousser. Sollicite les épaules.", tips: ["Hanches hautes", "Tête entre les bras"] },
-  ],
-  "SDT roumain": [
-    { need: "kettlebells", name: "Soulevé roumain kettlebell", type: "fixed", load: 16, loadLabel: "2×16 kg", tech: "Jambes quasi tendues, pousser les fessiers en arrière, dos plat.", tips: ["Sens l'étirement des ischios", "Genoux peu fléchis"] },
-    { need: "elastiques", name: "Good morning élastique", type: "bodyweight", tech: "Élastique sur la nuque, hinge des hanches dos plat.", tips: ["Mouvement aux hanches, pas au dos", "Contrôle"] },
-    { need: null, name: "Hip hinge poids du corps", type: "bodyweight", tech: "Mains sur les hanches, hinge lent, dos plat, retour fessiers serrés.", tips: ["Tempo lent pour l'intensité", "Dos neutre"] },
-  ],
-  "Soulevé de terre": [
-    { need: "kettlebells", name: "Soulevé de terre kettlebell", type: "fixed", load: 16, loadLabel: "2×16 kg", tech: "Kettlebells au sol entre les pieds, dos plat, pousser le sol avec les pieds.", tips: ["Barre/poids proche des tibias", "Dos jamais arrondi"] },
-    { need: "elastiques", name: "Soulevé de terre élastique", type: "bodyweight", tech: "Pieds sur l'élastique, mains aux poignées, extension hanches/genoux.", tips: ["Tension maximale en haut", "Dos plat"] },
-    { need: null, name: "Hip hinge unijambe", type: "bodyweight", tech: "Sur une jambe, hinge avant dos plat, l'autre jambe part en arrière.", tips: ["Équilibre : regarde un point fixe", "Hanches carrées"] },
-  ],
-  "Fentes barre": [
-    { need: "kettlebells", name: "Fentes kettlebell", type: "fixed", load: 12, loadLabel: "2×12 kg", reps: "10/jambe", tech: "Une kettlebell dans chaque main, fente avant, genou arrière près du sol.", tips: ["Buste droit", "Genou avant dans l'axe"] },
-    { need: null, name: "Fentes poids du corps", type: "bodyweight", reps: "12/jambe", tech: "Fentes alternées contrôlées, buste droit.", tips: ["Ajoute des reps sans charge", "Descends bien"] },
-  ],
-  "Tirage menton": [
-    { need: "kettlebells", name: "Tirage menton kettlebell", type: "fixed", load: 12, loadLabel: "2×12 kg", tech: "Kettlebells devant les cuisses, tirer vers le menton, coudes hauts.", tips: ["Coudes au-dessus des poignets", "Pas de gêne d'épaule"] },
-    { need: "elastiques", name: "Tirage menton élastique", type: "bodyweight", tech: "Élastique sous les pieds, tirer vers le menton.", tips: ["Coudes hauts", "Contrôle la descente"] },
-    { need: null, name: "Élévations latérales (sans charge)", type: "bodyweight", reps: 15, tech: "Bras tendus, élévations latérales lentes jusqu'à l'horizontale.", tips: ["Tempo lent", "Épaules basses"] },
-  ],
-  "Hip thrust au sol": [
-    { need: "kettlebells", name: "Hip thrust kettlebell", type: "fixed", load: 16, loadLabel: "1×16 kg", tech: "Dos contre un appui, kettlebell sur les hanches, pousser vers le haut.", tips: ["Pause 1 s en haut", "Fessiers serrés"] },
-    { need: null, name: "Hip thrust 1 jambe (poids du corps)", type: "bodyweight", reps: "15/jambe", tech: "Une jambe au sol, pousser les hanches, l'autre jambe tendue.", tips: ["Pause en haut", "N'hyper-étends pas le bas du dos"] },
-  ],
-  "Floor press kettlebells": [
-    { need: "elastiques", name: "Développé couché élastique", type: "bodyweight", tech: "Élastique dans le dos, pousser devant la poitrine.", tips: ["Tension constante", "Coudes à 45°"] },
-    { need: null, name: "Pompes", type: "bodyweight", reps: 12, tech: "Pompes corps gainé, descente jusqu'à frôler le sol.", tips: ["Sur les genoux si besoin", "Coudes à 45°"] },
-  ],
-  "Curl kettlebell": [
-    { need: "elastiques", name: "Curl élastique", type: "bodyweight", tech: "Élastique sous les pieds, curl des biceps contrôlé.", tips: ["Coudes fixes", "Descente lente"] },
-    { need: null, name: "Tractions australiennes (sous une table)", type: "bodyweight", reps: 12, tech: "Sous une table solide, corps gainé, tirer la poitrine vers le bord.", tips: ["Plus tu es horizontal, plus c'est dur", "Serre les omoplates"] },
-  ],
-  "Extension triceps kettlebell": [
-    { need: "elastiques", name: "Extension triceps élastique", type: "bodyweight", tech: "Élastique en hauteur, extension des coudes vers le bas.", tips: ["Coudes fixes", "Contrôle"] },
-    { need: null, name: "Pompes diamant", type: "bodyweight", reps: 12, tech: "Mains rapprochées en losange, pompes ciblant les triceps.", tips: ["Sur les genoux si besoin", "Coudes près du corps"] },
-  ],
-};
+// EQUIPMENT, DEFAULT_EQUIPMENT et ALTS → config/alternatives.js
+// (importés en tête ; EQUIPMENT/DEFAULT_EQUIPMENT ré-exportés).
 
 function exNeed(ex) {
   if (ex.type === "standard" || ex.type === "heavy") return "barre";
