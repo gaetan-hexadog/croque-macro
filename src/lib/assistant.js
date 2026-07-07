@@ -114,7 +114,9 @@ async function readSSE(res, onEvent) {
 // à l'aveugle. Renvoie l'objet input parsé.
 async function drainToolInput(res) {
   let toolJson = "", inTool = false, result = null, stopReason = null;
-  const tryParse = () => { try { result = JSON.parse(toolJson || "{}"); } catch (_) {} };
+  // Garde-fou : n'accepte qu'un objet NON VIDE — sinon un 2e bloc parasite (parse de "{}") écraserait
+  // un bon résultat déjà reconstruit. (L'ancien code courses avait ce garde-fou, perdu à l'unification.)
+  const tryParse = () => { try { const p = JSON.parse(toolJson || "{}"); if (p && typeof p === "object" && Object.keys(p).length) result = p; } catch (_) {} };
   await readSSE(res, (ev) => {
     if (ev.type === "content_block_start") { if (ev.content_block?.type === "tool_use") { inTool = true; toolJson = ""; } }
     else if (ev.type === "content_block_delta") { if (ev.delta?.type === "input_json_delta") toolJson += ev.delta.partial_json || ""; }
@@ -151,7 +153,10 @@ export async function askAssistant(payload, opts = {}) {
     return out;
   }
   const input = await drainToolInput(res); // lève une erreur détaillée si le JSON ne se parse pas
-  if (!input || !Array.isArray(input.meals)) throw new AssistantError("L'assistant n'a proposé aucun repas cette fois — réessaie.", { kind: "server" });
+  if (!input || !Array.isArray(input.meals)) {
+    const got = input && typeof input === "object" ? `reçu {${Object.keys(input).join(", ") || "vide"}}` : `reçu ${typeof input}`;
+    throw new AssistantError(`L'assistant n'a proposé aucun repas cette fois (${got}) — réessaie.`, { kind: "server" });
+  }
   return { meals: input.meals };
 }
 
