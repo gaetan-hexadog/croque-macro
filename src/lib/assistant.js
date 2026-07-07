@@ -57,37 +57,34 @@ async function postAssistant(body, { signal, timeoutMs = 120000, authMsg } = {})
   }
 }
 
-// payload = { system, prompt, mode }. Renvoie { meals: [...] }.
-// STREAMÉ (outil `propose` forcé, comme les courses) : le repas tourne sur Sonnet 5 (plus lent) et
-// dépassait le mur ~30 s du gateway Supabase en réponse non streamée. On draine le flux SSE et on
-// reconstruit le JSON de l'outil au fil du flux → plus de mur de timeout.
-export async function askAssistant(payload, opts = {}) {
-  const res = await postAssistant(payload, { ...opts, authMsg: "Connecte-toi pour utiliser l'assistant." });
+// ════════════════════════════════════════════════════════════════════════════
+//  Transport UNIFIÉ : tous les appels longs sont STREAMÉS (SSE). L'Edge relaie le flux d'Anthropic
+//  → aucun mur ~30 s du gateway Supabase (contrairement à l'ancien keepAlive bufferisé). Le client
+//  draine le flux et reconstruit l'outil forcé (ou le texte). Une erreur applicative arrive, elle,
+//  en JSON classique. Helpers partagés ci-dessous, utilisés par TOUTES les fonctions.
+// ════════════════════════════════════════════════════════════════════════════
+
+// Vrai flux SSE à drainer, vs erreur applicative renvoyée en JSON.
+const isEventStream = (res) => (res.headers.get("content-type") || "").toLowerCase().includes("event-stream") && !!res.body && typeof res.body.getReader === "function";
+
+// Statuts d'erreur communs (identiques pour toutes les entrées de l'assistant).
+function guardStatus(res) {
   if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
   if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
   if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
   if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
+}
 
-  const ct = (res.headers.get("content-type") || "").toLowerCase();
-  // Pas de flux (erreur applicative en JSON, ou environnement sans streaming) → repli JSON classique.
-  if (!ct.includes("event-stream") || !res.body || !res.body.getReader) {
-    let out; try { out = await res.json(); } catch { out = null; }
-    if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
-    if (!out || !Array.isArray(out.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
-    return out;
-  }
-
-  // Flux SSE : on reconstruit le JSON de l'outil `propose` (bloc tool_use), comme le chat/les courses.
+// Boucle SSE générique : onEvent(ev) par événement Anthropic. Timeout d'INACTIVITÉ 60 s (tant que le
+// modèle streame, aucune coupure → c'est ce qui élimine le mur du gateway).
+async function readSSE(res, onEvent) {
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  let buf = "", inTool = false, toolJson = "", result = null;
-  // Timeout d'INACTIVITÉ (60 s sans le moindre octet) → filet anti-blocage. Tant que le modèle streame,
-  // pas de coupure : c'est ce qui élimine le mur ~30 s du gateway.
+  let buf = "";
   const readNext = () => { let t; return Promise.race([
     reader.read(),
     new Promise((_, rej) => { t = setTimeout(() => rej(new AssistantError("L'assistant s'est interrompu — réessaie.", { kind: "offline" })), 60000); }),
   ]).finally(() => clearTimeout(t)); };
-  const tryParse = () => { try { const p = JSON.parse(toolJson || "{}"); if (p && Array.isArray(p.meals)) result = p; } catch (_) {} };
   try {
     for (;;) {
       const { done, value } = await readNext();
@@ -101,10 +98,8 @@ export async function askAssistant(payload, opts = {}) {
         const p = line.slice(5).trim();
         if (!p || p === "[DONE]") continue;
         let ev; try { ev = JSON.parse(p); } catch { continue; }
-        if (ev.type === "content_block_start") { if (ev.content_block?.type === "tool_use") { inTool = true; toolJson = ""; } }
-        else if (ev.type === "content_block_delta") { if (ev.delta?.type === "input_json_delta") toolJson += ev.delta.partial_json || ""; }
-        else if (ev.type === "content_block_stop") { if (inTool) { tryParse(); inTool = false; } }
-        else if (ev.type === "error") throw new AssistantError(ev.error?.message || "Erreur de l'assistant.", { kind: "server" });
+        if (ev.type === "error") throw new AssistantError(ev.error?.message || "Erreur de l'assistant.", { kind: "server" });
+        onEvent(ev);
       }
     }
   } catch (e) {
@@ -112,27 +107,59 @@ export async function askAssistant(payload, opts = {}) {
     if (e instanceof AssistantError) throw e;
     throw new AssistantError("Flux interrompu — réessaie.", { kind: "offline" });
   }
+}
+
+// Reconstruit l'input JSON de l'outil forcé (propose / import_recipe / adapt_workout) au fil du flux.
+async function drainToolInput(res) {
+  let toolJson = "", inTool = false, result = null;
+  const tryParse = () => { try { result = JSON.parse(toolJson || "{}"); } catch (_) {} };
+  await readSSE(res, (ev) => {
+    if (ev.type === "content_block_start") { if (ev.content_block?.type === "tool_use") { inTool = true; toolJson = ""; } }
+    else if (ev.type === "content_block_delta") { if (ev.delta?.type === "input_json_delta") toolJson += ev.delta.partial_json || ""; }
+    else if (ev.type === "content_block_stop") { if (inTool) { tryParse(); inTool = false; } }
+  });
   if (!result) tryParse(); // flux terminé sans content_block_stop (repli)
-  if (!result || !Array.isArray(result.meals)) {
-    const detail = toolJson ? `JSON ${toolJson.length} car. — probable troncature` : "aucun contenu reçu du flux";
-    throw new AssistantError(`Réponse inattendue de l'assistant (${detail}).`, { kind: "server" });
+  return result;
+}
+
+// Draine un flux de TEXTE (pas d'outil) → texte concaténé. onToken(partiel) optionnel.
+async function drainText(res, onToken) {
+  let text = "";
+  await readSSE(res, (ev) => {
+    if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") { text += ev.delta.text || ""; onToken && onToken(text); }
+  });
+  return text.trim();
+}
+
+// payload = { system, prompt, mode }. Renvoie { meals: [...] }. Streamé (outil `propose` forcé).
+export async function askAssistant(payload, opts = {}) {
+  const res = await postAssistant(payload, { ...opts, authMsg: "Connecte-toi pour utiliser l'assistant." });
+  guardStatus(res);
+  if (!isEventStream(res)) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError((out?.error || `Erreur assistant (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
+    if (!out || !Array.isArray(out.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+    return out;
   }
-  return { meals: result.meals };
+  const input = await drainToolInput(res);
+  if (!input || !Array.isArray(input.meals)) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+  return { meals: input.meals };
 }
 
 // Explique une variation de poids (texte libre) à partir des repas/pesées récents.
-// payload = { system, prompt }. Renvoie une string (l'explication).
+// payload = { system, prompt }. Renvoie une string (l'explication). Streamé (texte).
 export async function explainWeight({ system, prompt }, opts = {}) {
   const res = await postAssistant({ explain: true, system, prompt }, { ...opts, authMsg: "Connecte-toi pour l'analyse." });
-  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
-  if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
-  if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
-  if (!out || !out.text) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
-  return out.text;
+  guardStatus(res);
+  if (!isEventStream(res)) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
+    if (!out || !out.text) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+    return out.text;
+  }
+  const text = await drainText(res);
+  if (!text) throw new AssistantError("Réponse vide de l'assistant.", { kind: "server" });
+  return text;
 }
 
 // Chat multi-tours avec contexte d'app. payload = { system, messages:[{role,content}] }.
@@ -197,28 +224,34 @@ export async function chatAssistant({ system, messages }, { onToken, ...opts } =
   return { text: text.trim(), actions };
 }
 
-// Importe une recette depuis une URL (la function fetch la page + extrait + macros).
+// Importe une recette depuis une URL (l'Edge fetch la page + extrait + macros). Streamé (outil import_recipe).
 export async function importRecipeFromUrl(url, opts = {}) {
   const res = await postAssistant({ url }, { ...opts, authMsg: "Connecte-toi pour importer." });
-  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError((out?.error || `Import impossible (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
-  if (!out || !out.recipe) throw new AssistantError("Aucune recette trouvée.", { kind: "server" });
-  return out.recipe;
+  guardStatus(res);
+  if (!isEventStream(res)) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError((out?.error || `Import impossible (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
+    if (!out || !out.recipe) throw new AssistantError("Aucune recette trouvée.", { kind: "server" });
+    return out.recipe;
+  }
+  const recipe = await drainToolInput(res);
+  if (!recipe || !recipe.found) throw new AssistantError("Aucune recette trouvée.", { kind: "server" });
+  return recipe;
 }
 
-// Extrait une recette structurée depuis un TEXTE collé (ingrédients, quantités, macros, étapes).
+// Extrait une recette structurée depuis un TEXTE collé. Streamé (outil import_recipe).
 export async function importRecipeFromText(text, opts = {}) {
   const res = await postAssistant({ recipeText: text }, { ...opts, authMsg: "Connecte-toi pour importer." });
-  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError((out?.error || `Extraction impossible (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
-  if (!out || !out.recipe) throw new AssistantError("Aucune recette trouvée dans ce texte.", { kind: "server" });
-  return out.recipe;
+  guardStatus(res);
+  if (!isEventStream(res)) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError((out?.error || `Extraction impossible (${res.status}).`) + (out?.detail ? ` — ${out.detail}` : ""), { status: res.status, kind: "server" });
+    if (!out || !out.recipe) throw new AssistantError("Aucune recette trouvée dans ce texte.", { kind: "server" });
+    return out.recipe;
+  }
+  const recipe = await drainToolInput(res);
+  if (!recipe || !recipe.found) throw new AssistantError("Aucune recette trouvée dans ce texte.", { kind: "server" });
+  return recipe;
 }
 
 // Conseil COURSES pour varier. STREAMÉ (outil forcé, comme le chat) : on draine le SSE et
@@ -289,16 +322,20 @@ export async function shoppingAdvice({ system, prompt }, { onProgress, ...opts }
   return { intro: result.intro || "", items: result.items };
 }
 
-// Analyse une photo de repas (base64 sans préfixe data:) → repas estimé (meals[0]).
+// Analyse une photo de repas (base64 sans préfixe data:) → repas estimé (meals[0]). Streamé (outil propose).
 export async function analyzePhotoMeal(base64, mediaType = "image/jpeg", opts = {}) {
   const res = await postAssistant({ image: base64, media_type: mediaType }, { ...opts, authMsg: "Connecte-toi pour analyser une photo." });
-  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
-  if (!out || !Array.isArray(out.meals) || !out.meals.length) throw new AssistantError("Aucun repas reconnu.", { kind: "server" });
-  return out.meals[0];
+  guardStatus(res);
+  if (!isEventStream(res)) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError(out?.error || `Analyse impossible (${res.status}).`, { status: res.status, kind: "server" });
+    if (!out || !Array.isArray(out.meals) || !out.meals.length) throw new AssistantError("Aucun repas reconnu.", { kind: "server" });
+    return out.meals[0];
+  }
+  const input = await drainToolInput(res);
+  const meals = input?.meals;
+  if (!Array.isArray(meals) || !meals.length || !meals[0]?.title) throw new AssistantError("Aucun repas reconnu.", { kind: "server" });
+  return meals[0];
 }
 
 // Estime kcal/protéines POUR 100 g/ml d'un aliment brut depuis son NOM (vrac sans
@@ -324,13 +361,14 @@ export async function estimateFoodMacros(name, unit = "g", opts = {}) {
 // Renvoie { exercises:[{name,sets,reps,rest,load,tech,tips}], note }.
 export async function adaptWorkout({ workout, equipment, minutes }, opts = {}) {
   const res = await postAssistant({ workout, equipment, minutes }, { ...opts, authMsg: "Connecte-toi pour utiliser l'assistant." });
-  if (res.status === 404) throw new AssistantError("Assistant non déployé sur cet environnement.", { status: 404, kind: "offline" });
-  if (res.status === 503) throw new AssistantError("Assistant pas encore configuré (secret ANTHROPIC_API_KEY à ajouter dans Supabase).", { status: 503, kind: "unconfigured" });
-  if (res.status === 401) throw new AssistantError("Session expirée — reconnecte-toi.", { status: 401, kind: "auth" });
-  if (res.status === 502 || res.status === 504) throw new AssistantError("L'assistant a mis trop de temps — réessaie (le serveur a coupé la réponse).", { status: res.status, kind: "offline" });
-  let out;
-  try { out = await res.json(); } catch { out = null; }
-  if (!res.ok) throw new AssistantError(out?.error || `Adaptation impossible (${res.status}).`, { status: res.status, kind: "server" });
-  if (!out || !Array.isArray(out.exercises) || !out.exercises.length) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
-  return out;
+  guardStatus(res);
+  if (!isEventStream(res)) {
+    let out; try { out = await res.json(); } catch { out = null; }
+    if (!res.ok) throw new AssistantError(out?.error || `Adaptation impossible (${res.status}).`, { status: res.status, kind: "server" });
+    if (!out || !Array.isArray(out.exercises) || !out.exercises.length) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+    return out;
+  }
+  const input = await drainToolInput(res); // { exercises, note }
+  if (!input || !Array.isArray(input.exercises) || !input.exercises.length) throw new AssistantError("Réponse inattendue de l'assistant.", { kind: "server" });
+  return input;
 }

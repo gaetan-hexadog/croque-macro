@@ -36,27 +36,20 @@ const aHeaders = (apiKey: string) => ({ "content-type": "application/json", "x-a
 // on le marque cacheable (TTL ~5 min) pour couper latence + coût sur les appels répétés.
 const sysCache = (s?: string) => (s ? [{ type: "text", text: s, cache_control: { type: "ephemeral" } }] : undefined);
 
-// Appel Claude ROBUSTE. Deux garde-fous que le fetch nu n'avait pas :
-//  1) timeout UPSTREAM (AbortSignal.timeout) — sans lui, un appel qui « hang » ne rendait la main
-//     qu'au timeout CLIENT (120 s) → l'utilisateur voyait « l'assistant a mis trop de temps ». Ici on
-//     coupe court côté serveur et on renvoie une vraie erreur (retryable) bien avant.
-//  2) 1 retry sur erreur TRANSITOIRE (429/500/502/503/529 = surcharge Anthropic) ou coupure réseau.
-// timeoutMs reste < 120 s (timeout client) pour que le serveur échoue le PREMIER, proprement.
-async function callClaude(apiKey: string, payload: unknown, { timeoutMs = 60000, retries = 1 } = {}): Promise<Response> {
-  let lastErr: unknown = null;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify(payload), signal: AbortSignal.timeout(timeoutMs) });
-      if (res.ok || attempt === retries) return res;                 // OK, ou plus de retry → on rend la réponse (le handler lira le statut)
-      if (![429, 500, 502, 503, 529].includes(res.status)) return res; // erreur non transitoire (4xx client) → inutile de retenter
-      await res.body?.cancel().catch(() => {});                       // transitoire → on jette le corps et on retente
-    } catch (e) {
-      lastErr = e;                                                    // timeout/abort/réseau
-      if (attempt === retries) throw e;
-    }
-    await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));    // petit backoff avant retry
-  }
-  throw lastErr ?? new Error("callClaude: unreachable");
+// ── Transport UNIQUE : streaming SSE ─────────────────────────────────────────
+// TOUT appel Claude long passe par ici. On force `stream: true` et on relaie le flux SSE
+// d'Anthropic TEL QUEL (comme le chat). Le gateway Supabase transmet un flux en continu → PLUS de
+// mur ~30 s (qui coupait les réponses NON streamées, y compris l'ancien keepAlive bufferisé).
+// Erreur upstream (4xx/5xx) → JSON classique (le client la lit). Le client draine le flux et
+// reconstruit l'outil (ou le texte) ; son timeout d'INACTIVITÉ (60 s sans octet) remplace le
+// garde-fou de timeout côté serveur.
+async function streamClaude(apiKey: string, payload: Record<string, unknown>): Promise<Response> {
+  let res: Response;
+  try {
+    res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ ...payload, stream: true }) });
+  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
+  if (!res.ok || !res.body) { const t = await res.text().catch(() => ""); return json(res.status || 502, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
+  return new Response(res.body, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", ...CORS } });
 }
 
 // ── Outils (sortie structurée forcée) ────────────────────────────────────────
@@ -235,22 +228,13 @@ function extractRecipeText(html: string): string {
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
-async function adaptWorkoutAI(body: any, apiKey: string) {
+function adaptWorkoutAI(body: any, apiKey: string): Promise<Response> {
   const w = body.workout, eq = body.equipment || {}, minutes = body.minutes;
-  if (!w || !Array.isArray(w.exercises)) return json(400, { error: "Séance manquante." });
+  if (!w || !Array.isArray(w.exercises)) return Promise.resolve(json(400, { error: "Séance manquante." }));
   const have = Object.entries(eq).filter(([, v]) => v).map(([k]) => k).join(", ") || "aucun matériel (poids du corps)";
   const sys = "Tu es coach de musculation. On te donne une séance prévue et le matériel réellement disponible (et parfois un temps limité). Adapte la séance pour qu'elle reste efficace et sûre AVEC CE MATÉRIEL et dans le temps imparti, en gardant l'esprit de la séance (groupes musculaires, intensité). Pour chaque exercice, donne un mouvement réalisable, ses sets/reps/repos et une technique courte en français. Réponds UNIQUEMENT via l'outil adapt_workout.";
   const prompt = `Séance prévue : ${JSON.stringify(w.exercises)}\nMatériel dispo : ${have}.${minutes ? ` Temps dispo : ${minutes} min.` : ""}`;
-  let data: any;
-  try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 2000, system: sys, messages: [{ role: "user", content: prompt }], tools: [ADAPT_TOOL], tool_choice: { type: "tool", name: "adapt_workout" } }) });
-    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
-    data = await res.json();
-  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
-  const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "adapt_workout");
-  const exercises = tool?.input?.exercises;
-  if (!Array.isArray(exercises)) return json(502, { error: "Réponse inattendue de Claude." });
-  return json(200, { exercises, note: tool.input.note, model: MODEL });
+  return streamClaude(apiKey, { model: MODEL, temperature: 0.2, max_tokens: 2000, system: sys, messages: [{ role: "user", content: prompt }], tools: [ADAPT_TOOL], tool_choice: { type: "tool", name: "adapt_workout" } });
 }
 
 // Règles d'extraction partagées (import URL + texte collé). Gère le RENDEMENT : pièces
@@ -272,63 +256,31 @@ async function importRecipe(url: string, apiKey: string) {
   }
   const content = extractRecipeText(html);
   const sys = "Tu extrais une recette depuis le contenu d'une page web. " + EXTRACT_RULES;
-  let data: any;
-  try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }) });
-    if (!res.ok) return json(502, { error: "Extraction impossible pour le moment." });
-    data = await res.json();
-  } catch { return json(502, { error: "Extraction impossible pour le moment." }); }
-  const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "import_recipe");
-  const recipe = tool?.input;
-  if (!recipe || !recipe.found) return json(422, { error: "Aucune recette identifiable sur cette page." });
-  return json(200, { recipe });
+  // Streamé : le client reconstruit l'outil import_recipe et vérifie `found` (plus de 422 côté serveur).
+  return streamClaude(apiKey, { model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Contenu de la page :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } });
 }
 
 // Même extraction, mais depuis un TEXTE collé par l'utilisateur (pas de fetch de page).
-async function importRecipeText(text: string, apiKey: string) {
+function importRecipeText(text: string, apiKey: string): Promise<Response> {
   const content = String(text || "").slice(0, 20000);
-  if (content.trim().length < 20) return json(400, { error: "Texte trop court pour une recette." });
+  if (content.trim().length < 20) return Promise.resolve(json(400, { error: "Texte trop court pour une recette." }));
   const sys = "Tu extrais une recette depuis un TEXTE collé par l'utilisateur (format libre : liste d'ingrédients + étapes). " + EXTRACT_RULES;
-  let data: any;
-  try {
-    const res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Texte de la recette :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } }) });
-    if (!res.ok) return json(502, { error: "Extraction impossible pour le moment." });
-    data = await res.json();
-  } catch { return json(502, { error: "Extraction impossible pour le moment." }); }
-  const tool = (data.content || []).find((c: any) => c.type === "tool_use" && c.name === "import_recipe");
-  const recipe = tool?.input;
-  if (!recipe || !recipe.found) return json(422, { error: "Aucune recette identifiable dans ce texte." });
-  return json(200, { recipe });
+  return streamClaude(apiKey, { model: MODEL, temperature: 0.1, max_tokens: 1500, system: sys, messages: [{ role: "user", content: `Texte de la recette :\n\n${content}` }], tools: [IMPORT_TOOL], tool_choice: { type: "tool", name: "import_recipe" } });
 }
 
-async function analyzePhoto(dataB64: string, mediaType: string, apiKey: string) {
-  if (typeof dataB64 !== "string" || dataB64.length > 7_000_000) return json(413, { error: "Image absente ou trop volumineuse." });
+function analyzePhoto(dataB64: string, mediaType: string, apiKey: string): Promise<Response> {
+  if (typeof dataB64 !== "string" || dataB64.length > 7_000_000) return Promise.resolve(json(413, { error: "Image absente ou trop volumineuse." }));
   const ok = ["image/jpeg", "image/png", "image/webp"].includes(mediaType);
   const sys = "Tu identifies un repas à partir d'une PHOTO et estimes ses macros de façon réaliste et plutôt conservatrice (arrondis les kcal vers le haut). Réponds en français via l'outil `propose` : UNE seule option = le repas photographié. Donne un titre court, liste les aliments visibles en `ingredients` (avec quantités estimées qty + unit), et les kcal + protéines TOTAUX du plat. Si la photo n'est pas de la nourriture, mets un titre vide et kcal 0.";
-  let resp: Response;
-  try {
-    resp = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify({ model: MODEL, temperature: 0.1, max_tokens: 1200, system: sys, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: ok ? mediaType : "image/jpeg", data: dataB64 } }, { type: "text", text: "Analyse ce repas et estime ses macros (kcal + protéines totales)." }] }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } }) });
-    if (!resp.ok) return json(502, { error: "Analyse impossible pour le moment." });
-  } catch { return json(502, { error: "Analyse impossible pour le moment." }); }
-  const data2 = await resp.json();
-  const tool = (data2.content || []).find((c: any) => c.type === "tool_use" && c.name === "propose");
-  const meals = tool?.input?.meals;
-  if (!Array.isArray(meals) || !meals.length || !meals[0].title) return json(422, { error: "Aucun repas reconnu sur la photo." });
-  return json(200, { meals });
+  // Streamé : le client reconstruit l'outil propose et vérifie meals[0].title (plus de 422 côté serveur).
+  return streamClaude(apiKey, { model: MODEL, temperature: 0.1, max_tokens: 1200, system: sys, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: ok ? mediaType : "image/jpeg", data: dataB64 } }, { type: "text", text: "Analyse ce repas et estime ses macros (kcal + protéines totales)." }] }], tools: [PROPOSE_TOOL], tool_choice: { type: "tool", name: "propose" } });
 }
 
-async function explainText(body: any, apiKey: string) {
+// Explication du poids : TEXTE libre (pas d'outil) → flux SSE de deltas texte, drainé côté client.
+function explainText(body: any, apiKey: string): Promise<Response> {
   const { system, prompt } = body;
-  if (!prompt || typeof prompt !== "string") return json(400, { error: "Prompt manquant." });
-  let data: any;
-  try {
-    const res = await callClaude(apiKey, { model: MODEL, temperature: 0.3, max_tokens: 700, system: sysCache(system), messages: [{ role: "user", content: prompt }] }, { timeoutMs: 45000, retries: 1 });
-    if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
-    data = await res.json();
-  } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
-  const text = (data.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n").trim();
-  if (!text) return json(502, { error: "Réponse vide de Claude." });
-  return json(200, { text, model: MODEL });
+  if (!prompt || typeof prompt !== "string") return Promise.resolve(json(400, { error: "Prompt manquant." }));
+  return streamClaude(apiKey, { model: MODEL, temperature: 0.3, max_tokens: 700, system: sysCache(system), messages: [{ role: "user", content: prompt }] });
 }
 
 // Chat en STREAMING : on relaie le flux SSE d'Anthropic tel quel ; le client parse les
@@ -355,26 +307,6 @@ async function chatText(body: any, apiKey: string) {
   return new Response(res.body, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", ...CORS } });
 }
 
-// Enveloppe un appel long (Claude) dans un flux qui envoie un battement (espace) toutes les 10 s
-// → la connexion reste active, le gateway Supabase ne la coupe pas (~30 s sur réponse non-streamée).
-// Le client lit tout le flux puis JSON.parse (les espaces de heartbeat sont ignorés par JSON.parse).
-// Statut applicatif réel renvoyé dans `__status` (le statut HTTP du flux est toujours 200).
-function keepAlive(work: Promise<Response>): Response {
-  const enc = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(c) {
-      const iv = setInterval(() => { try { c.enqueue(enc.encode(" ")); } catch (_) {} }, 10000);
-      let status = 200; let payload: any = {};
-      try { const r = await work; status = r.status; payload = await r.json().catch(() => ({})); }
-      catch (e) { status = 502; payload = { error: "Erreur interne.", detail: String(e).slice(0, 200) }; }
-      clearInterval(iv);
-      try { c.enqueue(enc.encode("\n" + JSON.stringify({ __status: status, ...payload }))); } catch (_) {}
-      try { c.close(); } catch (_) {}
-    },
-  });
-  return new Response(stream, { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-cache", ...CORS } });
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "Méthode non autorisée." });
@@ -396,16 +328,17 @@ Deno.serve(async (req: Request) => {
   let body: any;
   try { body = await req.json(); } catch { return json(400, { error: "JSON invalide." }); }
 
-  // Appels Claude longs → keepAlive (flux + heartbeat) pour ne pas se faire couper à ~30 s par
-  // le gateway. Le chat est déjà streamé. Auth/clé/JSON (erreurs rapides) restent directes au-dessus.
-  if (body && typeof body.url === "string" && body.url.trim()) return keepAlive(importRecipe(body.url.trim(), apiKey));
-  if (body && typeof body.recipeText === "string" && body.recipeText.trim()) return keepAlive(importRecipeText(body.recipeText, apiKey));
-  if (body && typeof body.image === "string") return keepAlive(analyzePhoto(body.image, body.media_type, apiKey));
-  if (body && body.workout) return keepAlive(adaptWorkoutAI(body, apiKey));
-  if (body && body.explain) return keepAlive(explainText(body, apiKey));
+  // TOUS les appels Claude longs sont STREAMÉS (SSE) → aucun mur 30 s du gateway (plus de keepAlive
+  // bufferisé). Le client draine le flux et reconstruit l'outil/le texte. Auth/clé/JSON (erreurs
+  // rapides) restent directes au-dessus.
+  if (body && typeof body.url === "string" && body.url.trim()) return importRecipe(body.url.trim(), apiKey);
+  if (body && typeof body.recipeText === "string" && body.recipeText.trim()) return importRecipeText(body.recipeText, apiKey);
+  if (body && typeof body.image === "string") return analyzePhoto(body.image, body.media_type, apiKey);
+  if (body && body.workout) return adaptWorkoutAI(body, apiKey);
+  if (body && body.explain) return explainText(body, apiKey);
   if (body && body.shopping) return shoppingStream(body, apiKey);
   if (body && body.chat) return chatText(body, apiKey);
-  return proposeMeals(body, apiKey); // streamé (SSE) → pas de mur 30 s du gateway
+  return proposeMeals(body, apiKey); // idée de repas (Sonnet 5) — streamé aussi
 });
 
 // Conseil courses : liste pour varier. STREAMÉ (outil forcé) → plus de mur de timeout,
@@ -451,12 +384,5 @@ function proposeMeals(body: any, apiKey: string): Promise<Response> {
   // la planif ; 0.2 = déterministe pour adapt/parse (« retire l'oignon » ne doit PAS réinventer le plat).
   if (rejectsSampling) payload.thinking = { type: "disabled" };
   else payload.temperature = mode === "meal" ? 0.7 : big ? 0.4 : 0.2;
-  return (async () => {
-    let res: Response;
-    try {
-      res = await fetch(ANTHROPIC, { method: "POST", headers: aHeaders(apiKey), body: JSON.stringify(payload) });
-    } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
-    if (!res.ok || !res.body) { const t = await res.text().catch(() => ""); return json(res.status || 502, { error: `Claude ${res.status}`, detail: t.slice(0, 300) }); }
-    return new Response(res.body, { status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache", ...CORS } });
-  })();
+  return streamClaude(apiKey, payload);
 }
