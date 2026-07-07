@@ -60,17 +60,22 @@ export function playEndChime() {
 
 // Avertissement d'un tick (3-2-1) : bip (si audio) + petite vibration + voix du chiffre.
 function warnCue(n, audio) { if (audio) playBeep(680, 0.12, { strong: true }); vibrate(55); speak(String(n)); }
-// Fin du décompte : carillon (si audio) + vibration franche + voix « c'est parti ».
-function endCue(audio) { if (audio) playEndChime(); vibrate([90, 50, 130]); speak("c'est parti"); }
+// Voix de fin selon le CONTEXTE de ce qui suit le timer :
+//   go  → on enchaîne sur un effort/une série  → « c'est parti »
+//   rest→ on part en repos/récup               → « repos »
+//   done→ position/bloc/phase terminé          → « terminé »
+const END_VOICE = { go: "c'est parti", rest: "repos", done: "terminé" };
+// Fin du décompte : carillon (si audio) + vibration franche + voix contextuelle.
+function endCue(audio, kind = "go") { if (audio) playEndChime(); vibrate([90, 50, 130]); speak(END_VOICE[kind] || END_VOICE.go); }
 
 // Décompte 1 s. Avertissements à 3-2-1, signal de fin à 0 puis onDone().
 // running=false met en pause. Renvoie [left, setLeft] (setLeft pour +15s/+30s).
-export function useCountdown(seconds, running = true, { sound = true, onDone } = {}) {
+export function useCountdown(seconds, running = true, { sound = true, onDone, end = "go" } = {}) {
   const [left, setLeft] = useState(seconds);
   useEffect(() => { setLeft(seconds); }, [seconds]);
   useEffect(() => {
     if (!running) return;
-    if (left <= 0) { endCue(sound !== false); onDone && onDone(); return; }
+    if (left <= 0) { endCue(sound !== false, end); onDone && onDone(); return; }
     if (left <= 3) warnCue(left, sound !== false);
     const t = setTimeout(() => setLeft((l) => l - 1), 1000);
     return () => clearTimeout(t);

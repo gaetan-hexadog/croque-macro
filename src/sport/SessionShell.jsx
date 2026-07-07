@@ -110,7 +110,7 @@ export function CountdownStage({ ss, seconds = 5, what, sound, onDone }) {
 // ── Échauffement / retour au calme (durée fixe, auto à 0) ────────────────────
 export function PhaseStage({ ss, title, detail, seconds, sound, onDone }) {
   const [running, setRunning] = useState(true);
-  const [left, setLeft] = useCountdown(seconds, running, { sound, onDone });
+  const [left, setLeft] = useCountdown(seconds, running, { sound, onDone, end: "done" });
   const hue = ss.warm;
   return (
     <ColorStage ss={ss} hue={hue} actions={
@@ -156,8 +156,8 @@ export function RestStage({ ss, seconds, sound, nextLabel, next, onReady }) {
 }
 
 // ── Intervalles CARDIO/tabata (repos chronométré, auto-enchaîné) ─────────────
-function Segment({ ss, seconds, label, hint, sound, onEnd, hue }) {
-  const [left] = useCountdown(seconds, true, { sound, onDone: onEnd });
+function Segment({ ss, seconds, label, hint, sound, onEnd, hue, end }) {
+  const [left] = useCountdown(seconds, true, { sound, onDone: onEnd, end });
   return (
     <>
       <p className="text-sm font-extrabold uppercase tracking-[0.2em]" style={{ color: labelColor(ss, hue) }}>{label}</p>
@@ -183,7 +183,7 @@ function PrepSeg({ ss, seconds, side, what, sound, onDone }) {
   );
 }
 function HoldSeg({ ss, seconds, side, setIdx, totalSets, sound, onDone }) {
-  const [left] = useCountdown(seconds, true, { sound, onDone });
+  const [left] = useCountdown(seconds, true, { sound, onDone, end: "done" });
   const hue = ss.effort;
   return (
     <ColorStage ss={ss} hue={hue} actions={
@@ -228,7 +228,7 @@ export function IntervalStage({ ss, count, work, rest, machine, label, sound, on
     <ColorStage ss={ss} hue={hue} actions={
       <button onClick={onDone} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={ss.variant === "gym" ? { backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", border: `1px solid ${hue}44` } : { backgroundColor: "rgba(255,255,255,0.18)", color: "#fff" }}><SkipForward size={16} /> Passer le bloc</button>
     }>
-      <Segment key={`${idx}-${phase}`} ss={ss} hue={hue} seconds={effort ? work : rest} label={`${effort ? "Effort" : "Récup"} · ${idx + 1}/${count}`} hint={`${label} · ${machine}`} sound={sound} onEnd={onEnd} />
+      <Segment key={`${idx}-${phase}`} ss={ss} hue={hue} seconds={effort ? work : rest} label={`${effort ? "Effort" : "Récup"} · ${idx + 1}/${count}`} hint={`${label} · ${machine}`} sound={sound} onEnd={onEnd} end={effort ? (rest > 0 ? "rest" : (idx + 1 < count ? "go" : "done")) : (idx + 1 < count ? "go" : "done")} />
     </ColorStage>
   );
 }
