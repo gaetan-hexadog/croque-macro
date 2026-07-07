@@ -430,13 +430,14 @@ async function proposeMeals(body: any, apiKey: string): Promise<Response> {
     // Timeout adapté : semaine (56 repas, 8k tokens) et jour sont longs → marge large, pas de retry (sinon
     // on dépasserait le timeout client de 120 s). Repas simple → court, avec 1 retry si Anthropic surchargé.
     const big = mode === "week" || mode === "day";
-    // Modèle PAR-MODE : l'invention d'une idée de repas (mode meal) tourne sur Sonnet 5 (plus créatif,
-    // proche Opus) ; la planif jour/semaine reste sur le MODEL global (Sonnet 4.6) — moins cher/latent
-    // sur 8 à 56 repas. Surchargeable via l'env ASSISTANT_MEAL_MODEL.
-    const model = big ? MODEL : (Deno.env.get("ASSISTANT_MEAL_MODEL") || "claude-sonnet-5");
+    // Modèle PAR-MODE : SEUL le mode "meal" (invention d'une idée de repas) tourne sur Sonnet 5
+    // (créatif). day/week/adapt/parse restent sur le MODEL global (Sonnet 4.6) : rapide et mieux
+    // adapté aux tâches déterministes (adapter/recaler une recette, estimer des macros).
+    // Surchargeable via l'env ASSISTANT_MEAL_MODEL.
+    const model = mode === "meal" ? (Deno.env.get("ASSISTANT_MEAL_MODEL") || "claude-sonnet-5") : MODEL;
     // Sonnet 5 / Opus 4.7-4.8 / Fable 5 REFUSENT `temperature` (400) et ont le thinking adaptatif par
     // défaut — or `tool_choice` forcé est incompatible avec le thinking. Sur ces modèles : pas de
-    // temperature, thinking désactivé. Sur Sonnet 4.6 (et antérieurs) : temperature pour la variété.
+    // temperature, thinking désactivé. Sur Sonnet 4.6 (et antérieurs) : temperature.
     const rejectsSampling = /^claude-(sonnet-5|opus-4-[78]|fable-5|mythos-5)/.test(model);
     const payload: Record<string, unknown> = {
       model,
@@ -446,12 +447,17 @@ async function proposeMeals(body: any, apiKey: string): Promise<Response> {
       tools: [PROPOSE_TOOL],
       tool_choice: { type: "tool", name: "propose" },
     };
+    // Température (modèles qui l'acceptent) : 0.7 = variété sur l'idée de repas ; 0.4 = cohérence sur
+    // la planif ; 0.2 = déterministe pour adapt/parse (« retire l'oignon » ne doit PAS réinventer le plat).
     if (rejectsSampling) payload.thinking = { type: "disabled" };
-    else payload.temperature = big ? 0.4 : 0.7; // 0.7 = variété sur l'idée de repas ; 0.4 = cohérence sur la planif
-    // Timeout : repas 100 s (Sonnet 5 est plus lent que 4.6). retries: 0 — un retry rejouait un 2e
-    // appel plein (65 s + 65 s) qui dépassait le timeout CLIENT (120 s) → « l'assistant a mis trop de
-    // temps ». Un seul appel long < 120 s ; le keepAlive tient la ligne (heartbeat 10 s).
-    const res = await callClaude(apiKey, payload, { timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : 100000, retries: 0 });
+    else payload.temperature = mode === "meal" ? 0.7 : big ? 0.4 : 0.2;
+    // Timeout : meal 100 s (Sonnet 5 plus lent) ; adapt/parse 65 s (4.6, rapides). retries : 0 sur les
+    // appels longs (meal/day/week) — un retry rejouerait un 2e appel plein (dépasse le timeout CLIENT
+    // 120 s → « trop de temps »). adapt/parse (courts) gardent 1 retry (rapide, reste < 120 s).
+    const res = await callClaude(apiKey, payload, {
+      timeoutMs: mode === "week" ? 115000 : mode === "day" ? 95000 : mode === "meal" ? 100000 : 65000,
+      retries: (mode === "meal" || big) ? 0 : 1,
+    });
     if (!res.ok) { const t = await res.text().catch(() => ""); return json(res.status, { error: `Claude ${res.status}`, detail: t.slice(0, 400) }); }
     data = await res.json();
   } catch (e) { return json(502, { error: "Appel Claude impossible.", detail: String(e).slice(0, 200) }); }
