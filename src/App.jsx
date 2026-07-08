@@ -859,10 +859,7 @@ export default function PiocheRepas() {
                   </>
                 )}
                 {view === "jour" && !onBack && (
-                  <>
-                    <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><ScanLine size={18} /></button>
-                    <button onClick={() => openPicker(suggestSlotNow())} aria-label="Ajouter un repas" className="flex h-10 w-10 items-center justify-center rounded-full text-white active:scale-90" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})` }}><Plus size={18} /></button>
-                  </>
+                  <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><ScanLine size={18} /></button>
                 )}
                 {!onBack && view !== "sport" && view !== "cuisine" && (
                   <button onClick={openChat} aria-label="Coach — discuter" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Sprout size={18} /></button>
