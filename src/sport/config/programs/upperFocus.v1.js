@@ -2,7 +2,7 @@
 // upperFocus.v1 — programme ORIENTÉ HAUT DU CORPS (perte de gras + renforcement).
 // 3 séances/sem : A (poussée) + C (tirage) → chaque muscle du haut ~2×/sem ;
 // bas du corps en MAINTIEN LOURD (squat/soulevé 2×5) ; B = cardio conservé.
-// Charges barre volontairement SOUS-MAXIMALES (startCharges) — le moteur monte ensuite.
+// Charges barre : startKg PAR exercice = simple PLANCHER (exo jamais fait) — sinon on reprend la force atteinte.
 // Shape « legacy » (sessions A/B/C) — le catalogue d'ids stables suit via resolveExId.
 // ════════════════════════════════════════════════════════════════
 import { PROGRESSION, SESSION_B } from "./fullbody14.v1.js";
@@ -19,12 +19,12 @@ const SESSION_A = {
       tips: ["Pas de banc : le sol limite la descente et protège l'épaule", "Pousse fort, serre les pecs en haut", "Quand 3×12 passent facile → vise 15 reps, puis palier supérieur"]
     },
     {
-      name: "Rowing barre", sets: 4, reps: 10, rest: 90, type: "standard",
+      name: "Rowing barre", sets: 4, reps: 10, rest: 90, type: "standard", startKg: 30,
       tech: "Buste à 45°, dos plat, jambes légèrement fléchies. Tirer la barre vers le bas du ventre, coudes près du corps. Épaisseur du dos.",
       tips: ["Serre les omoplates en haut", "Tire avec le dos, pas les biceps", "Abdos gainés pour protéger le bas du dos"]
     },
     {
-      name: "Développé militaire", sets: 4, reps: 8, rest: 90, type: "standard",
+      name: "Développé militaire", sets: 4, reps: 8, rest: 90, type: "standard", startKg: 20,
       tech: "Debout, pieds largeur de hanches. Barre devant les épaules. Pousser à la verticale, fessiers serrés, pas de cambrure.",
       tips: ["Si c'est trop dur → 5 reps (le moteur s'en charge)", "Serrer les fessiers pour ne pas cambrer", "La barre passe juste devant le visage"]
     },
@@ -39,7 +39,7 @@ const SESSION_A = {
       tips: ["Alternative sans gêne d'épaule : pompes diamant 3×max", "Coudes pointés vers l'avant, fixes", "Contrôle la descente"]
     },
     {
-      name: "Squat barre", sets: 2, reps: 5, rest: 150, type: "standard",
+      name: "Squat barre", sets: 2, reps: 5, rest: 150, type: "standard", startKg: 40,
       tech: "Barre haute sur les trapèzes. Descendre cuisses parallèles, genoux dans l'axe des pieds, dos gainé. Maintien lourd : peu de reps, lourd, focus force.",
       tips: ["2 séries lourdes suffisent (entretien, sans voler la récup du haut)", "Pieds largeur d'épaules, pointes légèrement vers l'extérieur", "Regard droit devant"]
     },
@@ -63,12 +63,12 @@ const SESSION_C = {
   cooldown: { duration: "5 min", seconds: 300, details: "Étirements dorsaux, biceps, ischios, fessiers, lombaires." },
   exercises: [
     {
-      name: "Rowing barre", sets: 4, reps: 10, rest: 90, type: "standard",
+      name: "Rowing barre", sets: 4, reps: 10, rest: 90, type: "standard", startKg: 30,
       tech: "Buste à 45°, dos plat. Tirer la barre vers le bas du ventre, coudes près du corps. Épaisseur du dos.",
       tips: ["Serre les omoplates", "Dos plat absolument", "Tire avec le dos, pas les biceps"]
     },
     {
-      name: "Tirage menton", sets: 3, reps: 15, rest: 60, type: "standard",
+      name: "Tirage menton", sets: 3, reps: 15, rest: 60, type: "standard", startKg: 20,
       tech: "Prise serrée (mains à 20 cm). Tirer la barre vers le menton, coudes au-dessus des poignets. Épaules postérieures + trapèzes.",
       tips: ["Si gêne aux épaules → ne dépasse pas le niveau des pectoraux", "Coudes plus haut que les mains", "Mouvement contrôlé"]
     },
@@ -88,7 +88,7 @@ const SESSION_C = {
       tips: ["Pas d'élan avec le dos", "Contrôle la descente", "Coudes fixes"]
     },
     {
-      name: "Soulevé de terre", sets: 2, reps: 5, rest: 150, type: "heavy",
+      name: "Soulevé de terre", sets: 2, reps: 5, rest: 150, type: "heavy", startKg: 50,
       tech: "Pieds largeur hanches. Dos plat, fessiers en arrière. Barre proche des tibias. Pousser le sol avec les pieds. Maintien lourd : 2 séries lourdes.",
       tips: ["Ne JAMAIS arrondir le dos", "La barre reste collée aux jambes", "Si tes disques sont petits, surélève la barre à ~22 cm"]
     },
@@ -107,7 +107,7 @@ export const UPPER_FOCUS_V1 = {
   weeks: 14,
   sessionOrder: ["A", "B", "C"],
   progression: PROGRESSION,
-  // Amorce des charges à la BARRE (lanes exerciseCharges), volontairement sous-maximales.
-  startCharges: { squat: 40, deadlift: 50, row_barbell: 30, ohp: 20, upright_row: 20 },
+  // Charges de départ à la BARRE : portées PAR exercice (startKg). Ne servent que de PLANCHER
+  // pour un exo jamais fait — sinon on reprend la force atteinte (historique). Voir getExercisePrescription.
   sessions: { A: SESSION_A, B: { ...SESSION_B, name: "Cardio intervalles" }, C: SESSION_C },
 };

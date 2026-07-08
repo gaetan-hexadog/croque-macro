@@ -98,13 +98,17 @@ export function getExercisePrescription(exercise, week, history, exerciseCharges
     return { mode: "reps", value: target, unit: "reps", direction, note, load: curKg, loadLabel };
   }
 
-  // ── Barre (standard/heavy) : charge = cible MÉMORISÉE (montée/descente réelle, Phase 3) ──
-  const prev = lastWeightOf(history, exercise.name);
+  // ── Barre (standard/heavy) : lane mémorisée > ta force ATTEINTE (historique) > amorce programme > bloc ──
   const lane = exerciseCharges?.[exId];
+  const reached = maxWeightForExId(history, exId);          // poids max déjà soulevé (suit les renommages/programmes)
+  const prev = lastWeightOf(history, exercise.name);         // dernier poids travaillé (sens de la flèche)
   const block = getCurrentBlock(week);
-  // Charge = cible mémorisée ; sinon la charge du bloc (PARITÉ). En décharge : allègement
-  // d'affichage seulement (la cible mémorisée n'est jamais écrasée par la décharge).
-  let charge = lane?.kg != null ? lane.kg : programChargeForType(week, exercise.type, exercise);
+  // Une AMORCE (lane posée en semaine 1) ne redescend jamais SOUS ta force déjà atteinte.
+  const laneKg = (lane?.kg != null && lane.week === 1 && reached != null) ? Math.max(lane.kg, reached) : (lane?.kg ?? null);
+  let charge;
+  if (laneKg != null) charge = laneKg;                       // charge mémorisée (adaptée séance après séance)
+  else if (exercise.startKg != null) charge = Math.max(reached ?? 0, exercise.startKg); // reprend ta force, plancher = départ programme
+  else charge = programChargeForType(week, exercise.type, exercise);                     // full-body : charge du bloc (parité)
   if (lane?.kg != null && block?.phase === "Décharge") charge = Math.max(20, Math.round((charge * 0.9) / 2.5) * 2.5);
   let direction = "hold", note = null;
   if (block?.phase === "Décharge" && lane?.kg != null) { direction = "down"; note = "Semaine de décharge — charge allégée volontairement, on récupère."; }
@@ -112,6 +116,19 @@ export function getExercisePrescription(exercise, week, history, exerciseCharges
   else if (prev != null && charge < prev) { direction = "down"; note = "Charge allégée après une séance difficile — on repart proprement."; }
   else if (fb?.allEasy) { note = "Jugé facile — encore une séance propre et ça monte."; }
   return { mode: "charge", value: charge, unit: "kg", direction, note };
+}
+
+// Poids MAX déjà réellement soulevé pour un exId (tous noms/programmes confondus). null si jamais.
+function maxWeightForExId(history, exId) {
+  let mx = 0;
+  for (const e of Object.values(history || {})) {
+    if (!e?.completed || !Array.isArray(e?.data)) continue;
+    for (const ex of e.data) {
+      if ((resolveExId(ex.exercise) || ex.exercise) !== exId) continue;
+      for (const s of ex.sets || []) if (s.weight != null && s.weight > 0) mx = Math.max(mx, s.weight);
+    }
+  }
+  return mx > 0 ? mx : null;
 }
 
 // Dernière charge réellement travaillée sur un exercice (max des séries loggées). null si jamais.

@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════
 // programs/index — REGISTRE des programmes (extensible : 1 fichier + 1 entrée).
 // Chaque programme : { id, name, description, weeks, sessionOrder, progression,
-//                      startCharges, sessions:{A,B,C} }.
+//                      sessions:{A,B,C} }. Charges de départ = startKg par exercice (plancher).
 // ════════════════════════════════════════════════════════════════
 import { PROGRESSION, SESSIONS } from "./fullbody14.v1.js";
 import { UPPER_FOCUS_V1 } from "./upperFocus.v1.js";
@@ -14,7 +14,6 @@ export const FULLBODY_14 = {
   weeks: 14,
   sessionOrder: ["A", "B", "C"],
   progression: PROGRESSION,
-  startCharges: {},
   sessions: SESSIONS,
 };
 

@@ -114,15 +114,10 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   const deleteWorkout = (id) => { if (onDeleteWorkout) onDeleteWorkout(id); else setWorkouts((prev) => { const n = { ...prev }; delete n[id]; return n; }); if (showToast) showToast("Séance supprimée"); };
   const saveManual = (entry) => setWorkouts((prev) => ({ ...prev, [entry.id]: entry }));
 
-  // Amorce les charges de départ (lanes barre) d'un programme SI absentes — la force est
-  // partagée, on ne touche jamais une charge déjà mémorisée.
-  const seedCharges = (charges, prog) => {
-    const out = { ...(charges || {}) }; const now = Date.now();
-    for (const [exId, kg] of Object.entries(prog.startCharges || {})) if (out[exId]?.kg == null) out[exId] = { kg, updatedAt: now, week: 1 };
-    return out;
-  };
+  // Plus d'amorçage de lanes : la charge est reprise de l'historique (force atteinte) par
+  // getExercisePrescription, avec le startKg de l'exercice comme simple plancher. Rien à écrire ici.
   const switchProgram = (newId) => {
-    setSport((s) => ({ ...s, activeProgramId: newId, exerciseCharges: seedCharges(s.exerciseCharges, getProgram(newId)) }));
+    setSport((s) => ({ ...s, activeProgramId: newId }));
     setSettingsOpen(false);
     if (showToast) showToast(`Programme : ${getProgram(newId).name}`);
   };
@@ -144,7 +139,6 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   const startProgram = (iso) => setSport((s) => ({
     ...s,
     programState: { ...(s.programState || {}), [pid]: { startDate: iso, currentWeek: 1, weekManuallySet: false } },
-    exerciseCharges: seedCharges(s.exerciseCharges, program),
   }));
 
   if (!startDate) {
