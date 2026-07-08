@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell } from "lucide-react";
 import { C } from "../core.js";
-import { getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT, applyArmCorrection, applyFeedback, applyProgramAdaptation, getActiveProgram, getProgram, PROGRAM_LIST } from "../lib/sport.js";
+import { getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT, applyArmCorrection, applyFeedback, applyProgramAdaptation, getActiveProgram, getProgram, PROGRAM_LIST, programStateOf, doneWorkoutId } from "../lib/sport.js";
 import { SportHome } from "./SportHome.jsx";
 import { SessionPreview } from "./SessionPreview.jsx";
 import { ForceWorkout } from "./ForceWorkout.jsx";
@@ -42,7 +42,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   const program = getActiveProgram(sport);
   const pid = program.id;
   const SESS = program.sessions;
-  const ps = sport.programState?.[pid] || {};
+  const ps = programStateOf(sport, pid); // rétro-compat : ancien état global mappé sur fullbody-14
   const startDate = ps.startDate || null;
   const currentWeek = ps.weekManuallySet ? (ps.currentWeek || 1) : calcCurrentWeekFromStart(startDate);
   const block = getCurrentBlock(currentWeek);
@@ -129,8 +129,14 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   const resetProgram = (id) => {
     // Réinitialise la POSITION + supprime les séances loggées de CE programme.
     // Les charges (globales, partagées) sont conservées — ta force ne se remet pas à zéro.
-    setSport((s) => { const st = { ...(s.programState || {}) }; delete st[id]; return { ...s, programState: st }; });
-    const toDelete = Object.keys(workouts).filter((k) => k.startsWith(`${id}:`));
+    setSport((s) => {
+      const st = { ...(s.programState || {}) }; delete st[id];
+      const next = { ...s, programState: st };
+      if (id === "fullbody-14") { delete next.startDate; delete next.currentWeek; delete next.weekManuallySet; } // efface aussi l'ancien état global legacy
+      return next;
+    });
+    // Séances scopées `${id}:...` + (pour full-body) les ids legacy non-scopés `W{week}-{sid}`.
+    const toDelete = Object.keys(workouts).filter((k) => k.startsWith(`${id}:`) || (id === "fullbody-14" && /^W\d+-[A-Za-z]/.test(k)));
     toDelete.forEach((k) => { if (onDeleteWorkout) onDeleteWorkout(k); });
     setWorkouts((prev) => { const n = { ...prev }; toDelete.forEach((k) => delete n[k]); return n; });
     if (showToast) showToast("Progression réinitialisée");
@@ -160,7 +166,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   if (preview) {
     return (
       <>
-        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} exerciseCharges={sport.exerciseCharges || {}} inventory={sport.inventory || {}} done={!!workouts[wid(preview)]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
+        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} exerciseCharges={sport.exerciseCharges || {}} inventory={sport.inventory || {}} done={!!doneWorkoutId(workouts, pid, currentWeek, preview)} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
         <AdaptSheet open={!!adaptFor} onClose={() => setAdaptFor(null)} session={adaptFor ? SESS[adaptFor] : null} equipment={{ ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) }} onUse={useAdapted} showToast={showToast} sportTheme={sport.sportTheme} />
       </>
     );

@@ -6,7 +6,7 @@ import {
 import { sportTokens, SPORT_FONT } from "./theme.js";
 import {
   SESSIONS, SESSION_ORDER, getProgram, getAdaptiveSuggestion, getCatchUp, daysBetween,
-  strengthTrend, strengthSeries, assiduitySeries, activeWeekStreak,
+  strengthTrend, strengthSeries, assiduitySeries, activeWeekStreak, doneWorkoutId,
 } from "../lib/sport.js";
 import { Sparkline } from "./components.jsx";
 
@@ -25,15 +25,15 @@ export function SportHome({ sport = {}, workouts, program, currentWeek, sessionD
   const SESS = program?.sessions || SESSIONS;
   const ORDER = program?.sessionOrder || SESSION_ORDER;
   const pid = program?.id;
-  const wid = (sid) => (pid ? `${pid}:W${currentWeek}-${sid}` : `W${currentWeek}-${sid}`);
+  const doneId = (sid) => doneWorkoutId(workouts, pid, currentWeek, sid); // id de la séance faite (scopé + repli legacy) ou null
 
   const todayDow = new Date().getDay();
   const catchUp = getCatchUp(workouts, sessionDays, startDate, currentWeek, new Date(), program);
   const todayId = ORDER.find((sid) => sessionDays[sid] === todayDow);
   const today = todayId ? SESS[todayId] : null;
-  const doneThisWeek = (sid) => !!workouts[wid(sid)];
+  const doneThisWeek = (sid) => !!doneId(sid);
   // Séance déjà validée cette semaine → on l'ouvre en CONSULTATION (détail), pas en « refaire ».
-  const openSession = (sid) => (doneThisWeek(sid) ? onOpenDetail(workouts[wid(sid)]) : onOpen(sid));
+  const openSession = (sid) => { const id = doneId(sid); return id ? onOpenDetail(workouts[id]) : onOpen(sid); };
   const todayDone = todayId && doneThisWeek(todayId);
   const weekDone = ORDER.filter(doneThisWeek).length;
 

@@ -23,4 +23,7 @@ export const PROGRAM_LIST = [UPPER_FOCUS_V1, FULLBODY_14]; // ordre d'affichage 
 export const DEFAULT_PROGRAM_ID = "upper-focus-v1";        // haut-du-corps par défaut (choix Bob)
 
 export const getProgram = (id) => PROGRAMS[id] || PROGRAMS[DEFAULT_PROGRAM_ID];
-export const getActiveProgram = (sport = {}) => getProgram(sport?.activeProgramId);
+// Programme actif : choix explicite > rétro-compat (un utilisateur d'AVANT le multi-programmes,
+// reconnu par sport.startDate global, reste sur son vrai programme full-body) > défaut (nouveau = haut-du-corps).
+export const getActiveProgram = (sport = {}) =>
+  getProgram(sport?.activeProgramId || (sport?.startDate ? "fullbody-14" : DEFAULT_PROGRAM_ID));

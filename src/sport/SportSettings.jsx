@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette, Scale, Dumbbell, RotateCcw, Trash2 } from "lucide-react";
 import { Sheet } from "../components/Sheet.jsx";
-import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT, DEFAULT_INVENTORY } from "../lib/sport.js";
+import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT, DEFAULT_INVENTORY, programStateOf } from "../lib/sport.js";
 import { SPORT_THEMES, sheetTokens, SPORT_FONT } from "./theme.js";
 
 const DAYS = [
@@ -28,8 +28,9 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek, pro
   const sportTheme = sport.sportTheme || "hybride";
   const setTheme = (id) => setSport((s) => ({ ...s, sportTheme: id }));
   // Semaine/position PAR programme (sport.programState[pid]).
-  const weekManual = !!sport.programState?.[pid]?.weekManuallySet;
-  const patchPS = (patch) => setSport((s) => { const st = { ...(s.programState || {}) }; st[pid] = { ...(st[pid] || {}), ...patch }; return { ...s, programState: st }; });
+  const weekManual = !!programStateOf(sport, pid).weekManuallySet;
+  // Base sur programStateOf → un utilisateur legacy conserve sa date de début (pas de retour à l'onboarding).
+  const patchPS = (patch) => setSport((s) => { const st = { ...(s.programState || {}) }; st[pid] = { ...programStateOf(s, pid), ...patch }; return { ...s, programState: st }; });
   const setWeek = (w) => patchPS({ currentWeek: Math.min(weeks, Math.max(1, w)), weekManuallySet: true });
   const autoWeek = () => patchPS({ weekManuallySet: false });
   const vacationMode = !!sport.vacationMode;

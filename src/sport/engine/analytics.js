@@ -5,6 +5,7 @@ import { daysBetween, calcCurrentWeekFromStart } from "./dates.js";
 import { getCurrentBlock } from "./blocks.js";
 import { analyzeSessionEntry } from "./feedback.js";
 import { lastEntryWithExercise, resolveExId } from "./resolve.js";
+import { doneWorkoutId } from "./migration.js";
 
 // ── Suggestions / avertissements (renvoient un `level`, pas d'icône) ─────────
 export function getAdaptiveSuggestion(history, sessionId, now = new Date(), pid = null) {
@@ -42,7 +43,6 @@ export function getCatchUp(history, sessionDays = {}, startDate = null, currentW
   const order = program?.sessionOrder || SESSION_ORDER;   // ordre des séances du programme actif
   const sess = program?.sessions || SESSIONS;
   const pid = program?.id;
-  const key = (sid, w) => (pid ? `${pid}:W${w}-${sid}` : `W${w}-${sid}`); // id scopé programme
   const monIdx = (dow) => (dow + 6) % 7; // Lun=0 … Dim=6
   const d0 = new Date(today); d0.setHours(0, 0, 0, 0);
   const start = startDate ? new Date(startDate) : null;
@@ -54,7 +54,7 @@ export function getCatchUp(history, sessionDays = {}, startDate = null, currentW
     if (date >= d0) return false;                 // aujourd'hui ou à venir → pas (encore) raté
     if (start && date < start) return false;      // avant le démarrage du programme
     const wk = start ? calcCurrentWeekFromStart(start, date) : currentWeek;
-    return !history?.[key(sid, currentWeek)] && !history?.[key(sid, wk)]; // pas déjà faite
+    return !doneWorkoutId(history, pid, currentWeek, sid) && !doneWorkoutId(history, pid, wk, sid); // pas déjà faite (repli legacy inclus)
   });
 }
 
