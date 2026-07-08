@@ -1,6 +1,5 @@
 // engine/prescription.js — charge/reps prescrites pour la prochaine séance + adaptation prudente.
 // (Phase 2-3 : charge PAR exercice + montée réelle. Ici : comportement d'origine préservé.)
-import { PROGRESSION } from "../config/programs/fullbody14.v1.js";
 import { getCurrentBlock } from "./blocks.js";
 import { findExerciseDef, lastEntryWithExercise, resolveExId } from "./resolve.js";
 import { setFailed, exerciseFeedback } from "./feedback.js";
@@ -13,49 +12,6 @@ function programChargeForType(week, type, exerciseDef = null) {
   const block = getCurrentBlock(week);
   if (!block) return 20;
   return type === "heavy" ? block.heavy : block.standard;
-}
-
-// Renvoie la charge prudente d'UN EXERCICE (clé = exId), d'après les 3 dernières séances.
-// Phase 2 : fin du partage par « type » — baisser un exo ne touche plus ses voisins.
-// Parité : historique vide → charge du bloc (identique à avant).
-export function getChargeForExercise(week, exercise, history = null) {
-  const type = exercise?.type;
-  const programCharge = programChargeForType(week, type, exercise);
-  if (type === "bodyweight") return null;
-  if (!history) return programCharge;
-
-  const exId = resolveExId(exercise.name) || exercise.name;
-  const recent = Object.values(history)
-    .filter((e) => e?.completed && e?.data)
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 3);
-
-  let prudentCharge = programCharge;
-  for (const entry of recent) {
-    // Ajustement mémorisé PAR EXERCICE (exId) ; fallback sur l'ancien par TYPE (logs d'avant Phase 2).
-    const adj = entry.chargeAdjustments?.[exId] ?? entry.chargeAdjustments?.[type];
-    if (adj != null) {
-      if (adj < prudentCharge) prudentCharge = adj;
-      break;
-    }
-    // ≥2 séries ratées SUR CET EXERCICE → charge du bloc précédent (pour cet exo seulement).
-    const exData = (entry.data || []).find((d) => (resolveExId(d.exercise) || d.exercise) === exId);
-    if (exData) {
-      let failed = 0;
-      for (const s of exData.sets) if (setFailed(s, exercise)) failed++;
-      if (failed >= 2) {
-        const block = getCurrentBlock(week);
-        const blockIdx = PROGRESSION.indexOf(block);
-        if (blockIdx > 0) {
-          const prev = PROGRESSION[blockIdx - 1];
-          const prevCharge = type === "heavy" ? prev.heavy : prev.standard;
-          if (prevCharge < prudentCharge) prudentCharge = prevCharge;
-        }
-        break;
-      }
-    }
-  }
-  return prudentCharge;
 }
 
 // Paramètres adaptés d'un exercice (décharge, fallback militaire).
@@ -89,26 +45,6 @@ export function getAdaptedExerciseParams(exercise, week, history) {
   }
 
   return { sets, reps, repsTarget, notes };
-}
-
-// 3 séances propres de suite au même poids → proposer la progression.
-export function shouldSuggestProgression(history, week, sessionId) {
-  const same = Object.values(history)
-    .filter((e) => e?.completed && e?.data && e?.sessionId === sessionId)
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 3);
-  if (same.length < 3) return false;
-  for (const e of same) {
-    if (e.week !== week) return false;
-    if (e.chargeAdjustments) return false;
-    for (const ex of e.data) {
-      const def = findExerciseDef(ex.exercise);
-      for (const s of ex.sets) if (setFailed(s, def)) return false;
-    }
-  }
-  const block = getCurrentBlock(week);
-  if (!block || block.block === PROGRESSION.length) return false;
-  return true;
 }
 
 const FIXED_REP_MIN = 8, FIXED_REP_MAX = 15, FIXED_REP_STEP = 1; // bornes de progression par reps
