@@ -84,7 +84,7 @@ export function SportHome({ sport = {}, workouts, program, currentWeek, sessionD
             <Coach t={t} isGym={isGym} brief={brief} onCoach={onCoach} />
 
             <button onClick={() => openSession(heroSession.id)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-extrabold active:scale-95" style={isGym ? { backgroundColor: t.accent, color: t.onAccent } : { backgroundColor: "#fff", color: t.accent }}>
-              {todayDone ? <><Check size={17} /> Refaire / consulter</> : <><Play size={17} /> Démarrer la séance</>}
+              {todayDone ? <><Check size={17} /> Voir le détail de la séance</> : <><Play size={17} /> Démarrer la séance</>}
             </button>
           </div>
         </div>
