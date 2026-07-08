@@ -79,7 +79,8 @@ export function SessionPreview({ session, week, workouts, done, onBack, onStart,
 
 function chargeHint(ex, presc) {
   if (presc.mode === "charge" && presc.value != null) return ` · ${presc.value} kg (${getDiscPlan(presc.value)})`;
-  if (ex.loadLabel) return ` · ${ex.loadLabel}`;
+  const label = presc.loadLabel || ex.loadLabel; // palier KB vivant (suit une montée de cloche)
+  if (label) return ` · ${label}`;
   return ex.type === "bodyweight" ? " · poids du corps" : "";
 }
 

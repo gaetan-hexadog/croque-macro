@@ -20,6 +20,17 @@ export function nextBell(inventory, currentKg, per = 1) {
   return ownedBells(inventory, per).find((w) => w > (Number(currentKg) || 0)) ?? null;
 }
 
+// Ramène `kg` à une cloche RÉELLEMENT possédée (plus lourde possédée ≤ kg, sinon la plus légère).
+// Garantit qu'on ne prescrit/logge jamais une cloche qu'on n'a pas (ex. retirée de l'inventaire).
+// Inventaire vide pour ce `per` → `kg` inchangé (on ne bloque pas faute d'info).
+export function clampToOwned(inventory, kg, per = 1) {
+  if (kg == null) return kg;
+  const bells = ownedBells(inventory, per);
+  if (!bells.length) return kg;
+  const atOrBelow = bells.filter((w) => w <= kg);
+  return atOrBelow.length ? atOrBelow[atOrBelow.length - 1] : bells[0];
+}
+
 // Libellé d'un palier KB (« 2×14 kg », « 1×16 kg »). `suffix` préserve un « /bras » de l'original.
 export function kbLabel(kg, per = 2, suffix = "") {
   return `${per >= 2 ? "2×" : "1×"}${kg} kg${suffix || ""}`;

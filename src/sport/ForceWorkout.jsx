@@ -168,7 +168,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
           return <CountdownStage ss={ss} seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}`} sound={sound} onDone={() => setPhase("set")} />;
         }
         if (phase === "rest") {
-          return <RestStage ss={ss} seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("set"); }} />;
+          return <RestStage ss={ss} seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg${entry.loadLabel ? ` · ${entry.loadLabel}` : ""}` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("set"); }} />;
         }
         if (phase === "restNext") {
           const nx = exs[exIdx + 1];

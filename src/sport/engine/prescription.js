@@ -4,7 +4,7 @@ import { getCurrentBlock } from "./blocks.js";
 import { findExerciseDef, lastEntryWithExercise, resolveExId } from "./resolve.js";
 import { setFailed, exerciseFeedback } from "./feedback.js";
 import { EXERCISES } from "../config/exercises.js";
-import { DEFAULT_INVENTORY, nextBell, kbLabel } from "./inventory.js";
+import { DEFAULT_INVENTORY, nextBell, kbLabel, clampToOwned } from "./inventory.js";
 
 // Charge programme pour un type d'exercice à une semaine donnée.
 // Pour les exercices à charge fixe (kettlebell) on renvoie la charge de l'exo.
@@ -65,10 +65,11 @@ export function getExercisePrescription(exercise, week, history, exerciseCharges
     const per = cat?.kbPer || (exercise.loadLabel?.trim().startsWith("1×") ? 1 : 2);
     const inv = inventory?.kb?.length ? inventory : DEFAULT_INVENTORY;
     const lane = exerciseCharges?.[exId];
-    const curKg = isKB && lane?.rungKg != null ? lane.rungKg : (exercise.load ?? null); // palier de cloche courant
+    const rawCurKg = isKB && lane?.rungKg != null ? lane.rungKg : (exercise.load ?? null);
+    const curKg = isKB ? clampToOwned(inv, rawCurKg, per) : rawCurKg;                     // jamais une cloche non possédée
     const baseReps = typeof exercise.reps === "number" ? exercise.reps : (exercise.repsTarget || FIXED_REP_MIN);
     const lastKg = lastWeightOf(history, exercise.name);
-    const bumped = isKB && curKg != null && lastKg != null && lastKg < curKg;            // cloche montée depuis
+    const bumped = isKB && lane?.rungKg != null && lastKg != null && lastKg < curKg;      // vrai palier gagné (lane), pas un écart de base entre programmes
     const suffix = exercise.loadLabel?.match(/kg(.*)$/)?.[1] || "";                       // préserve « /bras »
     const loadLabel = isKB && curKg != null && curKg !== exercise.load ? kbLabel(curKg, per, suffix) : (exercise.loadLabel || null);
     let target = bumped ? baseReps : (fb?.maxReps ? Math.max(baseReps, fb.maxReps) : baseReps);
@@ -170,7 +171,7 @@ export function applyFeedback(entry, sport = {}, workouts = {}) {
     } else if (def.type === "fixed") {
       // ── Kettlebell : monte d'un PALIER de cloche quand 15 reps atteint + tout facile + cloche plus lourde possédée ──
       const per = EXERCISES[exId]?.kbPer || 2;
-      const curKg = charges[exId]?.rungKg ?? def.load ?? null;
+      const curKg = fb.lastWeight ?? charges[exId]?.rungKg ?? def.load ?? null; // poids réellement soulevé (comme la barre), pas le load dédupliqué
       if (curKg == null) continue;
       if (fb.allEasy && (fb.maxReps ?? 0) >= FIXED_REP_MAX) {
         const nb = nextBell(inv, curKg, per);
