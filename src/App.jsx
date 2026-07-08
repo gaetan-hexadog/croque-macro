@@ -3,7 +3,7 @@ import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, 
 import {
   SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
 } from "./core.js";
-import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, getActiveProgram, recompSignal, buildSportCoachSystem, sportCoachOpening } from "./lib/sport.js";
+import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, getActiveProgram, programStateOf, doneWorkoutId, recompSignal, buildSportCoachSystem, sportCoachOpening } from "./lib/sport.js";
 import { sportTokens } from "./sport/theme.js";
 import { loadLive } from "./sport/liveSession.js";
 import { getLibrarySync, refreshLibrary } from "./lib/library.js";
@@ -374,7 +374,7 @@ export default function PiocheRepas() {
   // Séance prévue à la date affichée (selon les jours de séance du programme).
   const sportInfo = useMemo(() => {
     const program = getActiveProgram(sport);
-    const ps = sport.programState?.[program.id] || {};
+    const ps = programStateOf(sport, program.id);
     if (!ps.startDate) return null;
     const d = parseISO(activeDate);
     const week = ps.weekManuallySet ? (ps.currentWeek || 1) : calcCurrentWeekFromStart(ps.startDate, d);
@@ -383,13 +383,13 @@ export default function PiocheRepas() {
     const sid = order.find((s) => sessionDays[s] === d.getDay());
     if (!sid) return null;
     const s = program.sessions[sid];
-    return { sid, week, name: s?.name, subtitle: s?.subtitle, done: !!workouts[`${program.id}:W${week}-${sid}`] };
+    return { sid, week, name: s?.name, subtitle: s?.subtitle, done: !!doneWorkoutId(workouts, program.id, week, sid) };
   }, [sport, activeDate, workouts]);
   // Séances à rattraper : prévues plus tôt cette semaine, jour passé, pas encore faites.
   // Affiché uniquement sur AUJOURD'HUI (le rattrapage se fait sur la semaine en cours).
   const sportCatchUp = useMemo(() => {
     const program = getActiveProgram(sport);
-    const ps = sport.programState?.[program.id] || {};
+    const ps = programStateOf(sport, program.id);
     if (!ps.startDate || activeDate !== TODAY) return null;
     const week = ps.weekManuallySet ? (ps.currentWeek || 1) : calcCurrentWeekFromStart(ps.startDate);
     const sessionDays = sport.preferences?.sessionDays || { A: 2, B: 4, C: 6 };
@@ -840,9 +840,11 @@ export default function PiocheRepas() {
               )}
               <div className="min-w-0 flex-1">
                 {view === "jour" && !h
-                  ? <span className="text-lg font-extrabold tracking-tight" style={{ fontFamily: "'Space Grotesk', ui-sans-serif, system-ui" }}>Croque<span style={{ color: C.green }}>·</span>Macro</span>
+                  ? <h1 className="truncate text-xl font-extrabold leading-tight" style={{ color: chrome.ink, fontFamily: "'Space Grotesk', system-ui" }}>{activeDate === TODAY ? "Aujourd'hui" : fmtFull(activeDate).replace(/^./, (c) => c.toUpperCase())}</h1>
                   : <h1 className="truncate text-2xl font-extrabold leading-tight" style={{ color: chrome.ink, fontFamily: "'Space Grotesk', system-ui" }}>{h?.title || TITLES[view]}</h1>}
-                {h?.subtitle && <p className="truncate text-xs" style={{ color: chrome.sub }}>{h.subtitle}</p>}
+                {view === "jour" && !h
+                  ? (activeDate === TODAY ? <p className="truncate text-xs" style={{ color: chrome.sub }}>{fmtFull(activeDate).replace(/^./, (c) => c.toUpperCase())}</p> : null)
+                  : (h?.subtitle && <p className="truncate text-xs" style={{ color: chrome.sub }}>{h.subtitle}</p>)}
               </div>
               {badge && <span className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: badge.tone === "weight" ? `${C.weight}22` : `${C.green}1a`, color: badge.tone === "weight" ? C.weight : C.green }}>{badge.text}</span>}
               <div className="flex shrink-0 items-center gap-2">
@@ -854,6 +856,12 @@ export default function PiocheRepas() {
                   <>
                     <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><ScanLine size={18} /></button>
                     <button onClick={() => setCuisineAddSignal((n) => n + 1)} aria-label="Ajouter à ma cuisine" className="flex h-10 w-10 items-center justify-center rounded-full text-white active:scale-90" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})` }}><Plus size={18} /></button>
+                  </>
+                )}
+                {view === "jour" && !onBack && (
+                  <>
+                    <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><ScanLine size={18} /></button>
+                    <button onClick={() => openPicker(suggestSlotNow())} aria-label="Ajouter un repas" className="flex h-10 w-10 items-center justify-center rounded-full text-white active:scale-90" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})` }}><Plus size={18} /></button>
                   </>
                 )}
                 {!onBack && view !== "sport" && view !== "cuisine" && (
@@ -969,7 +977,7 @@ export default function PiocheRepas() {
         )}
         {sportChatOpen && (() => {
           const program = getActiveProgram(sport);
-          const ps = sport?.programState?.[program.id] || {};
+          const ps = programStateOf(sport, program.id);
           const w = ps.weekManuallySet ? (ps.currentWeek || 1) : calcCurrentWeekFromStart(ps.startDate);
           return <ChatSheet system={buildSportCoachSystem(sport, workouts, w, program)} opening={sportCoachOpening(sport, workouts, w)} onAction={() => {}} onClose={navBack} />;
         })()}

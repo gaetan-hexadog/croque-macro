@@ -48,6 +48,9 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   const season = seasonalProduce(activeDate);
   // Anti-gaspi (direction F) : aliments du frigo qui périment → CTA « une idée ce soir » sur le Jour.
   const urgentPantry = isToday ? pantry.filter((x) => x && !x.out && expiryMeta(x.exp)?.urgent) : [];
+  // Sport (direction J1) : replié en bas → une ligne résumée, tap = va à l'onglet Sport.
+  const sportSummary = sportInfo ? `Séance du jour · ${sportInfo.name}` : sportCatchUp ? (sportCatchUp.length > 1 ? `${sportCatchUp.length} séances à rattraper` : `${sportCatchUp[0].name} à rattraper`) : recomp ? recomp.title : "";
+  const sportSub = sportInfo ? (sportInfo.done ? "faite ✓" : "c'est aujourd'hui") : sportCatchUp ? "son jour est passé" : recomp ? recomp.message : "";
   const seg = (m, color) => ({ ...m, kcal: m.kcal * (m.qty || 1), p: m.p * (m.qty || 1), color });
   const ribbon = [
     ...picks.pdj.map((m) => seg(m, SLOT_UI.pdj.color)),
@@ -102,29 +105,23 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       )}
 
-      {/* Bande de semaine : navigation + statut de chaque jour — intégrée (hors card) */}
-      <div className="mb-4 pb-3" style={{ borderBottom: `1px solid ${C.line}` }}>
-        <div className="mb-1 flex items-center justify-between px-1">
-          <button onClick={() => setActiveDate(addDays(activeDate, -7))} className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ color: C.sub }} aria-label="Semaine précédente"><ChevronLeft size={18} /></button>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold capitalize" style={{ color: C.ink }}>{fmtFull(activeDate)}</span>
-            {activeDate > TODAY && <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}>à venir</span>}
-            {!isToday && <button onClick={() => setActiveDate(TODAY)} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>Auj.</button>}
-          </div>
-          <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 7))} disabled={!canFwd} className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ color: canFwd ? C.sub : C.line }} aria-label="Semaine suivante"><ChevronRight size={18} /></button>
-        </div>
-        <div className="flex gap-1">
+      {/* Bande de semaine SLIM : pager 7 jours (la date est dans le header d'app) */}
+      <div className="mb-4">
+        <div className="flex items-center gap-1">
+          <button onClick={() => setActiveDate(addDays(activeDate, -7))} className="flex h-8 w-5 items-center justify-center active:scale-90" style={{ color: C.sub }} aria-label="Semaine précédente"><ChevronLeft size={16} /></button>
           {week.map((iso) => {
             const on = iso === activeDate, today = iso === TODAY, st = dayStatus(iso);
             return (
-              <button key={iso} onClick={() => setActiveDate(iso)} className="flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 active:scale-95" style={on ? { backgroundColor: C.ink } : {}}>
-                <span className="text-[10px] font-bold" style={{ color: on ? C.bg : C.muted }}>{wdLetter(iso)}</span>
-                <span className="text-sm font-bold" style={{ color: on ? C.bg : today ? C.green : C.ink }}>{parseISO(iso).getDate()}</span>
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: st || "transparent", border: st ? "none" : `1px solid ${on ? "rgba(255,255,255,0.3)" : C.line}` }} />
+              <button key={iso} onClick={() => setActiveDate(iso)} className="flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 active:scale-95" style={on ? { backgroundColor: C.ink } : {}}>
+                <span className="text-[9px] font-bold" style={{ color: on ? C.bg : C.muted }}>{wdLetter(iso)}</span>
+                <span className="text-[13px] font-bold" style={{ color: on ? C.bg : today ? C.green : C.ink }}>{parseISO(iso).getDate()}</span>
+                <span className="h-1 w-1 rounded-full" style={{ backgroundColor: st || "transparent", border: st ? "none" : `1px solid ${on ? "rgba(255,255,255,0.3)" : C.line}` }} />
               </button>
             );
           })}
+          <button onClick={() => canFwd && setActiveDate(addDays(activeDate, 7))} disabled={!canFwd} className="flex h-8 w-5 items-center justify-center active:scale-90" style={{ color: canFwd ? C.sub : C.line }} aria-label="Semaine suivante"><ChevronRight size={16} /></button>
         </div>
+        {!isToday && <button onClick={() => setActiveDate(TODAY)} className="mx-auto mt-1.5 block rounded-full px-3 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1a`, color: C.green }}>Revenir à aujourd'hui</button>}
       </div>
 
       {/* ── HÉRO du jour : jauges + contexte saison/coach en UNE carte ── */}
@@ -180,45 +177,6 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </button>
       )}
 
-      {/* ── Sport : séance / rattrapage / recomposition — condensés en UNE carte ── */}
-      {(sportInfo || sportCatchUp || recomp) && (
-        <div className="mb-4 rounded-2xl cm-card" style={cardStyle()}>
-          {[
-            sportInfo && (
-              <button onClick={onGoSport} className="flex w-full items-center gap-3 text-left active:opacity-70">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: sportInfo.done ? `${C.green}22` : `${C.green}14`, color: sportInfo.done ? C.green : C.sub }}>{sportInfo.done ? <Check size={17} /> : <Dumbbell size={17} />}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold" style={{ color: C.ink }}>Séance du jour · {sportInfo.name}</span>
-                  <span className="block text-xs" style={{ color: C.sub }}>{sportInfo.subtitle} · S{sportInfo.week}{sportInfo.done ? " · faite ✓" : " — c'est aujourd'hui"}</span>
-                </span>
-                <ChevronRight size={18} style={{ color: C.muted }} />
-              </button>
-            ),
-            sportCatchUp && (
-              <button onClick={onGoSport} className="flex w-full items-center gap-3 text-left active:opacity-70">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.over}22`, color: C.over }}><Dumbbell size={17} /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold" style={{ color: C.ink }}>{sportCatchUp.length > 1 ? `${sportCatchUp.length} séances à rattraper` : `${sportCatchUp[0].name} à rattraper`}</span>
-                  <span className="block text-xs" style={{ color: C.sub }}>{sportCatchUp.length > 1 ? `${sportCatchUp.map((s) => s.name).join(", ")} — leur jour est passé` : `${sportCatchUp[0].subtitle} · son jour (${sportCatchUp[0].day.toLowerCase()}) est passé`}</span>
-                </span>
-                <span className="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold text-white" style={{ backgroundColor: C.over }}>Rattraper</span>
-              </button>
-            ),
-            recomp && (
-              <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight}18`, color: recomp.level === "warning" ? C.over : recomp.level === "good" ? C.green : C.weight }}><Dumbbell size={17} /></span>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold" style={{ color: C.ink }}>{recomp.title}</p>
-                  <p className="mt-0.5 text-xs" style={{ color: C.sub }}>{recomp.message}</p>
-                </div>
-              </div>
-            ),
-          ].filter(Boolean).map((row, i) => (
-            <div key={i} className={i ? "mt-2.5 border-t pt-2.5" : ""} style={i ? { borderColor: C.line } : undefined}>{row}</div>
-          ))}
-        </div>
-      )}
-
       {/* Les repas — une carte distincte par repas */}
       <SectionTitle className="mt-1" right={
         onPlan && <button onClick={onPlan} className="flex items-center gap-1 text-xs font-semibold active:scale-95" style={{ color: C.green }}><CalendarRange size={13} /> Planifier ma journée</button>
@@ -239,11 +197,21 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       )}
 
-      <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => onIdea("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
+      {/* Timeline matin→soir : les repas sont la colonne vertébrale (direction J1) */}
+      <div className="relative pl-[62px]">
+        <div className="absolute left-[54px] top-4 bottom-4 w-px" style={{ backgroundColor: C.line }} />
+        <TimelineRow time={SLOT_UI.pdj.time} color={SLOT_UI.pdj.color}>
+          <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        </TimelineRow>
+        <TimelineRow time={SLOT_UI.dej.time} color={SLOT_UI.dej.color}>
+          <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        </TimelineRow>
+        <TimelineRow time={SLOT_UI.diner.time} color={SLOT_UI.diner.color}>
+          <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        </TimelineRow>
+        <TimelineRow time={SLOT_UI.snack.time} color={SLOT_UI.snack.color}>
+          <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => onIdea("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
+        </TimelineRow>
       </div>
 
       {/* Modèles & copie de journée — actions secondaires, en pilules lisibles */}
@@ -252,8 +220,20 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         {ribbon.length > 0 && <button onClick={onReset} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><Trash2 size={12} /> Vider la journée</button>}
       </div>
 
+      {/* Sport & poids — repliés en bas (direction J1 : « moins dense ») */}
+      {(sportInfo || sportCatchUp || recomp) && (
+        <button onClick={onGoSport} className="mt-4 flex w-full items-center gap-2.5 rounded-2xl px-3.5 py-3 text-left active:scale-95" style={cardStyle()}>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${sportCatchUp ? C.over : C.green}18`, color: sportCatchUp ? C.over : C.green }}>{sportInfo?.done ? <Check size={16} /> : <Dumbbell size={16} />}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-bold" style={{ color: C.ink }}>{sportSummary}</span>
+            {sportSub && <span className="block truncate text-xs" style={{ color: C.sub }}>{sportSub}</span>}
+          </span>
+          {sportCatchUp ? <span className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-white" style={{ backgroundColor: C.over }}>Rattraper</span> : <ChevronRight size={16} style={{ color: C.muted }} />}
+        </button>
+      )}
+
       {/* Poids du jour */}
-      <div className="mt-4">
+      <div className="mt-3">
         <WeightCard date={activeDate} weight={weight} onWeight={onWeight} pushNav={pushNav} navBack={navBack} weights={weights} weekBalance={wcoach.balance} days={days} settings={settings} />
       </div>
 
@@ -301,6 +281,17 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   );
 }
 
+
+// Nœud de timeline (direction J1) : libellé d'heure + pastille sur le rail, à gauche du repas.
+function TimelineRow({ time, color, children }) {
+  return (
+    <div className="relative mb-3">
+      <div className="absolute -left-[62px] top-4 w-[46px] text-right"><span className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{time}</span></div>
+      <div className="absolute -left-[13px] top-[18px] h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 0 3px ${C.bg}` }} />
+      {children}
+    </div>
+  );
+}
 
 function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, onViewRecipe, pushNav, navBack }) {
   const ui = SLOT_UI[slotKey];
