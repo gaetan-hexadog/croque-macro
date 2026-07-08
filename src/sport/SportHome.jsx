@@ -46,7 +46,9 @@ export function SportHome({ sport = {}, workouts, program, currentWeek, sessionD
   const trendCol = trend?.direction === "up" ? t.good : trend?.direction === "down" ? t.effort : t.sub;
   const trendLabel = trend?.direction === "up" ? "Force en hausse" : trend?.direction === "down" ? "Force en baisse" : "Force stable";
 
-  const nextId = ORDER.find((sid) => !doneThisWeek(sid) && sid !== todayId) || ORDER.find((sid) => !doneThisWeek(sid));
+  // Prochaine séance À VENIR : le jour le plus proche dans le futur (aujourd'hui exclu), pas encore faite.
+  const dayDist = (sid) => (((sessionDays[sid] ?? SESS[sid].dayIndex) - todayDow) + 7) % 7; // 0=auj · 1-6 = jours avant la prochaine occurrence
+  const nextId = ORDER.filter((sid) => sid !== todayId && !doneThisWeek(sid)).sort((a, b) => dayDist(a) - dayDist(b))[0] || null;
   const next = nextId ? SESS[nextId] : null;
 
   // Briefing du coach, dérivé des données réelles.
@@ -65,8 +67,9 @@ export function SportHome({ sport = {}, workouts, program, currentWeek, sessionD
     return `Repos aujourd'hui. ${next ? `Prochaine séance : ${next.name}, ${next.day.toLowerCase()}.` : "Récupère bien."}`;
   })();
 
-  const heroSession = today || next;
-  const heroLabel = today ? (todayDone ? "Aujourd'hui · fait ✓" : "Aujourd'hui") : "Prochaine séance";
+  // Héros : séance du jour > séance en retard (à rattraper) > prochaine séance à venir.
+  const heroSession = today || (catchUp.length ? SESS[catchUp[0]] : next);
+  const heroLabel = today ? (todayDone ? "Aujourd'hui · fait ✓" : "Aujourd'hui") : (catchUp.length ? "À rattraper" : "Prochaine séance");
 
   return (
     <div className="pb-3" style={{ fontFamily: SPORT_FONT }}>
