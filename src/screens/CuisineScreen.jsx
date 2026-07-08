@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Search, X, Globe, Loader2, ChefHat, ScanLine, Star, BookOpen, ChevronRight, Refrigerator, ClipboardPaste, Sprout, ArrowDownUp } from "lucide-react";
-import { C, cardStyle, oneEmoji, protStock, seasonalProduce, expiryMeta, TODAY } from "../core.js";
+import { C, cardStyle, oneEmoji, protStock, expiryMeta } from "../core.js";
 import { AddRecipeSheet } from "../sheets/RecipeForm.jsx";
 import { Sheet } from "../components/Sheet.jsx";
 import { importRecipeFromUrl, importRecipeFromText } from "../lib/assistant.js";
 import { RecipeAdaptSheet } from "../sheets/RecipeAdaptSheet.jsx";
 import { RecipeDetailSheet, kindMeta, kindColor } from "../components/RecipeDetailSheet.jsx";
 import { ProteinFlag } from "../components/ProteinFlag.jsx";
+import { AssistantBar } from "../components/AssistantBar.jsx";
 
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -61,7 +62,6 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   const [pasteBusy, setPasteBusy] = useState(false);
   const [pasteErr, setPasteErr] = useState("");
   const nq = deburr(q);
-  const season = seasonalProduce(TODAY);
   const favSet = new Set(favs); // favoris par id (toggle UI)
 
   useEffect(() => { if (autoAdd) { setAdding(true); onAutoAddDone && onAutoAddDone(); } }, [autoAdd]);
@@ -109,6 +109,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   ];
 
   return (
+    <>
     <div className="space-y-5 px-1">
       {/* Hub condensé : recherche + « + » */}
       <div className="flex gap-2">
@@ -117,19 +118,24 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une recette, un aliment…" className="w-full rounded-2xl py-3 pl-9 pr-9 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
           {q && <button onClick={() => setQ("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: C.muted }}><X size={16} /></button>}
         </div>
+        {onScan && <button onClick={onScan} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} aria-label="Scanner un produit"><ScanLine size={19} /></button>}
         <button onClick={() => setAddMenu(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Ajouter"><Plus size={20} /></button>
       </div>
 
-      {/* Pont Frigo → Cuisine : « cuisiner avec mon frigo » (anti-gaspi prioritaire) */}
-      {onCook && dispo.length > 0 && !nq && (
-        <div className="rounded-2xl p-3.5" style={cardStyle({ background: `radial-gradient(130% 120% at 0% 0%, ${C.green}1c, transparent 60%), ${C.cardGrad}` })}>
+      {/* Frigo → Cuisine : UN seul bloc (fini les 3 cartes empilées). Hero anti-gaspi
+          « cuisinable maintenant » + accès direct au frigo. Le coach passe dans la barre
+          assistant en bas. */}
+      {onOpenFrigo && !nq && (
+        <div className="rounded-2xl p-3.5" style={cardStyle(dispo.length ? { background: `radial-gradient(130% 120% at 0% 0%, ${C.green}1c, transparent 60%), ${C.cardGrad}` } : undefined)}>
           <div className="flex items-center gap-2.5">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.green}1a`, color: C.green }}><Refrigerator size={18} /></span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold" style={{ color: C.ink }}>Cuisiner avec mon frigo</span>
-              <span className="block text-[11px]" style={{ color: C.muted }}>{expiringNames.length ? `${expiringNames.length} aliment${expiringNames.length > 1 ? "s" : ""} à finir vite` : `${dispo.length} aliments dispo`}</span>
-            </span>
-            <button onClick={() => onCook(cookNames)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold text-white active:scale-95" style={{ background: `linear-gradient(150deg, ${C.green}, ${C.weight})` }}><Sprout size={13} /> Idées ✨</button>
+            <button onClick={onOpenFrigo} className="min-w-0 flex-1 text-left active:opacity-70">
+              <span className="block text-sm font-bold" style={{ color: C.ink }}>Mon frigo{dispo.length ? "" : " est vide"}</span>
+              <span className="block text-[11px]" style={{ color: C.muted }}>{dispo.length ? `${dispo.length} aliments · ~${protStock(dispo)} g prot.${expiringNames.length ? ` · ${expiringNames.length} à finir vite` : ""}` : "Ajoute ce que tu as pour des idées anti-gaspi"}</span>
+            </button>
+            {onCook && dispo.length > 0
+              ? <button onClick={() => onCook(cookNames)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold text-white active:scale-95" style={{ background: `linear-gradient(150deg, ${C.green}, ${C.weight})` }}><Sprout size={13} /> Idées ✨</button>
+              : <ChevronRight size={16} style={{ color: C.muted }} />}
           </div>
           {doable.length > 0 && (
             <div className="mt-2.5 flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
@@ -137,30 +143,6 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
             </div>
           )}
         </div>
-      )}
-
-      {/* Frigo en carte d'état */}
-      {onOpenFrigo && (
-        <button onClick={onOpenFrigo} className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left active:scale-95" style={cardStyle()}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${C.weight}1a`, color: C.weight }}><Refrigerator size={19} /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold" style={{ color: C.ink }}>Mon frigo</span>
-            <span className="block text-[11px]" style={{ color: C.muted }}>{dispo.length ? `${dispo.length} aliments · ~${protStock(dispo)} g prot. dispo` : "Vide — ajoute ce que tu as"}</span>
-          </span>
-          <ChevronRight size={16} style={{ color: C.muted }} />
-        </button>
-      )}
-
-      {/* Touche coach — idée de saison / pour varier (ouvre le coach) */}
-      {!nq && onCoachPrompt && (
-        <button onClick={() => onCoachPrompt(`Propose-moi 2-3 idées de recettes végétariennes de saison (${season.all.slice(0, 6).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}), protéinées avec de vrais aliments (pas de poudre) et qui changent de mes habitudes.`)} className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left active:scale-95" style={cardStyle({ borderTop: `1px solid ${C.green}55` })}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `linear-gradient(140deg, ${C.green}, ${C.weight})`, color: C.bg }}><Sprout size={19} /></span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold" style={{ color: C.ink }}>Une idée de saison&nbsp;?</span>
-            <span className="block text-[11px]" style={{ color: C.muted }}>Ton coach · {season.all.slice(0, 3).map((x) => x.replace(/^[^\s]+\s/, "")).join(", ")}… pour varier, sans poudre</span>
-          </span>
-          <ChevronRight size={16} style={{ color: C.muted }} />
-        </button>
       )}
 
       {empty ? (
@@ -208,6 +190,9 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
         </button>
       )}
 
+      {/* Espace pour dégager la barre assistant fixe */}
+      <div aria-hidden style={{ height: "3.25rem" }} />
+
       {/* ── Sheets ── */}
       {addMenu && (
         <Sheet open onClose={() => setAddMenu(false)} title="Ajouter à ta cuisine" subtitle="Recette, import ou produit" icon={<Plus size={18} />} iconColor={C.green}>
@@ -253,5 +238,8 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
         </Sheet>
       )}
     </div>
+    {/* Barre assistant persistante (direction F) — coach en bas, comme l'option C */}
+    {onCoachPrompt && <AssistantBar onSend={onCoachPrompt} placeholder="Une idée, une envie… demande au coach" fixed />}
+    </>
   );
 }

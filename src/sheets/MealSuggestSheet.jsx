@@ -82,6 +82,12 @@ export function MealSuggestSheet({
     return r.slice(0, 6);
   }, [local, chips, excludeTerms]);
 
+  // « Cuisinable maintenant » (direction F) : tes recettes du créneau réalisables avec le frigo
+  // (≥ 50 % des ingrédients dispo) → mises en tête comme point de départ, pas un bouton sur 4.
+  const pantryNames = useMemo(() => pantry.filter((x) => !x.out).map((x) => deburr(x.name)).filter((s) => s.length > 2), [pantry]);
+  const matchFrac = (m) => { const ings = (m.ingredients || []).map((i) => deburr(typeof i === "string" ? i : i.name)).filter(Boolean); if (!ings.length) return 0; return ings.filter((ing) => pantryNames.some((pn) => ing.includes(pn) || pn.includes(ing))).length / ings.length; };
+  const cookable = useMemo(() => local.map((m) => ({ m, f: matchFrac(m) })).filter((x) => x.f >= 0.5).sort((a, b) => b.f - a.f).slice(0, 3).map((x) => x.m), [local, pantryNames]);
+
   const mounted = useRef(true);
   const seenTitles = useRef([]); // plats déjà proposés dans cette session → passés en excludeTitles pour que « Régénérer » VARIE
   useEffect(() => () => { mounted.current = false; }, []);
@@ -162,6 +168,21 @@ export function MealSuggestSheet({
             : <>Pour ton {SLOT_LABELS[slot] || "repas"}, il te reste <b style={{ color: budK <= 0 ? C.over : C.protein }}>{Math.round(Math.max(0, budK))} kcal · {Math.round(Math.max(0, budP))} g</b>. Envie de quoi ?</>}
         </div>
       </div>
+
+      {/* Cuisinable maintenant (direction F) : le frigo mène — tes recettes réalisables en tête,
+          + « autres idées » qui lance l'assistant avec ce qui périme. */}
+      {cookable.length > 0 && !results && !busy && (
+        <div className="mb-2 rounded-2xl p-3" style={{ backgroundColor: `${C.weight}10`, border: `1px solid ${C.weight}33` }}>
+          <div className="mb-2 flex items-center gap-1.5">
+            <Refrigerator size={13} style={{ color: C.weight }} />
+            <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.weight }}>Cuisinable maintenant · {cookable.length}</span>
+            <button onClick={() => ask({ useSoon: expiring })} disabled={busy} className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-white active:scale-95 disabled:opacity-50" style={{ background: `linear-gradient(150deg, ${C.green}, ${C.weight})` }}><Sparkles size={11} /> Autres idées</button>
+          </div>
+          <div className="space-y-1.5">
+            {cookable.map((m, i) => <MealCard key={`c-${i}`} meal={m} compact onLog={(cust) => { onLog?.(cust, slot); onClose(); }} />)}
+          </div>
+        </div>
+      )}
 
       {/* Consignes actives (épinglées du bilan / Réglages) — repliées par défaut : une ligne discrète qui rassure sans manger l'écran. */}
       {directives.length > 0 && (

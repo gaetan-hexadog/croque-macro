@@ -871,7 +871,7 @@ export default function PiocheRepas() {
             training={training} onToggleTraining={toggleTraining}
             sportInfo={sportInfo} sportCatchUp={sportCatchUp} recomp={recomp} onGoSport={() => go("sport")}
             onScan={openTool} onOpenCuisine={() => go("cuisine")} onPhotoLog={openQuickLog} onPlan={() => go("idees")} onRebalance={rebalanceSlot}
-            pushNav={pushNav} navBack={navBack} onOpenChat={openChat} onCoachPrompt={openChatWith}
+            pushNav={pushNav} navBack={navBack} onOpenChat={openChat} onCoachPrompt={openChatWith} onCook={openIdeaCook}
             weight={weights[activeDate]} onWeight={(kg) => setWeight(activeDate, kg)}
             onPick={openPicker} onIdea={openIdea} onConfirm={confirmMeal} quickPicks={quickPicks} onQuick={quickAdd}
             habituals={habituals} onHabitual={(it) => quickAdd(it.slot, it)} onSuggestNow={() => openIdea(suggestSlotNow())}
@@ -930,7 +930,7 @@ export default function PiocheRepas() {
         </Sheet>
       )}
       {frigoOpen && (
-        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} onShop={openShop} onCook={openIdeaCook} />
+        <PantrySheet pantry={pantry} onAdd={addPantry} onToggle={togglePantry} onUpdate={updatePantry} onRemove={removePantry} onClose={navBack} onShop={openShop} onCook={openIdeaCook} onAssistant={openChatWith} />
       )}
       {quickLogOpen && (
         <QuickLogSheet

@@ -8,6 +8,7 @@ import { fetchProductByBarcode } from "../lib/openfoodfacts.js";
 import { estimateFoodMacros } from "../lib/assistant.js";
 import { formatPantryText, shareOrCopy } from "../lib/share.js";
 import { ProteinFlag } from "../components/ProteinFlag.jsx";
+import { AssistantBar } from "../components/AssistantBar.jsx";
 
 const deburr = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -67,7 +68,7 @@ function parsePkg(s, baseUnit) {
 
 // Frigo/placard — PAGE plein écran (design lab F1) : recherche + « à consommer vite » (anti-gaspi
 // avec CTA cuisiner) + filtres catégorie + LISTE À PLAT recherchable, badges de péremption.
-export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, onClose, onShop, onCook }) {
+export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, onClose, onShop, onCook, onAssistant }) {
   const blank = { name: "", unit: "g", qty: "", kcal100: "", p100: "", exp: "" };
   const [f, setF] = useState(blank);
   const [q, setQ] = useState("");
@@ -113,8 +114,10 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   const nq = deburr(q);
   const catsPresent = CAT_ORDER.filter((k) => dispo.some((x) => itemCat(x) === k));
   const filtered = dispo
-    .filter((x) => (!nq || deburr(x.name).includes(nq)) && (filterCat === "all" || itemCat(x) === filterCat))
+    .filter((x) => (!nq || deburr(x.name).includes(nq)))
     .sort((a, b) => ((daysUntil(a.exp) ?? 9999) - (daysUntil(b.exp) ?? 9999)) || a.name.localeCompare(b.name));
+  // Stock GROUPÉ par catégorie (direction F) — plus de filtre-chips : chaque rayon a sa section.
+  const groups = CAT_ORDER.map((k) => ({ k, meta: catMeta(k), items: filtered.filter((x) => itemCat(x) === k) })).filter((g) => g.items.length);
 
   return (
     <>
@@ -150,63 +153,72 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
             </div>
           )}
 
-          {/* Ajout rapide + idées courses */}
-          {onShop && (
-            <button onClick={onShop} className="flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: `${C.weight}14`, color: C.weight, border: `1px solid ${C.weight}33` }}><ShoppingCart size={16} /> Idées courses pour varier</button>
-          )}
-
-          {/* À racheter */}
-          {rupture.length > 0 && (
-            <div className="rounded-2xl px-3.5 py-3" style={cardStyle({ background: `linear-gradient(150deg, ${C.over}14, transparent)` })}>
-              <div className="mb-2 flex items-center gap-1.5"><ShoppingCart size={13} style={{ color: C.over }} /><span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.over }}>À racheter · {rupture.length}</span></div>
-              <div className="space-y-1">
-                {rupture.map((it) => (
-                  <div key={it.id} className="flex items-center gap-2">
-                    <button onClick={() => setAction(it)} className="min-w-0 flex-1 truncate text-left text-sm active:opacity-70" style={{ color: C.sub }}>{it.name}</button>
-                    <button onClick={() => onToggle(it.id)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><RotateCcw size={11} /> Remettre</button>
-                  </div>
-                ))}
+          {/* Courses & réappro — bloc slim : header 1 ligne, actions en petits icônes
+              (idées courses + export texte), « à racheter » en rangée de chips qui scrolle
+              → hauteur constante même à 30 produits. Tap un chip = ranger/remettre. */}
+          {(rupture.length > 0 || onShop) && (
+            <div className="rounded-2xl px-3 py-2.5" style={cardStyle()}>
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={14} style={{ color: C.warn }} />
+                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.warn }}>{rupture.length ? `À racheter · ${rupture.length}` : "Courses & réappro"}</span>
+                <div className="ml-auto flex items-center gap-1">
+                  {onShop && <button onClick={onShop} title="Idées courses pour varier" aria-label="Idées courses" className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ backgroundColor: `${C.green}1f`, border: `1px solid ${C.green}44`, color: C.green }}><Sparkles size={13} /></button>}
+                  <button onClick={share} title="Exporter en texte" aria-label="Exporter le frigo en texte" className="flex h-7 w-7 items-center justify-center rounded-lg active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}><Share2 size={13} /></button>
+                </div>
               </div>
+              {rupture.length > 0 && (
+                <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
+                  {rupture.map((it) => (
+                    <button key={it.id} onClick={() => setAction(it)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{it.name}<RotateCcw size={10} style={{ color: C.green }} /></button>
+                  ))}
+                </div>
+              )}
+              {shared && <p className="mt-1.5 text-[11px] font-semibold" style={{ color: C.green }}>{shared} ✓</p>}
             </div>
           )}
 
           {pantry.length === 0 ? (
             <p className="py-8 text-center text-sm" style={{ color: C.muted }}>Aucun aliment pour l'instant — scanne ou ajoute ce que tu as.</p>
+          ) : filtered.length === 0 ? (
+            <p className="py-8 text-center text-sm" style={{ color: C.muted }}>{nq ? "Rien ne correspond." : "Aucun aliment dispo."}</p>
           ) : (
-            <>
-              {/* Filtres catégorie */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-                <button onClick={() => setFilterCat("all")} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={filterCat === "all" ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.card, color: C.sub, border: `1px solid ${C.line}` }}>Tous</button>
-                {catsPresent.map((k) => { const m = catMeta(k); const on = filterCat === k; return <button key={k} onClick={() => setFilterCat(on ? "all" : k)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={on ? { backgroundColor: m.color, color: "#fff" } : { backgroundColor: C.card, color: C.sub, border: `1px solid ${C.line}` }}><span>{m.emoji}</span> {m.label}</button>; })}
-              </div>
-
-              {/* Liste à plat */}
-              {filtered.length === 0 ? (
-                <p className="py-8 text-center text-sm" style={{ color: C.muted }}>{nq ? "Rien ne correspond." : "Aucun aliment dans ce filtre."}</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {filtered.map((it) => { const b = expiryMeta(it.exp); const m = catMeta(itemCat(it)); return (
-                    <div key={it.id} onClick={() => setAction(it)} className="flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5" style={cardStyle()}>
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base" style={{ backgroundColor: `${m.color}18` }}>{m.emoji}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold" style={{ color: C.ink }}>{it.name}</span>
-                        <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                          {dens(it) && <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{dens(it)}</span>}
-                          <ProteinFlag kcal={it.kcal100} p={it.p100} />
+            <div className="space-y-4">
+              {/* Rayons : une section par catégorie */}
+              {groups.map((g) => (
+                <div key={g.k}>
+                  <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>
+                    <span>{g.meta.emoji}</span> {g.meta.label} <span style={{ color: C.line }}>·</span> <span style={{ color: g.meta.color }}>{g.items.length}</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {g.items.map((it) => { const b = expiryMeta(it.exp); return (
+                      <div key={it.id} onClick={() => setAction(it)} className="flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5" style={cardStyle()}>
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base" style={{ backgroundColor: `${g.meta.color}18` }}>{g.meta.emoji}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold" style={{ color: C.ink }}>{it.name}</span>
+                          <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                            {dens(it) && <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{dens(it)}</span>}
+                            <ProteinFlag kcal={it.kcal100} p={it.p100} />
+                          </span>
                         </span>
-                      </span>
-                      {b && b.txt && <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${b.col}1a`, color: b.col }}>{b.txt}</span>}
-                      <button onClick={(ev) => { ev.stopPropagation(); onToggle(it.id); }} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }} aria-label="Passer en rupture">
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.green }} /> Dispo
-                      </button>
-                    </div>
-                  ); })}
+                        {b && b.txt && <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${b.col}1a`, color: b.col }}>{b.txt}</span>}
+                        <button onClick={(ev) => { ev.stopPropagation(); onToggle(it.id); }} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }} aria-label="Passer en rupture">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.green }} /> Dispo
+                        </button>
+                      </div>
+                    ); })}
+                  </div>
                 </div>
-              )}
+              ))}
               <p className="px-1 text-[11px] leading-relaxed" style={{ color: C.muted }}>Tape un <b style={{ color: C.ink }}>aliment</b> pour le modifier, le ranger ou lui donner une date. Le chip <b style={{ color: C.green }}>Dispo</b> le passe en rupture.</p>
-            </>
+            </div>
           )}
         </div>
+        {/* Barre assistant persistante (direction F) */}
+        {onAssistant && (
+          <div className="mx-auto w-full max-w-md px-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}>
+            <AssistantBar onSend={onAssistant} placeholder="Qu'est-ce que je fais avec ça ?" />
+          </div>
+        )}
       </div>
 
       {/* Sélecteur d'ajout */}

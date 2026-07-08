@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2, Leaf } from "lucide-react";
+import { Apple, Plus, Shuffle, Check, Search, Beef, Flame, ChevronRight, Trash2, Dumbbell, ChevronLeft, Scale, Layers, Copy, X, Pencil, TrendingDown, TrendingUp, Lightbulb, Sparkles, Wand2, BookOpen, Camera, ScanLine, Soup, ListPlus, Bookmark, CalendarClock, CalendarRange, Loader2, Leaf, Refrigerator } from "lucide-react";
 import {
-  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt, coachSignals, seasonalProduce,
+  SLOTS, C, SLOT_UI, TODAY, addDays, parseISO, fmtFull, r0, dayTotals, plannedTotals, fmtQty, cardStyle, weekStats, weekCoach, smoothedWeight, buildWeightExplainPrompt, coachSignals, seasonalProduce, expiryMeta,
 } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import { SectionTitle } from "../components/ui.jsx";
@@ -10,23 +10,9 @@ import { RecipeDetailSheet } from "../components/RecipeDetailSheet.jsx";
 import { explainWeight, AssistantError } from "../lib/assistant.js";
 import { useRotatingLine, THINKING } from "../components/useRotatingLine.js";
 
-// Raccourcis 1-tap : aliments fréquents/récents du créneau → ajout direct.
-function QuickChips({ items = [], onQuick, color }) {
-  if (!items.length || !onQuick) return null;
-  return (
-    <div className="mb-2 flex flex-wrap gap-1.5">
-      {items.map((it) => (
-        <button key={it.name} onClick={() => onQuick(it)} className="flex items-center gap-1 rounded-full py-1.5 pl-2 pr-2.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
-          <Plus size={12} style={{ color }} /> <span className="max-w-36 truncate">{it.name}</span> <span style={{ color: C.muted }}>{it.kcal}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 const deburr = (str) => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/œ/g, "oe").replace(/æ/g, "ae");
 
-export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, sportCatchUp, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe, savedRecipeNames, onOpenChat, onCoachPrompt }) {
+export function DayScreen({ activeDate, setActiveDate, settings, totals, planned = { kcal: 0, p: 0 }, remKcal, remP, days, weights, onOpenWeek, onSaveCombo, picks, skipBreakfast, slotTarget, training, onToggleTraining, weight, onWeight, onPick, onIdea, onConfirm, quickPicks = {}, onQuick, habituals = [], onHabitual, onSuggestNow, onClear, onQty, onEditItem, onSkip, onReset, templates, hasPrevDay, onCopyPrev, onSaveTemplate, onLoadTemplate, onDeleteTemplate, targetSuggestion, onApplyTarget, onDismissTarget, sportInfo, sportCatchUp, recomp, onGoSport, onScan, onOpenCuisine, onPhotoLog, onPlan, onRebalance, pushNav, navBack, favorites = [], knownFoods = [], pantry = [], onAddRecipe, savedRecipeNames, onOpenChat, onCoachPrompt, onCook }) {
   const [showTpl, setShowTpl] = useState(false);
   const [dismissRebal, setDismissRebal] = useState(false);
   const [viewRecipe, setViewRecipe] = useState(null); // { m, slot, index }
@@ -59,16 +45,9 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   // Résumé hebdo compact, intégré à la carte jauge (visible sans scroller).
   const wstats = weekStats(days, settings, activeDate, 7);
   const wcoach = weekCoach(wstats, settings, weights, activeDate);
-  // Coach du jour (A) : signaux proactifs conscients de l'heure — seulement pour aujourd'hui.
-  const coach = isToday && onCoachPrompt ? coachSignals({ days, weights, settings, refISO: activeDate }) : null;
   const season = seasonalProduce(activeDate);
-  const wBal = Math.round(wcoach.balance);
-  const wBalColor = wBal >= 0 ? C.green : C.protein;
-  const WTrend = wcoach.weightTrend === "down" ? TrendingDown : wcoach.weightTrend === "up" ? TrendingUp : null;
-  // Chips coach (actions rapides) — le message verbeux du coach a été retiré du héro ; on garde
-  // seulement les chips actionnables, triés par priorité de ton.
-  const TONE_RANK = { alert: 0, nudge: 1, reassure: 2, win: 3, info: 4 };
-  const coachChips = (coach ? coach.signals.slice().sort((a, b) => (TONE_RANK[a.tone] ?? 5) - (TONE_RANK[b.tone] ?? 5)) : []).filter((s) => s.chip).slice(0, 2);
+  // Anti-gaspi (direction F) : aliments du frigo qui périment → CTA « une idée ce soir » sur le Jour.
+  const urgentPantry = isToday ? pantry.filter((x) => x && !x.out && expiryMeta(x.exp)?.urgent) : [];
   const seg = (m, color) => ({ ...m, kcal: m.kcal * (m.qty || 1), p: m.p * (m.qty || 1), color });
   const ribbon = [
     ...picks.pdj.map((m) => seg(m, SLOT_UI.pdj.color)),
@@ -185,16 +164,21 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
           </div>
         </div>
 
-        {/* Contexte (aujourd'hui) : nudges coach rapides + accès aux aliments de saison (→ modale) */}
-        {/* {isToday && (
-          <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3" style={{ borderColor: C.line }}>
-            {coachChips.map((s, i) => (
-              <button key={i} onClick={() => onCoachPrompt(s.chip.prompt)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green, border: `1px solid ${C.green}40` }}>{s.chip.label}</button>
-            ))}
-            <button onClick={() => { nav(() => setSeasonOpen(false)); setSeasonOpen(true); }} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.warn}1f`, color: C.warn, border: `1px solid ${C.warn}40` }}><Leaf size={12} /> De saison</button>
-          </div>
-        )} */}
       </section>
+
+      {/* Anti-gaspi (direction F) : ce qui périme au frigo → une idée de repas ce soir. */}
+      {isToday && onCook && urgentPantry.length > 0 && (
+        <button onClick={() => onCook(urgentPantry.slice(0, 6).map((x) => x.name))} className="mb-4 w-full rounded-2xl px-4 py-3 text-left active:scale-95" style={{ background: `linear-gradient(135deg, ${C.weight}, #5f7fd0)` }}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.18)" }}><Refrigerator size={18} style={{ color: "#0d1220" }} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-extrabold" style={{ color: "#0d1220", fontFamily: "'Space Grotesk', system-ui" }}>{urgentPantry.length} aliment{urgentPantry.length > 1 ? "s" : ""} à finir vite</span>
+              <span className="block truncate text-[11px] font-medium" style={{ color: "rgba(13,18,32,0.72)" }}>{urgentPantry.slice(0, 3).map((x) => x.name).join(" · ")} → une idée ce soir</span>
+            </span>
+            <Sparkles size={17} style={{ color: "#0d1220" }} />
+          </div>
+        </button>
+      )}
 
       {/* ── Sport : séance / rattrapage / recomposition — condensés en UNE carte ── */}
       {(sportInfo || sportCatchUp || recomp) && (
@@ -551,50 +535,6 @@ function Meter({ value, planned = 0, target, color, height = 7 }) {
   );
 }
 
-function HeroRing({ kcal, kcalTarget, prot, protTarget, kcalPlanned = 0, protPlanned = 0, children }) {
-  const size = 220, cx = size / 2, cy = size / 2, sweep = 270, rot = 135;
-  const s1 = 14, r1 = (size - s1) / 2;
-  const s2 = 10, r2 = r1 - s1 / 2 - 7 - s2 / 2;
-  const circ1 = 2 * Math.PI * r1, arc1 = circ1 * (sweep / 360);
-  const circ2 = 2 * Math.PI * r2, arc2 = circ2 * (sweep / 360);
-  const kp = kcalTarget > 0 ? Math.min(1, kcal / kcalTarget) : 0;
-  const pp = protTarget > 0 ? Math.min(1, prot / protTarget) : 0;
-  const kpAll = kcalTarget > 0 ? Math.min(1, (kcal + kcalPlanned) / kcalTarget) : 0; // réel + planifié
-  const ppAll = protTarget > 0 ? Math.min(1, (prot + protPlanned) / protTarget) : 0;
-  const over = kcal > kcalTarget;
-  const kColor = over ? C.over : kp > 0.85 ? C.warn : C.green;
-  const pColor = C.protein;
-  return (
-    <div className="relative mx-auto mb-2" style={{ width: size, height: size * 0.84 }}>
-      <svg width={size} height={size} style={{ display: "block" }}>
-        <circle cx={cx} cy={cy} r={r1} fill="none" stroke={C.track} strokeWidth={s1} strokeLinecap="round" strokeDasharray={`${arc1} ${circ1}`} transform={`rotate(${rot} ${cx} ${cy})`} />
-        <circle cx={cx} cy={cy} r={r2} fill="none" stroke={C.track} strokeWidth={s2} strokeLinecap="round" strokeDasharray={`${arc2} ${circ2}`} transform={`rotate(${rot} ${cx} ${cy})`} />
-        {/* projection planifiée (pâle, sous le réel) */}
-        {kcalPlanned > 0 && <circle cx={cx} cy={cy} r={r1} fill="none" stroke={kColor} strokeOpacity={0.3} strokeWidth={s1} strokeLinecap="round" strokeDasharray={`${arc1 * kpAll} ${circ1}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease" }} />}
-        {protPlanned > 0 && <circle cx={cx} cy={cy} r={r2} fill="none" stroke={pColor} strokeOpacity={0.3} strokeWidth={s2} strokeLinecap="round" strokeDasharray={`${arc2 * ppAll} ${circ2}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease" }} />}
-        {/* réel consommé (solide) */}
-        <circle cx={cx} cy={cy} r={r1} fill="none" stroke={kColor} strokeWidth={s1} strokeLinecap="round" strokeDasharray={`${arc1 * kp} ${circ1}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease, stroke 0.4s ease", filter: `drop-shadow(0 0 7px ${kColor}80)` }} />
-        <circle cx={cx} cy={cy} r={r2} fill="none" stroke={pColor} strokeWidth={s2} strokeLinecap="round" strokeDasharray={`${arc2 * pp} ${circ2}`} transform={`rotate(${rot} ${cx} ${cy})`} style={{ transition: "stroke-dasharray 0.6s ease", filter: `drop-shadow(0 0 6px ${pColor}70)` }} />
-      </svg>
-      <div className="absolute inset-x-0 flex flex-col items-center text-center" style={{ top: "25%" }}>{children}</div>
-    </div>
-  );
-}
-
-
-function PlateBar({ segments, total }) {
-  const sum = segments.reduce((a, s) => a + s.kcal, 0);
-  return (
-    <div className="relative h-3.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: C.track }}>
-      <div className="flex h-full w-full">
-        {segments.map((s, i) => (
-          <div key={i} style={{ width: `${Math.max(0, (s.kcal / total) * 100)}%`, backgroundColor: s.color, borderRight: `1.5px solid ${C.paper}` }} />
-        ))}
-      </div>
-      {sum > total && <div className="absolute inset-y-0 right-0 w-1" style={{ backgroundColor: C.over }} />}
-    </div>
-  );
-}
 
 
 function WeightCard({ date, weight, onWeight, pushNav, navBack, weights = {}, weekBalance, days = {}, settings = {} }) {
