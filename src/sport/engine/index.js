@@ -14,5 +14,6 @@ export * from "./overrides.js";
 
 // Données du programme (ré-export pour un point d'entrée unique).
 export * from "../config/programs/fullbody14.v1.js";
+export * from "../config/programs/index.js";
 export * from "../config/coachProfile.js";
 export { EQUIPMENT, DEFAULT_EQUIPMENT } from "../config/alternatives.js";

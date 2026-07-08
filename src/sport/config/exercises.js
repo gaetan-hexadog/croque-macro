@@ -22,6 +22,8 @@ export const EXERCISES = {
   // ── Tirage (haut) ──
   row_barbell:    { id: "row_barbell",     name: "Rowing barre",                  muscles: ["dos", "biceps"],            pattern: "horizontal_pull", legacyNames: ["Rowing penché", "Rowing barre"] },
   upright_row:    { id: "upright_row",     name: "Tirage menton",                 muscles: ["épaules", "trapèzes"],      pattern: "vertical_pull",   legacyNames: ["Tirage menton"] },
+  row_kb_1arm:    { id: "row_kb_1arm",     name: "Rowing kettlebell 1 bras",      muscles: ["dos (largeur)", "biceps"],  pattern: "horizontal_pull", legacyNames: ["Rowing kettlebell 1 bras", "Rowing kettlebell (1 bras)"] },
+  lateral_raise_kb:{ id: "lateral_raise_kb", name: "Élévations latérales kettlebell", muscles: ["épaules (moyen)"],       pattern: "lateral_raise",   legacyNames: ["Élévations latérales kettlebell"] },
   curl_kb:        { id: "curl_kb",         name: "Curl kettlebell",               muscles: ["biceps"],                   pattern: "elbow_flexion",   legacyNames: ["Curl kettlebell"], supports: ["unilateralCatchUp"] },
 
   // ── Tronc ──

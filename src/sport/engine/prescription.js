@@ -151,7 +151,8 @@ export function getExercisePrescription(exercise, week, history, exerciseCharges
   let charge = lane?.kg != null ? lane.kg : programChargeForType(week, exercise.type, exercise);
   if (lane?.kg != null && block?.phase === "Décharge") charge = Math.max(20, Math.round((charge * 0.9) / 2.5) * 2.5);
   let direction = "hold", note = null;
-  if (prev != null && charge > prev) { direction = "up"; note = "Charge en hausse — tu l'as méritée (séances propres)."; }
+  if (block?.phase === "Décharge" && lane?.kg != null) { direction = "down"; note = "Semaine de décharge — charge allégée volontairement, on récupère."; }
+  else if (prev != null && charge > prev) { direction = "up"; note = "Charge en hausse — tu l'as méritée (séances propres)."; }
   else if (prev != null && charge < prev) { direction = "down"; note = "Charge allégée après une séance difficile — on repart proprement."; }
   else if (fb?.allEasy) { note = "Jugé facile — encore une séance propre et ça monte."; }
   return { mode: "charge", value: charge, unit: "kg", direction, note };
