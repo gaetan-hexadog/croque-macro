@@ -1,5 +1,6 @@
 // engine/overrides.js — transformations d'exercice pilotées par des flags.
 // (Phase 3 : cet applieur deviendra générique — flags déclaratifs en config.)
+import { getAdaptedExerciseParams } from "./prescription.js";
 
 // ── Correctif déséquilibre bras (Curl kettlebell) ────────────────────────────
 // Tant que `sport.curlBalanced` n'est pas vrai (défaut), le Curl passe en UNILATÉRAL
@@ -24,6 +25,19 @@ export function applyArmCorrection(session, sport) {
         "Quand tes deux bras sont au même niveau → coupe le correctif dans les réglages Sport (retour au curl bilatéral).",
       ],
     };
+  });
+  return { ...session, exercises };
+}
+
+// ── Adaptation de programme : décharge → −1 série, développé militaire → 5 reps ──
+// Rebranche le comportement dormant getAdaptedExerciseParams (décision validée par Bob).
+// Fait au niveau SÉANCE (pas du log) → ex.sets/ex.reps restent cohérents dans tout le flux.
+export function applyProgramAdaptation(session, week, workouts) {
+  if (!session?.exercises) return session;
+  const exercises = session.exercises.map((ex) => {
+    const a = getAdaptedExerciseParams(ex, week, workouts);
+    if (a.sets === ex.sets && a.reps === ex.reps) return ex;
+    return { ...ex, sets: a.sets, reps: a.reps, repsTarget: a.repsTarget, adaptNotes: a.notes };
   });
   return { ...session, exercises };
 }

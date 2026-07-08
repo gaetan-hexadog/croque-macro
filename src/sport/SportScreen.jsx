@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Dumbbell } from "lucide-react";
 import { C } from "../core.js";
-import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT, applyArmCorrection, applyFeedback } from "../lib/sport.js";
+import { SESSIONS, getCurrentBlock, calcCurrentWeekFromStart, adaptSession, DEFAULT_EQUIPMENT, applyArmCorrection, applyFeedback, applyProgramAdaptation } from "../lib/sport.js";
 import { SportHome } from "./SportHome.jsx";
 import { SessionPreview } from "./SessionPreview.jsx";
 import { ForceWorkout } from "./ForceWorkout.jsx";
@@ -47,7 +47,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
       : sport.vacationMode
         ? adaptSession(SESSIONS[sid], { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) })
         : SESSIONS[sid];
-    return applyArmCorrection(base, sport);
+    return applyProgramAdaptation(applyArmCorrection(base, sport), currentWeek, workouts);
   };
 
   // Reprise auto d'une séance interrompue (PWA rechargée en arrière-plan).

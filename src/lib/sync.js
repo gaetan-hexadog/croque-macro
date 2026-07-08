@@ -103,10 +103,17 @@ function mergeSport(local, remote) {
   if (!local && !remote) return undefined;
   const l = local || {}, r = remote || {};
   const map = (a = {}, b = {}) => ({ ...(a || {}), ...(b || {}) });
+  // Charges par exercice : merge PAR CLÉ en gardant l'entrée au updatedAt le plus récent
+  // (évite qu'un appareil en retard écrase une montée de charge récente).
+  const byUpdatedAt = (a = {}, b = {}) => {
+    const out = { ...(a || {}) };
+    for (const k in (b || {})) if (!out[k] || (b[k]?.updatedAt || 0) >= (out[k]?.updatedAt || 0)) out[k] = b[k];
+    return out;
+  };
   return {
     ...l, ...r, // scalaires : remote prioritaire (startDate, currentWeek, soundEnabled…)
     acknowledgedSuggestions: map(l.acknowledgedSuggestions, r.acknowledgedSuggestions),
-    exerciseCharges: map(l.exerciseCharges, r.exerciseCharges),
+    exerciseCharges: byUpdatedAt(l.exerciseCharges, r.exerciseCharges),
     vacationHistory: map(l.vacationHistory, r.vacationHistory),
     postponements: map(l.postponements, r.postponements),
     preferences: map(l.preferences, r.preferences),
