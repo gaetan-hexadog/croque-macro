@@ -4,12 +4,12 @@ import { SESSIONS, SESSION_ORDER } from "../config/programs/fullbody14.v1.js";
 import { daysBetween, calcCurrentWeekFromStart } from "./dates.js";
 import { getCurrentBlock } from "./blocks.js";
 import { analyzeSessionEntry } from "./feedback.js";
-import { lastEntryWithExercise } from "./resolve.js";
+import { lastEntryWithExercise, resolveExId } from "./resolve.js";
 
 // ── Suggestions / avertissements (renvoient un `level`, pas d'icône) ─────────
-export function getAdaptiveSuggestion(history, sessionId, now = new Date()) {
+export function getAdaptiveSuggestion(history, sessionId, now = new Date(), pid = null) {
   const list = Object.values(history)
-    .filter((e) => e?.sessionId === sessionId && e?.completed && e?.data)
+    .filter((e) => e?.sessionId === sessionId && (pid == null || (e.programId || "fullbody-14") === pid) && e?.completed && e?.data)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   if (list.length === 0) return null;
   const daysSince = daysBetween(new Date(list[0].date), now);
@@ -79,7 +79,8 @@ export function strengthTrend(workouts, now = new Date()) {
     for (const ex of e.data) {
       let mx = 0;
       for (const s of ex.sets || []) if (s.weight != null && s.weight > 0) mx = Math.max(mx, s.weight);
-      if (mx > 0) (byEx[ex.exercise] = byEx[ex.exercise] || []).push({ t, charge: mx });
+      const key = resolveExId(ex.exercise) || ex.exercise; // par exId → continuité au renommage/programme
+      if (mx > 0) (byEx[key] = byEx[key] || []).push({ t, charge: mx });
     }
   }
   const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
@@ -154,8 +155,9 @@ export function sessionVolume(entry) {
 export function isVolumePR(entry, history) {
   const vol = sessionVolume(entry);
   if (vol <= 0) return false;
+  const tpid = entry.programId || "fullbody-14"; // PR comparé DANS le même programme (A/B/C partagées entre programmes)
   const prev = Object.values(history || {})
-    .filter((e) => e?.completed && Array.isArray(e?.data) && e?.sessionId === entry.sessionId && e?.id !== entry.id)
+    .filter((e) => e?.completed && Array.isArray(e?.data) && e?.sessionId === entry.sessionId && (e.programId || "fullbody-14") === tpid && e?.id !== entry.id)
     .map(sessionVolume);
   const best = prev.length ? Math.max(...prev) : 0;
   return vol > best;
@@ -174,9 +176,10 @@ export function strengthSeries(workouts) {
       let mx = 0;
       for (const s of ex.sets || []) if (s.weight != null && s.weight > 0) mx = Math.max(mx, s.weight);
       if (mx <= 0) continue;
-      (byExWeek[ex.exercise] = byExWeek[ex.exercise] || {});
-      byExWeek[ex.exercise][e.week] = Math.max(byExWeek[ex.exercise][e.week] || 0, mx);
-      if (baseline[ex.exercise] == null) baseline[ex.exercise] = mx;
+      const key = resolveExId(ex.exercise) || ex.exercise; // par exId → baseline stable au renommage/programme
+      (byExWeek[key] = byExWeek[key] || {});
+      byExWeek[key][e.week] = Math.max(byExWeek[key][e.week] || 0, mx);
+      if (baseline[key] == null) baseline[key] = mx;
     }
   }
   const weeks = [...new Set(entries.map((e) => e.week))].sort((a, b) => a - b);
@@ -194,10 +197,11 @@ export function strengthSeries(workouts) {
 
 // Assiduité : séances distinctes complétées par semaine, sur les `weeks` dernières
 // semaines jusqu'à `currentWeek`. Renvoie [{ week, done }] (done ≤ 3).
-export function assiduitySeries(workouts, currentWeek, weeks = 6) {
+export function assiduitySeries(workouts, currentWeek, weeks = 6, pid = null) {
   const done = {};
   for (const e of Object.values(workouts || {})) {
     if (!e?.completed || e.week == null || e.free) continue; // le cardio libre ne compte pas dans l'assiduité A/B/C
+    if (pid && (e.programId || "fullbody-14") !== pid) continue; // assiduité DU programme actif
     (done[e.week] = done[e.week] || new Set()).add(e.sessionId);
   }
   const start = Math.max(1, (currentWeek || 1) - weeks + 1);

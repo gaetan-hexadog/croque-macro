@@ -40,7 +40,7 @@ export function SportHome({ sport = {}, workouts, program, currentWeek, sessionD
   const trend = strengthTrend(workouts);
   const trendPct = trend && typeof trend.pct === "number" ? trend.pct : null;
   const pts = strengthSeries(workouts).map((p) => p.value);
-  const ass = assiduitySeries(workouts, currentWeek, 6);
+  const ass = assiduitySeries(workouts, currentWeek, 6, pid);
   const streak = activeWeekStreak(workouts, currentWeek);
   const TrendIcon = trend?.direction === "up" ? TrendingUp : trend?.direction === "down" ? TrendingDown : Flat;
   const trendCol = trend?.direction === "up" ? t.good : trend?.direction === "down" ? t.effort : t.sub;
@@ -56,7 +56,7 @@ export function SportHome({ sport = {}, workouts, program, currentWeek, sessionD
       return `${catchUp.length > 1 ? `${catchUp.length} séances` : names} à rattraper — leur jour est passé. Fais-la aujourd'hui, ça compte pour la semaine.`;
     }
     if (today && !todayDone) {
-      const sugg = getAdaptiveSuggestion(workouts, todayId);
+      const sugg = getAdaptiveSuggestion(workouts, todayId, new Date(), pid);
       const base = trend?.direction === "up" ? "Ta force monte" : trend?.direction === "down" ? "Ta force fatigue un peu" : "Tu tiens le rythme";
       if (today.type === "cardio") return `${base}. Aujourd'hui c'est cardio — garde le déficit sans toucher au muscle.`;
       return `${base}. Aujourd'hui ${today.subtitle.toLowerCase()}${sugg ? " — une charge à retenter, vas-y franco" : " — soigne l'exécution"}.`;
