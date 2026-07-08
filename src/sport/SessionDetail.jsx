@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Timer, Dumbbell, Flame, Plus, Minus, Trash2, Pencil, Check, X, Repeat } from "lucide-react";
 import { C, cardStyle } from "../core.js";
 import { sportTokens, SPORT_FONT as FONT } from "./theme.js";
-import { SESSIONS, sessionVolume, formatTime } from "../lib/sport.js";
+import { SESSIONS, getProgram, sessionVolume, formatTime } from "../lib/sport.js";
 import { DIFFS, diffColorByValue } from "./components.jsx";
 
 const copy = (o) => JSON.parse(JSON.stringify(o || []));
@@ -14,7 +14,7 @@ export function SessionDetail({ entry, onBack, onSave, onDelete, onRedo, sportTh
   const isGym = t.variant === "gym";
   const panel = isGym ? { backgroundColor: t.panel, border: `1px solid ${t.line}` } : cardStyle();
   const del = isGym ? "#ff6a4d" : C.over;
-  const s = SESSIONS[entry.sessionId];
+  const s = (entry.programId && getProgram(entry.programId)?.sessions?.[entry.sessionId]) || SESSIONS[entry.sessionId];
   const cardio = (s?.type === "cardio") || (!!entry.cardioData && !entry.data?.length);
   const [editing, setEditing] = useState(false);
   const [data, setData] = useState(() => copy(entry.data));

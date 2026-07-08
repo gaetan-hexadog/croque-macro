@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { sportTokens, SPORT_FONT } from "./theme.js";
 import {
-  SESSIONS, SESSION_ORDER, getAdaptiveSuggestion, getCatchUp, daysBetween,
+  SESSIONS, SESSION_ORDER, getProgram, getAdaptiveSuggestion, getCatchUp, daysBetween,
   strengthTrend, strengthSeries, assiduitySeries, activeWeekStreak,
 } from "../lib/sport.js";
 import { Sparkline } from "./components.jsx";
@@ -15,21 +15,27 @@ import { Sparkline } from "./components.jsx";
 // séance du jour (héros dominant + coach intégré + Démarrer), une ligne momentum
 // glanceable, PUIS le reste (semaine, progression, historique) replié à un tap.
 // ════════════════════════════════════════════════════════════════════════════
-export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, startDate, onOpen, onOpenDetail, onManualLog, onCoach }) {
+export function SportHome({ sport = {}, workouts, program, currentWeek, sessionDays, startDate, onOpen, onOpenDetail, onManualLog, onCoach }) {
   const t = sportTokens(sport.sportTheme, "hub");
   const isGym = t.variant === "gym";
   const [open, setOpen] = useState({});
   const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }));
 
+  // Sessions/ordre du programme ACTIF ; ids de séance scopés par programme (voir SportScreen).
+  const SESS = program?.sessions || SESSIONS;
+  const ORDER = program?.sessionOrder || SESSION_ORDER;
+  const pid = program?.id;
+  const wid = (sid) => (pid ? `${pid}:W${currentWeek}-${sid}` : `W${currentWeek}-${sid}`);
+
   const todayDow = new Date().getDay();
-  const catchUp = getCatchUp(workouts, sessionDays, startDate, currentWeek);
-  const todayId = SESSION_ORDER.find((sid) => sessionDays[sid] === todayDow);
-  const today = todayId ? SESSIONS[todayId] : null;
-  const doneThisWeek = (sid) => !!workouts[`W${currentWeek}-${sid}`];
+  const catchUp = getCatchUp(workouts, sessionDays, startDate, currentWeek, new Date(), program);
+  const todayId = ORDER.find((sid) => sessionDays[sid] === todayDow);
+  const today = todayId ? SESS[todayId] : null;
+  const doneThisWeek = (sid) => !!workouts[wid(sid)];
   // Séance déjà validée cette semaine → on l'ouvre en CONSULTATION (détail), pas en « refaire ».
-  const openSession = (sid) => (doneThisWeek(sid) ? onOpenDetail(workouts[`W${currentWeek}-${sid}`]) : onOpen(sid));
+  const openSession = (sid) => (doneThisWeek(sid) ? onOpenDetail(workouts[wid(sid)]) : onOpen(sid));
   const todayDone = todayId && doneThisWeek(todayId);
-  const weekDone = SESSION_ORDER.filter(doneThisWeek).length;
+  const weekDone = ORDER.filter(doneThisWeek).length;
 
   const trend = strengthTrend(workouts);
   const trendPct = trend && typeof trend.pct === "number" ? trend.pct : null;
@@ -40,13 +46,13 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
   const trendCol = trend?.direction === "up" ? t.good : trend?.direction === "down" ? t.effort : t.sub;
   const trendLabel = trend?.direction === "up" ? "Force en hausse" : trend?.direction === "down" ? "Force en baisse" : "Force stable";
 
-  const nextId = SESSION_ORDER.find((sid) => !doneThisWeek(sid) && sid !== todayId) || SESSION_ORDER.find((sid) => !doneThisWeek(sid));
-  const next = nextId ? SESSIONS[nextId] : null;
+  const nextId = ORDER.find((sid) => !doneThisWeek(sid) && sid !== todayId) || ORDER.find((sid) => !doneThisWeek(sid));
+  const next = nextId ? SESS[nextId] : null;
 
   // Briefing du coach, dérivé des données réelles.
   const brief = (() => {
     if (catchUp.length) {
-      const names = catchUp.map((id) => SESSIONS[id].name).join(", ");
+      const names = catchUp.map((id) => SESS[id].name).join(", ");
       return `${catchUp.length > 1 ? `${catchUp.length} séances` : names} à rattraper — leur jour est passé. Fais-la aujourd'hui, ça compte pour la semaine.`;
     }
     if (today && !todayDone) {
@@ -87,7 +93,7 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
       {/* ── Momentum : une ligne glanceable ── */}
       <div className="mb-4 flex items-stretch gap-2">
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl py-2.5" style={{ backgroundColor: t.panel, border: `1px solid ${t.line}` }}>
-          <div className="flex gap-1">{SESSION_ORDER.map((sid) => <span key={sid} className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: doneThisWeek(sid) ? t.good : t.line }} />)}</div>
+          <div className="flex gap-1">{ORDER.map((sid) => <span key={sid} className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: doneThisWeek(sid) ? t.good : t.line }} />)}</div>
           <span className="mt-1 text-[11px] font-semibold" style={{ color: t.sub }}>{weekDone}/3 semaine</span>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl py-2.5" style={{ backgroundColor: t.panel, border: `1px solid ${t.line}` }}>
@@ -104,8 +110,8 @@ export function SportHome({ sport = {}, workouts, currentWeek, sessionDays, star
       <div className="space-y-2">
         <QuietSection t={t} icon={CalendarCheck} label="Cette semaine" open={open.semaine} onToggle={() => toggle("semaine")} badge={catchUp.length ? { text: `${catchUp.length} à rattraper`, col: t.effort } : null}>
           <div className="space-y-2">
-            {SESSION_ORDER.map((sid) => {
-              const s = SESSIONS[sid];
+            {ORDER.map((sid) => {
+              const s = SESS[sid];
               const done = doneThisWeek(sid);
               const isToday = todayId === sid;
               const missed = catchUp.includes(sid);
@@ -205,7 +211,8 @@ function RecentHistory({ t, workouts, onOpenDetail }) {
         const d = daysBetween(new Date(e.date), new Date());
         const rel = d === 0 ? "aujourd'hui" : d === 1 ? "hier" : `il y a ${d} j`;
         const isFree = e.free;
-        const s = SESSIONS[e.sessionId];
+        // Nom de séance résolu depuis le programme de CETTE entrée (historique multi-programmes).
+        const s = (e.programId && getProgram(e.programId)?.sessions?.[e.sessionId]) || SESSIONS[e.sessionId];
         const cardio = isFree || s?.type === "cardio";
         const label = isFree ? `Cardio libre${e.cardioData?.minutes ? ` · ${e.cardioData.minutes} min` : ""}` : `S${e.week} · ${s ? s.name : e.sessionId}${e.manual ? " · manuel" : ""}`;
         return (

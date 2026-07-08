@@ -3,7 +3,7 @@ import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, 
 import {
   SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
 } from "./core.js";
-import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, recompSignal, buildSportCoachSystem, sportCoachOpening } from "./lib/sport.js";
+import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, getActiveProgram, recompSignal, buildSportCoachSystem, sportCoachOpening } from "./lib/sport.js";
 import { sportTokens } from "./sport/theme.js";
 import { loadLive } from "./sport/liveSession.js";
 import { getLibrarySync, refreshLibrary } from "./lib/library.js";
@@ -372,23 +372,29 @@ export default function PiocheRepas() {
   // ── Intelligence croisée sport ↔ nutrition ─────────────────────────────────
   // Séance prévue à la date affichée (selon les jours de séance du programme).
   const sportInfo = useMemo(() => {
-    if (!sport.startDate) return null;
+    const program = getActiveProgram(sport);
+    const ps = sport.programState?.[program.id] || {};
+    if (!ps.startDate) return null;
     const d = parseISO(activeDate);
-    const week = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(sport.startDate, d);
+    const week = ps.weekManuallySet ? (ps.currentWeek || 1) : calcCurrentWeekFromStart(ps.startDate, d);
     const sessionDays = sport.preferences?.sessionDays || { A: 2, B: 4, C: 6 };
-    const sid = SESSION_ORDER.find((s) => sessionDays[s] === d.getDay());
+    const order = program.sessionOrder || SESSION_ORDER;
+    const sid = order.find((s) => sessionDays[s] === d.getDay());
     if (!sid) return null;
-    return { sid, week, name: SESSIONS[sid]?.name, subtitle: SESSIONS[sid]?.subtitle, done: !!workouts[`W${week}-${sid}`] };
+    const s = program.sessions[sid];
+    return { sid, week, name: s?.name, subtitle: s?.subtitle, done: !!workouts[`${program.id}:W${week}-${sid}`] };
   }, [sport, activeDate, workouts]);
   // Séances à rattraper : prévues plus tôt cette semaine, jour passé, pas encore faites.
   // Affiché uniquement sur AUJOURD'HUI (le rattrapage se fait sur la semaine en cours).
   const sportCatchUp = useMemo(() => {
-    if (!sport.startDate || activeDate !== TODAY) return null;
-    const week = sport.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(sport.startDate);
+    const program = getActiveProgram(sport);
+    const ps = sport.programState?.[program.id] || {};
+    if (!ps.startDate || activeDate !== TODAY) return null;
+    const week = ps.weekManuallySet ? (ps.currentWeek || 1) : calcCurrentWeekFromStart(ps.startDate);
     const sessionDays = sport.preferences?.sessionDays || { A: 2, B: 4, C: 6 };
-    const ids = getCatchUp(workouts, sessionDays, sport.startDate, week);
+    const ids = getCatchUp(workouts, sessionDays, ps.startDate, week, new Date(), program);
     if (!ids.length) return null;
-    return ids.map((sid) => ({ sid, name: SESSIONS[sid]?.name, subtitle: SESSIONS[sid]?.subtitle, day: SESSIONS[sid]?.day }));
+    return ids.map((sid) => { const s = program.sessions[sid]; return { sid, name: s?.name, subtitle: s?.subtitle, day: s?.day }; });
   }, [sport, activeDate, workouts]);
   // Coaching recomposition : croise tendance de force et tendance de poids (today).
   const recomp = useMemo(() => recompSignal(workouts, observedTrend(days, weights, TODAY)), [workouts, days, weights]);
@@ -759,16 +765,17 @@ export default function PiocheRepas() {
     // → on rapatrie les séances dans workouts, le poids dans weights, la config dans sport.
     if (obj && obj.state && obj.state.history && typeof obj.state.history === "object") {
       const st = obj.state;
-      setWorkouts((prev) => ({ ...prev, ...st.history }));         // clé = id de séance ("W8-A"…), idempotent
+      // Import = ancienne app full-body → scoper les ids ("W8-A" → "fullbody-14:W8-A") + tagger le programme.
+      const scoped = {}; for (const k in st.history) { const nk = k.startsWith("fullbody-14:") ? k : `fullbody-14:${k}`; scoped[nk] = { ...st.history[k], programId: "fullbody-14" }; }
+      setWorkouts((prev) => ({ ...prev, ...scoped }));            // idempotent
       if (st.weightLog && typeof st.weightLog === "object") {
         const w = {}; for (const iso in st.weightLog) { const kg = Number(st.weightLog[iso]); if (!isNaN(kg)) w[iso] = kg; }
         setWeights((prev) => ({ ...w, ...prev }));                 // ne pas écraser une pesée déjà saisie côté nutrition
       }
       setSport((prev) => ({
         ...prev,
-        startDate: st.startDate ?? prev.startDate,
-        currentWeek: st.currentWeek ?? prev.currentWeek,
-        weekManuallySet: st.weekManuallySet ?? prev.weekManuallySet,
+        activeProgramId: "fullbody-14",
+        programState: { ...(prev.programState || {}), "fullbody-14": { startDate: st.startDate ?? prev.programState?.["fullbody-14"]?.startDate ?? null, currentWeek: st.currentWeek ?? 1, weekManuallySet: st.weekManuallySet ?? false } },
         soundEnabled: st.soundEnabled ?? prev.soundEnabled,
         acknowledgedSuggestions: { ...(prev.acknowledgedSuggestions || {}), ...(st.acknowledgedSuggestions || {}) },
         preferences: { ...(prev.preferences || {}), ...(st.preferences || {}) },
@@ -953,8 +960,10 @@ export default function PiocheRepas() {
           <ChatSheet system={buildChatSystem({ days, weights, settings, pantry, recipes: [...customRecipes, ...library.recipes], refISO: activeDate })} opening={coachOpening({ days, weights, settings, refISO: activeDate })} initialPrompt={chatPrompt} onAction={chatAction} onClose={navBack} />
         )}
         {sportChatOpen && (() => {
-          const w = sport?.weekManuallySet ? (sport.currentWeek || 1) : calcCurrentWeekFromStart(sport?.startDate);
-          return <ChatSheet system={buildSportCoachSystem(sport, workouts, w)} opening={sportCoachOpening(sport, workouts, w)} onAction={() => {}} onClose={navBack} />;
+          const program = getActiveProgram(sport);
+          const ps = sport?.programState?.[program.id] || {};
+          const w = ps.weekManuallySet ? (ps.currentWeek || 1) : calcCurrentWeekFromStart(ps.startDate);
+          return <ChatSheet system={buildSportCoachSystem(sport, workouts, w, program)} opening={sportCoachOpening(sport, workouts, w)} onAction={() => {}} onClose={navBack} />;
         })()}
       </Suspense>
       {shopOpen && (

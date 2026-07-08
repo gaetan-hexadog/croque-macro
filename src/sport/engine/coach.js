@@ -3,22 +3,26 @@
 // contexte sport (programme, semaine, force, matériel, historique) ; la function
 // ajoute la clé API. Style calqué sur le coach nutrition mais orienté entraînement.
 import { SESSIONS } from "../config/programs/fullbody14.v1.js";
+import { getProgram } from "../config/programs/index.js";
 import { DEFAULT_EQUIPMENT } from "../config/alternatives.js";
 import { getCurrentBlock } from "./blocks.js";
 import { strengthTrend } from "./analytics.js";
 
-export function buildSportCoachSystem(sport = {}, workouts = {}, week = 1) {
+export function buildSportCoachSystem(sport = {}, workouts = {}, week = 1, program = null) {
   const block = getCurrentBlock(week) || {};
+  const prog = program || {};
   const trend = strengthTrend(workouts);
   const done = Object.values(workouts || {}).filter((e) => e?.completed).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 4);
-  const recent = done.map((e) => { const s = SESSIONS[e.sessionId]; return `S${e.week} ${s ? s.name : e.sessionId}${e.feel ? ` (ressenti ${e.feel}/5)` : ""}`; }).join(" · ") || "aucune récente";
+  // Résout le nom de séance depuis le programme de CHAQUE entrée (historique multi-programmes).
+  const recent = done.map((e) => { const s = (e.programId && getProgram(e.programId)?.sessions?.[e.sessionId]) || SESSIONS[e.sessionId]; return `S${e.week} ${s ? s.name : e.sessionId}${e.feel ? ` (ressenti ${e.feel}/5)` : ""}`; }).join(" · ") || "aucune récente";
   const trendTxt = trend ? (trend.direction === "up" ? "en hausse" : trend.direction === "down" ? "en baisse" : "stable") : "pas encore mesurée";
+  const sessLine = prog.sessions ? Object.values(prog.sessions).map((s) => `${s.id} = ${s.name} (${s.day})`).join(", ") : "A/B/C";
   const eq = { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) };
   const kb = [eq.kb12 && "2×12", eq.kb16 && "1×16"].filter(Boolean).join(" + ") || "aucun";
   return [
     "Tu es le COACH SPORTIF de Bob dans l'app Croque·Macro. Réponds en FRANÇAIS, tutoiement, ton direct et concret, sans blabla ni flatterie. Réponses courtes (2-5 phrases), pratiques et actionnables.",
     "PROFIL : homme 42 ans, 1,86 m, ~91 kg. Objectif : perte de gras + renforcement du haut du corps. La nutrition (~1950 kcal / 175 g protéines) est gérée par un AUTRE coach — n'en parle pas sauf demande explicite, et renvoie-y le cas échéant.",
-    `PROGRAMME : 14 semaines, full-body + cardio, 3 séances/sem. A = force full body (mardi), B = cardio intervalles (jeudi), C = force + cardio (samedi). Actuellement SEMAINE ${week}, phase « ${block.phase || "?"} ». Charges de référence : standard ${block.standard} kg, lourd ${block.heavy} kg (la charge progresse seule selon le programme et tes retours).`,
+    `PROGRAMME ACTIF : « ${prog.name || "Programme 14 semaines"} » — ${prog.description || "full-body + cardio, 3 séances/sem."} Séances : ${sessLine}. Actuellement SEMAINE ${week}, phase « ${block.phase || "?"} ». La charge est mémorisée PAR exercice et progresse selon tes retours (montée quand c'est trop facile plusieurs séances de suite, baisse immédiate si trop lourd).`,
     `MATÉRIEL : barre + disques, kettlebells (${kb}), rameur, corde à sauter. Kettlebells 14 kg prévus plus tard.`,
     `FORCE récente : ${trendTxt}. Dernières séances : ${recent}.`,
     "TON RÔLE : plateaux, courbatures/récup, technique d'exercice, adaptation (peu de matériel / peu de temps / fatigue), motivation. Tu peux proposer d'alléger, raccourcir ou remplacer un exercice. Appuie-toi sur le programme et l'historique ci-dessus. Si un point est ambigu, pose UNE question de précision.",

@@ -111,9 +111,10 @@ function mergeSport(local, remote) {
     return out;
   };
   return {
-    ...l, ...r, // scalaires : remote prioritaire (startDate, currentWeek, soundEnabled…)
+    ...l, ...r, // scalaires : remote prioritaire (activeProgramId, soundEnabled…)
     acknowledgedSuggestions: map(l.acknowledgedSuggestions, r.acknowledgedSuggestions),
     exerciseCharges: byUpdatedAt(l.exerciseCharges, r.exerciseCharges),
+    programState: map(l.programState, r.programState), // position PAR programme : merge par id (pas de remplacement en bloc)
     vacationHistory: map(l.vacationHistory, r.vacationHistory),
     postponements: map(l.postponements, r.postponements),
     preferences: map(l.preferences, r.preferences),

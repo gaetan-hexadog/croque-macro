@@ -38,19 +38,23 @@ export function getProlongedBreakDays(history) {
 // n'est pas faite, et ce jour tombe APRÈS le démarrage du programme (sinon elle
 // n'a jamais eu lieu — ex. tu démarres samedi : mardi/jeudi d'avant ne comptent pas).
 // Semaine lue lundi→dimanche. Renvoie les ids dans l'ordre du programme.
-export function getCatchUp(history, sessionDays = {}, startDate = null, currentWeek = 1, today = new Date()) {
+export function getCatchUp(history, sessionDays = {}, startDate = null, currentWeek = 1, today = new Date(), program = null) {
+  const order = program?.sessionOrder || SESSION_ORDER;   // ordre des séances du programme actif
+  const sess = program?.sessions || SESSIONS;
+  const pid = program?.id;
+  const key = (sid, w) => (pid ? `${pid}:W${w}-${sid}` : `W${w}-${sid}`); // id scopé programme
   const monIdx = (dow) => (dow + 6) % 7; // Lun=0 … Dim=6
   const d0 = new Date(today); d0.setHours(0, 0, 0, 0);
   const start = startDate ? new Date(startDate) : null;
   if (start) start.setHours(0, 0, 0, 0);
   const monday = new Date(d0); monday.setDate(d0.getDate() - monIdx(d0.getDay()));
-  return SESSION_ORDER.filter((sid) => {
-    const wd = sessionDays?.[sid] ?? SESSIONS[sid].dayIndex;
+  return order.filter((sid) => {
+    const wd = sessionDays?.[sid] ?? sess[sid].dayIndex;
     const date = new Date(monday); date.setDate(monday.getDate() + monIdx(wd));
     if (date >= d0) return false;                 // aujourd'hui ou à venir → pas (encore) raté
     if (start && date < start) return false;      // avant le démarrage du programme
     const wk = start ? calcCurrentWeekFromStart(start, date) : currentWeek;
-    return !history?.[`W${currentWeek}-${sid}`] && !history?.[`W${wk}-${sid}`]; // pas déjà faite
+    return !history?.[key(sid, currentWeek)] && !history?.[key(sid, wk)]; // pas déjà faite
   });
 }
 

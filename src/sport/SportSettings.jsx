@@ -1,5 +1,5 @@
-import React from "react";
-import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette, Scale } from "lucide-react";
+import React, { useState } from "react";
+import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette, Scale, Dumbbell, RotateCcw } from "lucide-react";
 import { Sheet } from "../components/Sheet.jsx";
 import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT } from "../lib/sport.js";
 import { SPORT_THEMES, sheetTokens, SPORT_FONT } from "./theme.js";
@@ -11,8 +11,12 @@ const DAYS = [
 const DEFAULT_DAYS = { A: 2, B: 4, C: 6 };
 
 // ── Réglages Sport : thème · semaine · jours · vacances · signaux (skin sheet) ─
-export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
+export function SportSettings({ open, onClose, sport, setSport, currentWeek, program, pid, programs = [], onSwitchProgram, onResetProgram }) {
   const T = sheetTokens(sport.sportTheme);
+  const SESS = program?.sessions || SESSIONS;          // sessions du programme actif
+  const ORDER = program?.sessionOrder || SESSION_ORDER;
+  const weeks = program?.weeks || 14;
+  const [confirmReset, setConfirmReset] = useState(null); // id du programme en attente de confirmation
   const days = sport.preferences?.sessionDays || DEFAULT_DAYS;
   const soundOn = sport.soundEnabled !== false;
   const hapticsOn = sport.hapticsEnabled !== false;
@@ -23,8 +27,11 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   const toggleVoice = () => setSport((s) => ({ ...s, voiceEnabled: !(s.voiceEnabled !== false) }));
   const sportTheme = sport.sportTheme || "hybride";
   const setTheme = (id) => setSport((s) => ({ ...s, sportTheme: id }));
-  const setWeek = (w) => setSport((s) => ({ ...s, currentWeek: Math.min(14, Math.max(1, w)), weekManuallySet: true }));
-  const autoWeek = () => setSport((s) => ({ ...s, weekManuallySet: false }));
+  // Semaine/position PAR programme (sport.programState[pid]).
+  const weekManual = !!sport.programState?.[pid]?.weekManuallySet;
+  const patchPS = (patch) => setSport((s) => { const st = { ...(s.programState || {}) }; st[pid] = { ...(st[pid] || {}), ...patch }; return { ...s, programState: st }; });
+  const setWeek = (w) => patchPS({ currentWeek: Math.min(weeks, Math.max(1, w)), weekManuallySet: true });
+  const autoWeek = () => patchPS({ weekManuallySet: false });
   const vacationMode = !!sport.vacationMode;
   const equipment = { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) };
   const toggleVacation = () => setSport((s) => ({ ...s, vacationMode: !s.vacationMode }));
@@ -34,7 +41,43 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
   const Lbl = ({ children }) => <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>{children}</p>;
 
   return (
-    <Sheet open={open} onClose={onClose} tokens={T} title="Réglages Sport" subtitle="Thème · semaine · signaux" icon={<Settings size={18} />} iconColor={T.accent}>
+    <Sheet open={open} onClose={onClose} tokens={T} title="Réglages Sport" subtitle="Programme · thème · semaine · signaux" icon={<Settings size={18} />} iconColor={T.accent}>
+      {programs.length > 1 && (
+        <>
+          <Lbl>Programme</Lbl>
+          <p className="mb-2 text-xs" style={{ color: T.muted }}>Chaque programme garde sa propre progression. Ta force (charges par exercice) te suit d'un programme à l'autre.</p>
+          <div className="mb-5 space-y-2">
+            {programs.map((p) => {
+              const on = p.id === pid;
+              return (
+                <div key={p.id} className="rounded-2xl p-3.5" style={{ backgroundColor: T.paper, border: `1.5px solid ${on ? T.accent : T.line}` }}>
+                  <button onClick={() => (on ? null : onSwitchProgram?.(p.id))} className="flex w-full items-center gap-3 text-left active:scale-[0.99]">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: on ? T.accent : T.card, color: on ? T.onAccent : T.muted }}>{on ? <Check size={18} /> : <Dumbbell size={16} />}</span>
+                    <span className="flex-1">
+                      <span className="text-sm font-bold" style={{ color: T.ink }}>{p.name}{on && <span className="ml-1.5 text-[10px] font-extrabold uppercase" style={{ color: T.good }}>actif</span>}</span>
+                      <span className="mt-0.5 block text-xs leading-snug" style={{ color: T.sub }}>{p.description}</span>
+                    </span>
+                  </button>
+                  {on && (
+                    <div className="mt-3 border-t pt-2.5" style={{ borderColor: T.line }}>
+                      {confirmReset === p.id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="flex-1 text-xs font-semibold" style={{ color: T.effort }}>Effacer progression + séances de ce programme ?</span>
+                          <button onClick={() => { onResetProgram?.(p.id); setConfirmReset(null); }} className="rounded-lg px-3 py-1.5 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: T.effort }}>Oui</button>
+                          <button onClick={() => setConfirmReset(null)} className="rounded-lg px-3 py-1.5 text-xs font-bold active:scale-95" style={{ backgroundColor: T.card, color: T.sub }}>Annuler</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmReset(p.id)} className="flex w-full items-center justify-center gap-1.5 py-1 text-xs font-semibold active:scale-95" style={{ color: T.muted }}><RotateCcw size={13} /> Réinitialiser la progression</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <Lbl>Thème de la section</Lbl>
       <div className="mb-5 space-y-2">
         {SPORT_THEMES.map((th) => {
@@ -55,17 +98,17 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek }) {
       <div className="mb-5 rounded-2xl p-3" style={{ backgroundColor: T.paper, border: `1px solid ${T.line}` }}>
         <div className="flex items-center justify-center gap-4">
           <button onClick={() => setWeek((currentWeek || 1) - 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: T.card, color: T.sub }}><Minus size={16} /></button>
-          <span className="text-xl font-extrabold tabular-nums" style={{ color: T.ink, fontFamily: SPORT_FONT }}>S{currentWeek}<span className="text-sm font-bold" style={{ color: T.muted }}>/14</span></span>
+          <span className="text-xl font-extrabold tabular-nums" style={{ color: T.ink, fontFamily: SPORT_FONT }}>S{currentWeek}<span className="text-sm font-bold" style={{ color: T.muted }}>/{weeks}</span></span>
           <button onClick={() => setWeek((currentWeek || 1) + 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: T.card, color: T.sub }}><Plus size={16} /></button>
         </div>
-        <button onClick={autoWeek} className="mt-3 w-full rounded-xl py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: T.card, color: T.sub }}>{sport.weekManuallySet ? "Revenir au calcul auto (date de début)" : "Semaine calculée automatiquement ✓"}</button>
+        <button onClick={autoWeek} className="mt-3 w-full rounded-xl py-2 text-xs font-semibold active:scale-95" style={{ backgroundColor: T.card, color: T.sub }}>{weekManual ? "Revenir au calcul auto (date de début)" : "Semaine calculée automatiquement ✓"}</button>
       </div>
 
       <Lbl>Jours de séance</Lbl>
       <div className="mb-5 space-y-2.5">
-        {SESSION_ORDER.map((sid) => (
+        {ORDER.map((sid) => (
           <div key={sid} className="rounded-2xl p-3" style={{ backgroundColor: T.paper, border: `1px solid ${T.line}` }}>
-            <p className="mb-2 text-sm font-bold" style={{ color: T.ink }}>{SESSIONS[sid].name} · <span className="font-normal" style={{ color: T.sub }}>{SESSIONS[sid].subtitle}</span></p>
+            <p className="mb-2 text-sm font-bold" style={{ color: T.ink }}>{SESS[sid].name} · <span className="font-normal" style={{ color: T.sub }}>{SESS[sid].subtitle}</span></p>
             <div className="flex gap-1.5">
               {DAYS.map((d) => {
                 const on = days[sid] === d.i;
