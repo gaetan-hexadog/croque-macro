@@ -43,7 +43,7 @@ const SORTS = [{ k: "recent", l: "Récents" }, { k: "az", l: "A→Z" }, { k: "pr
 
 // « Ma cuisine » — hub condensé (recherche + « + » → Créer/Importer/Scanner, Frigo en carte)
 // + contenu rangé en carrousels par type. Recherche active → liste à plat tous types.
-export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], favs = [], onToggleFav, knownFoods = [], onCoachPrompt, onCook }) {
+export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRecipe, onEditRecipe, autoAdd, onAutoAddDone, onOpenFrigo, onScan, onOpenGuide, pantry = [], favorites = [], favs = [], onToggleFav, knownFoods = [], onCoachPrompt, onCook, addSignal = 0 }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("recent");
@@ -65,6 +65,8 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   const favSet = new Set(favs); // favoris par id (toggle UI)
 
   useEffect(() => { if (autoAdd) { setAdding(true); onAutoAddDone && onAutoAddDone(); } }, [autoAdd]);
+  // Le « + » du header d'app (hors écran) ouvre le menu d'ajout via un signal incrémenté.
+  useEffect(() => { if (addSignal) setAddMenu(true); }, [addSignal]);
 
   // Mappe une recette extraite (URL ou texte) vers le préremplissage de AddRecipeSheet.
   const prefillFrom = (r) => ({
@@ -111,15 +113,11 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
   return (
     <>
     <div className="space-y-5 px-1">
-      {/* Hub condensé : recherche + « + » */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search size={16} style={{ color: C.muted, position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une recette, un aliment…" className="w-full rounded-2xl py-3 pl-9 pr-9 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
-          {q && <button onClick={() => setQ("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: C.muted }}><X size={16} /></button>}
-        </div>
-        {onScan && <button onClick={onScan} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} aria-label="Scanner un produit"><ScanLine size={19} /></button>}
-        <button onClick={() => setAddMenu(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl active:scale-95" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Ajouter"><Plus size={20} /></button>
+      {/* Recherche pleine largeur — scan & « + » vivent dans la zone d'actions du header d'app. */}
+      <div className="relative">
+        <Search size={16} style={{ color: C.muted, position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une recette, un aliment…" className="w-full rounded-2xl py-3 pl-9 pr-9 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+        {q && <button onClick={() => setQ("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: C.muted }}><X size={16} /></button>}
       </div>
 
       {/* Frigo → Cuisine : UN seul bloc (fini les 3 cartes empilées). Hero anti-gaspi
@@ -153,20 +151,18 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
           {onAddRecipe && <button onClick={() => setAdding(true)} className="flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.weight }}><Plus size={16} /> Ajouter une recette</button>}
         </div>
       ) : (
-        /* Liste unifiée VERTICALE : barre filtre + tri, puis grille 2 colonnes lisible */
+        /* Liste unifiée : une SEULE ligne filtres + tri compact (fini le gros bloc central), puis grille */
         <div className="space-y-3">
-          <div className="rounded-2xl p-2.5" style={cardStyle()}>
-            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
               {FILTERS.map(({ k, l, icon: I }) => {
                 const on = filter === k;
-                return <button key={k} onClick={() => setFilter(k)} className="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold active:scale-95" style={on ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.card, color: C.sub, border: `1px solid ${C.line}` }}>{I && <I size={12} />} {l}</button>;
+                return <button key={k} onClick={() => setFilter(k)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={on ? { backgroundColor: C.ink, color: C.paper } : { backgroundColor: C.card, color: C.sub, border: `1px solid ${C.line}` }}>{I && <I size={11} />} {l}</button>;
               })}
             </div>
-            <div className="mt-2 flex items-center gap-1.5">
-              <ArrowDownUp size={12} style={{ color: C.muted }} />
-              {SORTS.map(({ k, l }) => <button key={k} onClick={() => setSort(k)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={sort === k ? { backgroundColor: `${C.accent}1f`, color: C.accent, border: `1px solid ${C.accent}55` } : { color: C.muted }}>{l}</button>)}
-              <span className="ml-auto text-[11px] font-semibold" style={{ color: C.muted }}>{items.length}</span>
-            </div>
+            <button onClick={() => setSort((s) => SORTS[(SORTS.findIndex((x) => x.k === s) + 1) % SORTS.length].k)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: `${C.accent}1a`, color: C.accent, border: `1px solid ${C.accent}44` }} aria-label="Changer le tri">
+              <ArrowDownUp size={11} /> {SORTS.find((x) => x.k === sort).l}
+            </button>
           </div>
           {items.length === 0 ? (
             <p className="py-10 text-center text-sm" style={{ color: C.muted }}>{nq ? "Rien ne correspond." : "Aucun élément dans ce filtre."}</p>

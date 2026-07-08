@@ -76,6 +76,7 @@ export default function PiocheRepas() {
   // Le rejet de la suggestion de cible est PERSISTÉ dans settings (settings.targetDismissedKcal) :
   // sinon « Plus tard » est oublié à chaque réouverture de la PWA et l'alerte revient sans cesse.
   const [screenHeader, setScreenHeader] = useState(null); // header dynamique fourni par l'écran courant : { title, subtitle, badge, onSettings, onBack }
+  const [cuisineAddSignal, setCuisineAddSignal] = useState(0); // « + » du header Cuisine → ouvre le menu d'ajout de l'écran
   const headerRef = useRef(null);
   const [headerH, setHeaderH] = useState(60); // hauteur du header fixe (mesurée) → décalage du contenu
 
@@ -848,7 +849,14 @@ export default function PiocheRepas() {
                 {h?.onSettings && (
                   <button onClick={h.onSettings} aria-label="Réglages de la séance" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><SlidersHorizontal size={18} /></button>
                 )}
-                {!onBack && view !== "sport" && (
+                {/* Zone d'actions du header exploitée par écran (scan / +) */}
+                {view === "cuisine" && !onBack && (
+                  <>
+                    <button onClick={openTool} aria-label="Scanner un produit" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: chrome.btn, border: `1px solid ${chrome.line}`, color: chrome.sub }}><ScanLine size={18} /></button>
+                    <button onClick={() => setCuisineAddSignal((n) => n + 1)} aria-label="Ajouter à ma cuisine" className="flex h-10 w-10 items-center justify-center rounded-full text-white active:scale-90" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})` }}><Plus size={18} /></button>
+                  </>
+                )}
+                {!onBack && view !== "sport" && view !== "cuisine" && (
                   <button onClick={openChat} aria-label="Coach — discuter" className="flex h-10 w-10 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${C.green}1f`, color: C.green }}><Sprout size={18} /></button>
                 )}
                 {!onBack && view !== "reglages" && (
@@ -894,7 +902,7 @@ export default function PiocheRepas() {
           <GuideScreen onAddExtra={addExtra} dateLabel={fmtFull(activeDate)} settings={settings} />
         )}
         {view === "cuisine" && (
-          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} favs={favs} onToggleFav={toggleFav} knownFoods={assistKnownFoods} onCoachPrompt={openChatWith} onCook={openIdeaCook} />
+          <CuisineScreen meals={meals} usage={usage} onUse={useMealEntry} onDelete={deleteMeal} onAddRecipe={addRecipe} onEditRecipe={updateRecipe} autoAdd={cuisineAdd} onAutoAddDone={() => setCuisineAdd(false)} onOpenFrigo={openFrigo} onScan={openTool} onOpenGuide={() => go("guide")} pantry={pantry} favorites={assistFavorites} favs={favs} onToggleFav={toggleFav} knownFoods={assistKnownFoods} onCoachPrompt={openChatWith} onCook={openIdeaCook} addSignal={cuisineAddSignal} />
         )}
         {view === "sport" && (
           <SportScreen sport={sport} setSport={setSport} workouts={workouts} setWorkouts={setWorkouts} pushNav={pushNav} showToast={showToast} onDeleteWorkout={deleteWorkoutEntry} setHeader={setScreenHeader} onCoach={openSportCoach} />
