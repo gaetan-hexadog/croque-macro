@@ -11,6 +11,7 @@ export * from "./substitution.js";
 export * from "./freeCardio.js";
 export * from "./coach.js";
 export * from "./overrides.js";
+export * from "./inventory.js";
 
 // Données du programme (ré-export pour un point d'entrée unique).
 export * from "../config/programs/fullbody14.v1.js";

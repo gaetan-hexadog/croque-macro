@@ -3,6 +3,8 @@
 import { getCurrentBlock } from "./blocks.js";
 import { findExerciseDef, lastEntryWithExercise, resolveExId } from "./resolve.js";
 import { setFailed, exerciseFeedback } from "./feedback.js";
+import { EXERCISES } from "../config/exercises.js";
+import { DEFAULT_INVENTORY, nextBell, kbLabel } from "./inventory.js";
 
 // Charge programme pour un type d'exercice à une semaine donnée.
 // Pour les exercices à charge fixe (kettlebell) on renvoie la charge de l'exo.
@@ -51,34 +53,51 @@ const FIXED_REP_MIN = 8, FIXED_REP_MAX = 15, FIXED_REP_STEP = 1; // bornes de pr
 
 // Prescription pour la prochaine séance d'un exercice : charge ou reps + raison.
 //   { mode:"charge"|"reps", value, unit, direction:"up"|"down"|"hold", note }
-export function getExercisePrescription(exercise, week, history, exerciseCharges = {}) {
+export function getExercisePrescription(exercise, week, history, exerciseCharges = {}, inventory = {}) {
   const last = history ? lastEntryWithExercise(history, exercise.name) : null;
   const fb = last ? exerciseFeedback(last, exercise.name, exercise) : null;
+  const exId = resolveExId(exercise.name) || exercise.name;
 
-  // ── Charge fixe (kettlebells) & poids du corps : progression par REPS ──
+  // ── Charge fixe (kettlebells) & poids du corps : progression par REPS puis PALIER de cloche (KB) ──
   if (exercise.type === "fixed" || exercise.type === "bodyweight") {
+    const isKB = exercise.type === "fixed";
+    const cat = EXERCISES[exId];
+    const per = cat?.kbPer || (exercise.loadLabel?.trim().startsWith("1×") ? 1 : 2);
+    const inv = inventory?.kb?.length ? inventory : DEFAULT_INVENTORY;
+    const lane = exerciseCharges?.[exId];
+    const curKg = isKB && lane?.rungKg != null ? lane.rungKg : (exercise.load ?? null); // palier de cloche courant
     const baseReps = typeof exercise.reps === "number" ? exercise.reps : (exercise.repsTarget || FIXED_REP_MIN);
-    let target = fb?.maxReps ? Math.max(baseReps, fb.maxReps) : baseReps;
+    const lastKg = lastWeightOf(history, exercise.name);
+    const bumped = isKB && curKg != null && lastKg != null && lastKg < curKg;            // cloche montée depuis
+    const suffix = exercise.loadLabel?.match(/kg(.*)$/)?.[1] || "";                       // préserve « /bras »
+    const loadLabel = isKB && curKg != null && curKg !== exercise.load ? kbLabel(curKg, per, suffix) : (exercise.loadLabel || null);
+    let target = bumped ? baseReps : (fb?.maxReps ? Math.max(baseReps, fb.maxReps) : baseReps);
     let direction = "hold", note = null;
-    if (fb?.anyHeavy) {
+    if (bumped) {
+      direction = "up"; note = `Nouvelle charge ${kbLabel(curKg, per, suffix)} — on repart à ${baseReps} reps propres, puis on remonte.`;
+    } else if (fb?.anyHeavy) {
       target = Math.max(FIXED_REP_MIN, (fb.maxReps || baseReps) - FIXED_REP_STEP);
       direction = "down"; note = "Dernière fois jugé trop lourd — on réduit un peu les reps, on garde la charge.";
     } else if (fb?.allEasy) {
       if (target >= FIXED_REP_MAX) {
         direction = "up";
-        note = exercise.type === "fixed"
-          ? `Trop facile à ${FIXED_REP_MAX} reps — passe au palier supérieur (kettlebell plus lourde ou tempo plus lent).`
-          : `Trop facile à ${FIXED_REP_MAX} reps — ajoute une variante plus dure (lestée, surélevée).`;
+        if (isKB) {
+          const nb = nextBell(inv, curKg, per);
+          note = nb != null
+            ? `Trop facile à ${FIXED_REP_MAX} reps — passe à ${kbLabel(nb, per, suffix)}.`
+            : `Max de reps à ${kbLabel(curKg, per, suffix)} et pas de cloche plus lourde dispo — ajoute du tempo lent / des négatifs${per >= 2 ? "" : " ou une pause de 2 s en bas"}.`;
+        } else {
+          note = `Trop facile à ${FIXED_REP_MAX} reps — ajoute une variante plus dure (lestée, surélevée).`;
+        }
       } else {
         target = Math.min(FIXED_REP_MAX, target + 2);
         direction = "up"; note = `Trop facile la dernière fois — on monte à ${target} reps.`;
       }
     }
-    return { mode: "reps", value: target, unit: "reps", direction, note, load: exercise.load ?? null, loadLabel: exercise.loadLabel || null };
+    return { mode: "reps", value: target, unit: "reps", direction, note, load: curKg, loadLabel };
   }
 
   // ── Barre (standard/heavy) : charge = cible MÉMORISÉE (montée/descente réelle, Phase 3) ──
-  const exId = resolveExId(exercise.name) || exercise.name;
   const prev = lastWeightOf(history, exercise.name);
   const lane = exerciseCharges?.[exId];
   const block = getCurrentBlock(week);
@@ -128,23 +147,36 @@ export function applyFeedback(entry, sport = {}, workouts = {}) {
   const charges = { ...(sport.exerciseCharges || {}) };
   if (!entry?.data || getCurrentBlock(entry.week)?.phase === "Décharge") return charges; // pas de MàJ en décharge
   const now = Date.now();
+  const inv = sport.inventory?.kb?.length ? sport.inventory : DEFAULT_INVENTORY;
   for (const exData of entry.data) {
     const def = findExerciseDef(exData.exercise);
-    if (!def || (def.type !== "standard" && def.type !== "heavy")) continue; // barre uniquement
+    if (!def) continue;
     const exId = resolveExId(exData.exercise) || exData.exercise;
     const fb = exerciseFeedback(entry, exData.exercise, def);
     if (!fb) continue;
-    const current = fb.lastWeight ?? charges[exId]?.kg ?? programChargeForType(entry.week, def.type, def);
-    if (current == null) continue;
-    let next = current;
-    if (fb.anyHeavy) {
-      next = Math.max(ADAPT.minKg, current - ADAPT.step);
-    } else if (fb.allEasy) {
-      const streak = consecutiveEasy(workouts, exData.exercise, def);
-      const feelOk = entry.feel == null || entry.feel > ADAPT.feelHardThreshold;
-      if (streak >= ADAPT.barbellUpStreak && feelOk) next = current + ADAPT.step;
+    if (def.type === "standard" || def.type === "heavy") {
+      // ── Barre : descente immédiate si trop lourd, montée si facile ×N + ressenti ok (en kg) ──
+      const current = fb.lastWeight ?? charges[exId]?.kg ?? programChargeForType(entry.week, def.type, def);
+      if (current == null) continue;
+      let next = current;
+      if (fb.anyHeavy) {
+        next = Math.max(ADAPT.minKg, current - ADAPT.step);
+      } else if (fb.allEasy) {
+        const streak = consecutiveEasy(workouts, exData.exercise, def);
+        const feelOk = entry.feel == null || entry.feel > ADAPT.feelHardThreshold;
+        if (streak >= ADAPT.barbellUpStreak && feelOk) next = current + ADAPT.step;
+      }
+      if (next !== current || charges[exId]?.kg == null) charges[exId] = { kg: next, updatedAt: now, week: entry.week };
+    } else if (def.type === "fixed") {
+      // ── Kettlebell : monte d'un PALIER de cloche quand 15 reps atteint + tout facile + cloche plus lourde possédée ──
+      const per = EXERCISES[exId]?.kbPer || 2;
+      const curKg = charges[exId]?.rungKg ?? def.load ?? null;
+      if (curKg == null) continue;
+      if (fb.allEasy && (fb.maxReps ?? 0) >= FIXED_REP_MAX) {
+        const nb = nextBell(inv, curKg, per);
+        if (nb != null) charges[exId] = { rungKg: nb, updatedAt: now, week: entry.week };
+      }
     }
-    if (next !== current || charges[exId]?.kg == null) charges[exId] = { kg: next, updatedAt: now, week: entry.week };
   }
   return charges;
 }

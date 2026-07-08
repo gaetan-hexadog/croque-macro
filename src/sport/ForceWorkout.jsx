@@ -30,7 +30,7 @@ const diffMeta = (ss, hint) => {
 // (theme.js) : "timer" = aplats de couleur · "gym" = noir + néon/cyan. Le récap
 // utilise le skin HUB (chaleureux en hybride).
 // ════════════════════════════════════════════════════════════════════════════
-export function ForceWorkout({ session, week, workouts, sound = true, onCancel, onFinish, resume, sportTheme, exerciseCharges = {} }) {
+export function ForceWorkout({ session, week, workouts, sound = true, onCancel, onFinish, resume, sportTheme, exerciseCharges = {}, inventory = {} }) {
   const ss = sportTokens(sportTheme, "session");
   const hub = sportTokens(sportTheme, "hub");
   const isGym = ss.variant === "gym";
@@ -57,11 +57,11 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   const step = steps[stepIdx];
 
   const [log, setLog] = useState(() => (isResume ? resume.log : exs.map((ex) => {
-    const presc = getExercisePrescription(ex, week, workouts, exerciseCharges);
+    const presc = getExercisePrescription(ex, week, workouts, exerciseCharges, inventory);
     const targetReps = presc.mode === "reps" ? presc.value : repsNum(ex.reps);
-    const charge = presc.mode === "charge" ? presc.value : (ex.load ?? null);
+    const charge = presc.mode === "charge" ? presc.value : (presc.load ?? ex.load ?? null);
     return {
-      exercise: ex.name, presc, charge,
+      exercise: ex.name, presc, charge, loadLabel: presc.loadLabel ?? ex.loadLabel ?? null,
       sets: Array.from({ length: ex.sets }, () => ({ weight: charge, repsTarget: targetReps, repsDone: targetReps, difficulty: null })),
     };
   })));
@@ -161,7 +161,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
         const curSet = entry.sets[setIdx];
 
         if (phase === "prepare") {
-          const chargeLine = entry.charge != null ? `${entry.charge} kg${ex.loadLabel ? ` · ${ex.loadLabel}` : ""}${canAdjust ? ` · ${getDiscPlan(entry.charge)}` : ""}` : (ex.type === "bodyweight" ? "Poids du corps" : "");
+          const chargeLine = entry.charge != null ? `${entry.charge} kg${entry.loadLabel ? ` · ${entry.loadLabel}` : ""}${canAdjust ? ` · ${getDiscPlan(entry.charge)}` : ""}` : (ex.type === "bodyweight" ? "Poids du corps" : "");
           return <PrepareExercise ss={ss} panel={panel} ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} exIdx={exIdx} total={exs.length} onReady={() => { setSetIdx(0); setPhase(isTime ? "set" : "countdown"); }} />;
         }
         if (phase === "countdown") {
@@ -174,7 +174,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
           const nx = exs[exIdx + 1];
           const nxEntry = log[exIdx + 1];
           const nxIsTime = nx.type === "bodyweight" && nx.repsSeconds;
-          const nxCharge = nxEntry.charge != null ? `${nxEntry.charge} kg${nx.loadLabel ? ` · ${nx.loadLabel}` : ""}` : (nx.type === "bodyweight" ? "Poids du corps" : "");
+          const nxCharge = nxEntry.charge != null ? `${nxEntry.charge} kg${nxEntry.loadLabel ? ` · ${nxEntry.loadLabel}` : ""}` : (nx.type === "bodyweight" ? "Poids du corps" : "");
           const nxReps = nxIsTime ? nx.reps : (typeof nx.reps === "string" ? nx.reps : `${nxEntry.sets[0].repsTarget ?? nx.reps} reps`);
           return <RestStage ss={ss} seconds={ex.rest} sound={sound} next={{ name: nx.name, target: `${nx.sets} × ${nxReps}`, charge: nxCharge, tech: nx.tech }} onReady={goNextExerciseSet} />;
         }
@@ -202,7 +202,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
               {entry.charge != null && (
                 <div className="mt-5 flex items-center gap-4 rounded-2xl px-4 py-2.5" style={{ backgroundColor: isGym ? "rgba(255,255,255,0.08)" : ss.ink }}>
                   {canAdjust && <button onClick={() => adjustCharge(exIdx, -1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: isGym ? `${ss.accent}22` : `${ss.surface}33`, color: isGym ? ss.accent : ss.surface }}><Minus size={17} /></button>}
-                  <span className="tabular-nums" style={{ color: isGym ? "#fff" : ss.surface, fontFamily: FONT }}><span className="text-xl font-extrabold">{entry.charge}</span><span className="text-sm font-bold"> kg{ex.loadLabel ? ` · ${ex.loadLabel}` : ""}</span></span>
+                  <span className="tabular-nums" style={{ color: isGym ? "#fff" : ss.surface, fontFamily: FONT }}><span className="text-xl font-extrabold">{entry.charge}</span><span className="text-sm font-bold"> kg{entry.loadLabel ? ` · ${entry.loadLabel}` : ""}</span></span>
                   {canAdjust && <button onClick={() => adjustCharge(exIdx, 1)} className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: isGym ? `${ss.accent}22` : `${ss.surface}33`, color: isGym ? ss.accent : ss.surface }}><Plus size={17} /></button>}
                 </div>
               )}

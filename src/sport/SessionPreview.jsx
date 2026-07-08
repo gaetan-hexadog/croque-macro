@@ -6,7 +6,7 @@ import { getExercisePrescription, getRowerResistance, getDiscPlan, formatTime } 
 import { PrescriptionBadge } from "./components.jsx";
 
 // ── Consultation d'une séance avant de la démarrer (skin HUB de theme.js) ─────
-export function SessionPreview({ session, week, workouts, done, onBack, onStart, onAdapt, sportTheme, exerciseCharges = {} }) {
+export function SessionPreview({ session, week, workouts, done, onBack, onStart, onAdapt, sportTheme, exerciseCharges = {}, inventory = {} }) {
   const t = sportTokens(sportTheme, "hub");
   const isGym = t.variant === "gym";
   const panel = isGym ? { backgroundColor: t.panel, border: `1px solid ${t.line}` } : cardStyle();
@@ -46,7 +46,7 @@ export function SessionPreview({ session, week, workouts, done, onBack, onStart,
         </>
       ) : (
         session.exercises.map((ex) => {
-          const presc = getExercisePrescription(ex, week, workouts, exerciseCharges);
+          const presc = getExercisePrescription(ex, week, workouts, exerciseCharges, inventory);
           return (
             <div key={ex.name} className="mb-3 rounded-2xl p-4" style={panel}>
               <div className="mb-1 flex items-start justify-between gap-2">

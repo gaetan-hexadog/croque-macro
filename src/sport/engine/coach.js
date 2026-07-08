@@ -4,7 +4,7 @@
 // ajoute la clé API. Style calqué sur le coach nutrition mais orienté entraînement.
 import { SESSIONS } from "../config/programs/fullbody14.v1.js";
 import { getProgram } from "../config/programs/index.js";
-import { DEFAULT_EQUIPMENT } from "../config/alternatives.js";
+import { DEFAULT_INVENTORY } from "./inventory.js";
 import { getCurrentBlock } from "./blocks.js";
 import { strengthTrend } from "./analytics.js";
 
@@ -17,8 +17,8 @@ export function buildSportCoachSystem(sport = {}, workouts = {}, week = 1, progr
   const recent = done.map((e) => { const s = (e.programId && getProgram(e.programId)?.sessions?.[e.sessionId]) || SESSIONS[e.sessionId]; return `S${e.week} ${s ? s.name : e.sessionId}${e.feel ? ` (ressenti ${e.feel}/5)` : ""}`; }).join(" · ") || "aucune récente";
   const trendTxt = trend ? (trend.direction === "up" ? "en hausse" : trend.direction === "down" ? "en baisse" : "stable") : "pas encore mesurée";
   const sessLine = prog.sessions ? Object.values(prog.sessions).map((s) => `${s.id} = ${s.name} (${s.day})`).join(", ") : "A/B/C";
-  const eq = { ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) };
-  const kb = [eq.kb12 && "2×12", eq.kb16 && "1×16"].filter(Boolean).join(" + ") || "aucun";
+  const inv = sport.inventory?.kb?.length ? sport.inventory.kb : DEFAULT_INVENTORY.kb;
+  const kb = inv.map((b) => `${b.count}×${b.kg}`).join(", ") || "aucun";
   return [
     "Tu es le COACH SPORTIF de Bob dans l'app Croque·Macro. Réponds en FRANÇAIS, tutoiement, ton direct et concret, sans blabla ni flatterie. Réponses courtes (2-5 phrases), pratiques et actionnables.",
     "PROFIL : homme 42 ans, 1,86 m, ~91 kg. Objectif : perte de gras + renforcement du haut du corps. La nutrition (~1950 kcal / 175 g protéines) est gérée par un AUTRE coach — n'en parle pas sauf demande explicite, et renvoie-y le cas échéant.",

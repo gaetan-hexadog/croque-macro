@@ -7,7 +7,7 @@ import { sheetTokens } from "./theme.js";
 const MIN_PRESETS = [20, 30, 45];
 
 // ── Logging manuel a posteriori : séance du programme OU cardio libre (rameur) ─
-export function ManualLogSheet({ open, onClose, currentWeek, workouts, program, onSave, showToast, sportTheme, exerciseCharges = {} }) {
+export function ManualLogSheet({ open, onClose, currentWeek, workouts, program, onSave, showToast, sportTheme, exerciseCharges = {}, inventory = {} }) {
   const T = sheetTokens(sportTheme);
   const SESS = program?.sessions || SESSIONS;      // sessions du programme actif
   const ORDER = program?.sessionOrder || SESSION_ORDER;
@@ -30,9 +30,9 @@ export function ManualLogSheet({ open, onClose, currentWeek, workouts, program, 
       entry = { ...base, cardioData: { distance: "", rowerLevel: "", ropeJumps: "", rpe: "", notes: "Ajout manuel" } };
     } else {
       const data = session.exercises.map((ex) => {
-        const presc = getExercisePrescription(ex, week, workouts, exerciseCharges);
+        const presc = getExercisePrescription(ex, week, workouts, exerciseCharges, inventory);
         const target = presc.mode === "reps" ? presc.value : (typeof ex.reps === "number" ? ex.reps : null);
-        const charge = presc.mode === "charge" ? presc.value : (ex.load ?? null);
+        const charge = presc.mode === "charge" ? presc.value : (presc.load ?? ex.load ?? null);
         return { exercise: ex.name, sets: Array.from({ length: ex.sets }, () => ({ weight: charge, repsTarget: target, repsDone: target, difficulty: "parfait" })) };
       });
       entry = { ...base, data };

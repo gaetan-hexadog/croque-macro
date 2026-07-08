@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette, Scale, Dumbbell, RotateCcw } from "lucide-react";
+import { Settings, Volume2, VolumeX, Minus, Plus, Tent, Check, Vibrate, Megaphone, Palette, Scale, Dumbbell, RotateCcw, Trash2 } from "lucide-react";
 import { Sheet } from "../components/Sheet.jsx";
-import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT } from "../lib/sport.js";
+import { SESSIONS, SESSION_ORDER, EQUIPMENT, DEFAULT_EQUIPMENT, DEFAULT_INVENTORY } from "../lib/sport.js";
 import { SPORT_THEMES, sheetTokens, SPORT_FONT } from "./theme.js";
 
 const DAYS = [
@@ -38,6 +38,13 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek, pro
   const toggleEquip = (id) => setSport((s) => ({ ...s, equipment: { ...DEFAULT_EQUIPMENT, ...(s.equipment || {}), [id]: !({ ...DEFAULT_EQUIPMENT, ...(s.equipment || {}) }[id]) } }));
   const correctiveOn = sport.curlBalanced !== true; // correctif bras gauche actif par défaut
   const toggleCorrection = () => setSport((s) => ({ ...s, curlBalanced: !s.curlBalanced }));
+  // Inventaire kettlebells (source des paliers KB). Vide → stock par défaut (2×12 + 1×16).
+  const kbList = sport.inventory?.kb?.length ? sport.inventory.kb : DEFAULT_INVENTORY.kb;
+  const setKb = (kb) => setSport((s) => ({ ...s, inventory: { ...(s.inventory || {}), kb } }));
+  const setBellKg = (i, kg) => setKb(kbList.map((b, j) => (j === i ? { ...b, kg: Math.max(2, Math.min(60, kg)) } : b)));
+  const setBellCount = (i, count) => setKb(kbList.map((b, j) => (j === i ? { ...b, count: Math.max(1, Math.min(4, count)) } : b)));
+  const removeBell = (i) => setKb(kbList.filter((_, j) => j !== i));
+  const addBell = () => setKb([...kbList, { kg: 14, count: 2 }]);
   const Lbl = ({ children }) => <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>{children}</p>;
 
   return (
@@ -119,6 +126,29 @@ export function SportSettings({ open, onClose, sport, setSport, currentWeek, pro
             </div>
           </div>
         ))}
+      </div>
+
+      <Lbl>Mes kettlebells</Lbl>
+      <p className="mb-2 text-xs" style={{ color: T.muted }}>La progression ne propose une cloche plus lourde que si tu la possèdes. Ajoute tes 14 kg ici le jour venu → les paliers se débloquent tout seuls.</p>
+      <div className="mb-5 space-y-2">
+        {kbList.map((b, i) => (
+          <div key={i} className="flex items-center gap-2 rounded-2xl p-2.5" style={{ backgroundColor: T.paper, border: `1px solid ${T.line}` }}>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: T.card, color: T.accent }}><Dumbbell size={16} /></span>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setBellKg(i, b.kg - 2)} className="flex h-7 w-7 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: T.card, color: T.sub }}><Minus size={13} /></button>
+              <span className="w-14 text-center text-sm font-extrabold tabular-nums" style={{ color: T.ink }}>{b.kg} kg</span>
+              <button onClick={() => setBellKg(i, b.kg + 2)} className="flex h-7 w-7 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: T.card, color: T.sub }}><Plus size={13} /></button>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <button onClick={() => setBellCount(i, b.count - 1)} className="flex h-7 w-7 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: T.card, color: T.sub }}><Minus size={13} /></button>
+              <span className="w-9 text-center text-sm font-bold tabular-nums" style={{ color: T.ink }}>×{b.count}</span>
+              <button onClick={() => setBellCount(i, b.count + 1)} className="flex h-7 w-7 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: T.card, color: T.sub }}><Plus size={13} /></button>
+            </div>
+            <button onClick={() => removeBell(i)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: `${T.effort}14`, color: T.effort }}><Trash2 size={13} /></button>
+          </div>
+        ))}
+        <button onClick={addBell} className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-bold active:scale-95" style={{ backgroundColor: `${T.accent}14`, color: T.accent }}><Plus size={15} /> Ajouter une cloche</button>
+        <p className="text-[11px]" style={{ color: T.muted }}>« ×2 » = paire (exos bilatéraux). Un poids en « ×1 » n'est utilisable qu'à une main.</p>
       </div>
 
       <Lbl>Mode vacances</Lbl>

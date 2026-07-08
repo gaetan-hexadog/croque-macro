@@ -149,7 +149,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
     const session = active.session;
     const props = {
       session, week: currentWeek, sound: sport.soundEnabled !== false, resume: active.resume,
-      sportTheme: sport.sportTheme, exerciseCharges: sport.exerciseCharges || {},
+      sportTheme: sport.sportTheme, exerciseCharges: sport.exerciseCharges || {}, inventory: sport.inventory || {},
       onCancel: () => setActive(null), onFinish: (d) => finishSession(active.sessionId, d),
     };
     return session.type === "cardio"
@@ -160,7 +160,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
   if (preview) {
     return (
       <>
-        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} exerciseCharges={sport.exerciseCharges || {}} done={!!workouts[wid(preview)]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
+        <SessionPreview session={effectiveSession(preview)} week={currentWeek} workouts={workouts} exerciseCharges={sport.exerciseCharges || {}} inventory={sport.inventory || {}} done={!!workouts[wid(preview)]} onBack={() => setPreview(null)} onStart={() => startSession(preview)} onAdapt={() => setAdaptFor(preview)} sportTheme={sport.sportTheme} />
         <AdaptSheet open={!!adaptFor} onClose={() => setAdaptFor(null)} session={adaptFor ? SESS[adaptFor] : null} equipment={{ ...DEFAULT_EQUIPMENT, ...(sport.equipment || {}) }} onUse={useAdapted} showToast={showToast} sportTheme={sport.sportTheme} />
       </>
     );
@@ -178,7 +178,7 @@ export function SportScreen({ sport = {}, setSport, workouts = {}, setWorkouts, 
         onOpen={openPreview} onOpenDetail={openDetail}
         onManualLog={() => setManualOpen(true)} onCoach={onCoach}
       />
-      <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} program={program} exerciseCharges={sport.exerciseCharges || {}} onSave={saveManual} showToast={showToast} sportTheme={sport.sportTheme} />
+      <ManualLogSheet open={manualOpen} onClose={() => setManualOpen(false)} currentWeek={currentWeek} workouts={workouts} program={program} exerciseCharges={sport.exerciseCharges || {}} inventory={sport.inventory || {}} onSave={saveManual} showToast={showToast} sportTheme={sport.sportTheme} />
       <SportSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} sport={sport} setSport={setSport} currentWeek={currentWeek} program={program} pid={pid} programs={PROGRAM_LIST} onSwitchProgram={switchProgram} onResetProgram={resetProgram} />
     </>
   );
