@@ -197,21 +197,11 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
         </div>
       )}
 
-      {/* Timeline matin→soir : les repas sont la colonne vertébrale (direction J1) */}
-      <div className="relative pl-[62px]">
-        <div className="absolute left-[54px] top-4 bottom-4 w-px" style={{ backgroundColor: C.line }} />
-        <TimelineRow time={SLOT_UI.pdj.time} color={SLOT_UI.pdj.color}>
-          <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        </TimelineRow>
-        <TimelineRow time={SLOT_UI.dej.time} color={SLOT_UI.dej.color}>
-          <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        </TimelineRow>
-        <TimelineRow time={SLOT_UI.diner.time} color={SLOT_UI.diner.color}>
-          <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        </TimelineRow>
-        <TimelineRow time={SLOT_UI.snack.time} color={SLOT_UI.snack.color}>
-          <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => onIdea("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
-        </TimelineRow>
+      <div className="space-y-3">
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => onIdea("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
       </div>
 
       {/* Modèles & copie de journée — actions secondaires, en pilules lisibles */}
@@ -281,17 +271,6 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   );
 }
 
-
-// Nœud de timeline (direction J1) : libellé d'heure + pastille sur le rail, à gauche du repas.
-function TimelineRow({ time, color, children }) {
-  return (
-    <div className="relative mb-3">
-      <div className="absolute -left-[62px] top-4 w-[46px] text-right"><span className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{time}</span></div>
-      <div className="absolute -left-[13px] top-[18px] h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 0 3px ${C.bg}` }} />
-      {children}
-    </div>
-  );
-}
 
 function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, onViewRecipe, pushNav, navBack }) {
   const ui = SLOT_UI[slotKey];
