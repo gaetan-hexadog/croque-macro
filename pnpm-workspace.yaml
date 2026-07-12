@@ -1,4 +1,6 @@
+# pnpm ≥ 10 : les scripts de build des dépendances sont bloqués par défaut.
+# esbuild (utilisé par vite/vitest) a besoin du sien pour installer son binaire.
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
 onlyBuiltDependencies:
   - esbuild
