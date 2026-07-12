@@ -128,8 +128,10 @@ export function PhaseStage({ ss, title, detail, seconds, sound, onDone }) {
 }
 
 // ── Repos inter-séries FORCE (chrono qui s'enchaîne TOUT SEUL à 0) ───────────
-export function RestStage({ ss, seconds, sound, nextLabel, next, onReady }) {
-  const [left, setLeft] = useCountdown(seconds, true, { sound, onDone: onReady });
+// `end` = voix de fin du décompte : "go" (série suivante) ou "done" (repos fini,
+// on retombe sur un écran gated — l'annonce du prochain exercice).
+export function RestStage({ ss, seconds, sound, nextLabel, next, onReady, end = "go" }) {
+  const [left, setLeft] = useCountdown(seconds, true, { sound, onDone: onReady, end });
   const hue = ss.rest;
   const isGym = ss.variant === "gym";
   return (

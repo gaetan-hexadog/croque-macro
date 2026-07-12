@@ -58,16 +58,20 @@ export function getExercisePrescription(exercise, week, history, exerciseCharges
   const fb = last ? exerciseFeedback(last, exercise.name, exercise) : null;
   const exId = resolveExId(exercise.name) || exercise.name;
 
-  // ── Charge fixe (kettlebells) & poids du corps : progression par REPS puis PALIER de cloche (KB) ──
+  // ── Charge fixe (kettlebells/disques) & poids du corps : progression par REPS puis PALIER de cloche (KB) ──
+  // `equipment: "disques"` (ex. élévations latérales) : charge fixe HORS inventaire kettlebell —
+  // jamais de clamp vers une cloche (sinon 2 kg serait « remonté » à 12 kg), progression par reps.
   if (exercise.type === "fixed" || exercise.type === "bodyweight") {
-    const isKB = exercise.type === "fixed";
+    const isKB = exercise.type === "fixed" && exercise.equipment !== "disques";
     const cat = EXERCISES[exId];
     const per = cat?.kbPer || (exercise.loadLabel?.trim().startsWith("1×") ? 1 : 2);
     const inv = inventory?.kb?.length ? inventory : DEFAULT_INVENTORY;
     const lane = exerciseCharges?.[exId];
     const rawCurKg = isKB && lane?.rungKg != null ? lane.rungKg : (exercise.load ?? null);
     const curKg = isKB ? clampToOwned(inv, rawCurKg, per) : rawCurKg;                     // jamais une cloche non possédée
-    const baseReps = typeof exercise.reps === "number" ? exercise.reps : (exercise.repsTarget || FIXED_REP_MIN);
+    // « 10/bras », « 12/jambe » → 10, 12 (jamais le plancher par défaut pour un objectif écrit en toutes lettres)
+    const baseReps = typeof exercise.reps === "number" ? exercise.reps
+      : (exercise.repsTarget || parseInt(String(exercise.reps ?? "").match(/\d+/)?.[0] || "", 10) || FIXED_REP_MIN);
     const lastKg = lastWeightOf(history, exercise.name);
     const bumped = isKB && lane?.rungKg != null && lastKg != null && lastKg < curKg;      // vrai palier gagné (lane), pas un écart de base entre programmes
     const suffix = exercise.loadLabel?.match(/kg(.*)$/)?.[1] || "";                       // préserve « /bras »
@@ -87,6 +91,8 @@ export function getExercisePrescription(exercise, week, history, exerciseCharges
           note = nb != null
             ? `Trop facile à ${FIXED_REP_MAX} reps — passe à ${kbLabel(nb, per, suffix)}.`
             : `Max de reps à ${kbLabel(curKg, per, suffix)} et pas de cloche plus lourde dispo — ajoute du tempo lent / des négatifs${per >= 2 ? "" : " ou une pause de 2 s en bas"}.`;
+        } else if (exercise.type === "fixed") {
+          note = `Trop facile à ${FIXED_REP_MAX} reps — ajoute un petit disque dans chaque main (ex. 2 + 1,5 kg) et repars à 12 reps.`;
         } else {
           note = `Trop facile à ${FIXED_REP_MAX} reps — ajoute une variante plus dure (lestée, surélevée).`;
         }
@@ -185,8 +191,9 @@ export function applyFeedback(entry, sport = {}, workouts = {}) {
         if (streak >= ADAPT.barbellUpStreak && feelOk) next = current + ADAPT.step;
       }
       if (next !== current || charges[exId]?.kg == null) charges[exId] = { kg: next, updatedAt: now, week: entry.week };
-    } else if (def.type === "fixed") {
+    } else if (def.type === "fixed" && def.equipment !== "disques") {
       // ── Kettlebell : monte d'un PALIER de cloche quand 15 reps atteint + tout facile + cloche plus lourde possédée ──
+      // (disques : progression par reps dans getExercisePrescription, jamais de palier de cloche)
       const per = EXERCISES[exId]?.kbPer || 2;
       const curKg = fb.lastWeight ?? charges[exId]?.rungKg ?? def.load ?? null; // poids réellement soulevé (comme la barre), pas le load dédupliqué
       if (curKg == null) continue;

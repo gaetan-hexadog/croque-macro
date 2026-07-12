@@ -24,6 +24,7 @@ export const EXERCISES = {
   upright_row:    { id: "upright_row",     name: "Tirage menton",                 muscles: ["épaules", "trapèzes"],      pattern: "vertical_pull",   legacyNames: ["Tirage menton"] },
   row_kb_1arm:    { id: "row_kb_1arm",     name: "Rowing kettlebell 1 bras",      muscles: ["dos (largeur)", "biceps"],  pattern: "horizontal_pull", legacyNames: ["Rowing kettlebell 1 bras", "Rowing kettlebell (1 bras)"], kbPer: 1 },
   lateral_raise_kb:{ id: "lateral_raise_kb", name: "Élévations latérales kettlebell", muscles: ["épaules (moyen)"],       pattern: "lateral_raise",   legacyNames: ["Élévations latérales kettlebell"], kbPer: 2 },
+  lateral_raise_disc:{ id: "lateral_raise_disc", name: "Élévations latérales disques", muscles: ["épaules (moyen)"],      pattern: "lateral_raise",   legacyNames: [] },
   curl_kb:        { id: "curl_kb",         name: "Curl kettlebell",               muscles: ["biceps"],                   pattern: "elbow_flexion",   legacyNames: ["Curl kettlebell"], supports: ["unilateralCatchUp"], kbPer: 2 },
 
   // ── Tronc ──

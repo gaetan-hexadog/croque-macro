@@ -44,6 +44,10 @@ export const ALTS = {
     { need: "kettlebells", name: "Fentes kettlebell", type: "fixed", load: 12, loadLabel: "2×12 kg", reps: "10/jambe", tech: "Une kettlebell dans chaque main, fente avant, genou arrière près du sol.", tips: ["Buste droit", "Genou avant dans l'axe"] },
     { need: null, name: "Fentes poids du corps", type: "bodyweight", reps: "12/jambe", tech: "Fentes alternées contrôlées, buste droit.", tips: ["Ajoute des reps sans charge", "Descends bien"] },
   ],
+  "Élévations latérales disques": [
+    { need: "elastiques", name: "Élévations latérales élastique", type: "bodyweight", tech: "Élastique sous les pieds, monte les bras sur les côtés jusqu'à l'horizontale, descente lente.", tips: ["Tempo lent", "Épaules basses"] },
+    { need: null, name: "Élévations latérales (sans charge, tempo lent)", type: "bodyweight", reps: 15, tech: "Bras tendus, élévations lentes (3 s montée / 3 s descente) jusqu'à l'horizontale.", tips: ["Le tempo remplace la charge", "Épaules basses"] },
+  ],
   "Tirage menton": [
     { need: "kettlebells", name: "Tirage menton kettlebell", type: "fixed", load: 12, loadLabel: "2×12 kg", tech: "Kettlebells devant les cuisses, tirer vers le menton, coudes hauts.", tips: ["Coudes au-dessus des poignets", "Pas de gêne d'épaule"] },
     { need: "elastiques", name: "Tirage menton élastique", type: "bodyweight", tech: "Élastique sous les pieds, tirer vers le menton.", tips: ["Coudes hauts", "Contrôle la descente"] },

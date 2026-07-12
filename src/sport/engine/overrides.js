@@ -4,20 +4,22 @@ import { getAdaptedExerciseParams } from "./prescription.js";
 
 // ── Correctif déséquilibre bras (Curl kettlebell) ────────────────────────────
 // Tant que `sport.curlBalanced` n'est pas vrai (défaut), le Curl passe en UNILATÉRAL
-// avec 1 série de plus pour le bras GAUCHE (faible) : séries 1-3 gauche+droite, série 4
-// gauche seule → gauche 4×, droite 3×. Bob coupe le correctif via les réglages Sport
-// quand ses deux bras sont au même niveau (retour au curl bilatéral d'origine).
-// Le « superset bras » est conservé : il ne fait que retirer le repos avant le triceps,
-// donc la 4e série ne pose aucun problème de flux.
+// avec 1 série EN PLUS pour le bras GAUCHE (faible) : chaque série = gauche puis droite,
+// dernière série = gauche seule (rattrapage). Bob coupe le correctif via les réglages
+// Sport quand ses deux bras sont au même niveau (retour au curl bilatéral d'origine).
+// Les flags perSide/sideWord/lastSetSingleSide pilotent le guide gauche/droite en séance
+// (ForceWorkout). Le « superset bras » est conservé : il ne fait que retirer le repos
+// avant le triceps, donc la série de rattrapage ne pose aucun problème de flux.
 export function applyArmCorrection(session, sport) {
   if (!session || !session.exercises || sport?.curlBalanced) return session;
   const exercises = session.exercises.map((ex) => {
     if (ex.name !== "Curl kettlebell") return ex;
     return {
       ...ex,
-      sets: 4,
+      sets: ex.sets + 1, // +1 série gauche, quel que soit le volume du programme
+      perSide: true, sideWord: "bras", lastSetSingleSide: true,
       loadLabel: "1×12 kg · unilatéral",
-      tech: "Un bras à la fois (une seule KB de 12 kg), pas les deux ensemble. Commence TOUJOURS par le bras GAUCHE (le faible). Séries 1 à 3 : gauche puis droite, 8 reps chacun. Série 4 : GAUCHE seulement (rattrapage).",
+      tech: "Un bras à la fois (une seule KB de 12 kg), pas les deux ensemble. Commence TOUJOURS par le bras GAUCHE (le faible), puis le droit. Dernière série : GAUCHE seulement (rattrapage).",
       tips: [
         "Correctif déséquilibre : +1 série pour le gauche, le temps qu'il rattrape le droit.",
         "Toujours démarrer par le gauche (il arrive frais).",

@@ -156,7 +156,8 @@ export function SlideButton({ label = "Glisser pour valider", color = C.green, i
 export function PrescriptionBadge({ presc, ex }) {
   const label = presc.mode === "charge"
     ? (presc.value != null ? `${presc.value} kg` : "PdC")
-    : `${presc.value} ${ex.perSide ? "reps/côté" : "reps"}${ex.loadLabel ? ` · ${ex.loadLabel}` : ""}`;
+    : ex.repsSeconds ? String(ex.reps) // maintien chronométré : « 40s », « 30s/côté »
+      : `${presc.value} ${ex.perSide ? "reps/côté" : "reps"}${ex.loadLabel ? ` · ${ex.loadLabel}` : ""}`;
   const arrow = presc.direction === "up" ? "↑" : presc.direction === "down" ? "↓" : "";
   const col = presc.direction === "up" ? C.green : presc.direction === "down" ? C.over : C.sub;
   return <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums" style={{ backgroundColor: `${col}1a`, color: col }}>{label} {arrow}</span>;

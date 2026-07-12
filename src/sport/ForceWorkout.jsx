@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Flame, Target, Repeat, Clock, Timer, Feather, Check } from "lucide-react";
+import { Plus, Minus, Info, History as HistoryIcon, Dumbbell, Play, Flame, Target, Repeat, Clock, Timer, Feather, Check, ArrowLeftRight } from "lucide-react";
 import { cardStyle } from "../core.js";
 import { sportTokens, SPORT_FONT as FONT } from "./theme.js";
 import { getExercisePrescription, getDiscPlan, getLastPerformance, sessionVolume, isVolumePR, resolveExId } from "../lib/sport.js";
@@ -15,6 +15,12 @@ const repsNum = (r) => {
   if (typeof r === "string") { const m = r.match(/\d+/); if (m) return parseInt(m[0], 10); }
   return null;
 };
+
+// Exercice unilatéral à répétitions (rowing 1 bras « 10/bras », fentes « 8/jambe »,
+// curl en correctif bras) : mot du côté + accord du « droit(e) ».
+const sideWordOf = (ex) => ex.sideWord || (typeof ex.reps === "string" && ex.reps.split("/")[1]?.trim()) || "côté";
+const rightOf = (w) => (w === "jambe" ? "droite" : "droit");
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Icône + couleur d'un bouton de ressenti selon la direction. Couleurs distinctes
 // garanties (en gym, good/effort/accent sont tous néon → on force vert/rouge/neutre).
@@ -51,6 +57,7 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
   const [stepIdx, setStepIdx] = useState(isResume ? Math.min(resume.stepIdx, recapIdx) : 0);
   const [phase, setPhase] = useState(isResume ? (resume.phase === "countdown" || resume.phase === "rest" ? "set" : resume.phase) : "prepare");
   const [setIdx, setSetIdx] = useState(isResume ? resume.setIdx || 0 : 0);
+  const [side, setSide] = useState(1); // exercices unilatéraux à reps : 1 = gauche, 2 = droit(e)
   const [showTips, setShowTips] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const startTsRef = useRef(isResume && resume.startTs ? resume.startTs : Date.now());
@@ -65,6 +72,8 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
       sets: Array.from({ length: ex.sets }, () => ({ weight: charge, repsTarget: targetReps, repsDone: targetReps, difficulty: null })),
     };
   })));
+
+  useEffect(() => { setSide(1); }, [stepIdx, setIdx]); // chaque nouvelle série repart du côté gauche
 
   useEffect(() => {
     if (stepIdx >= recapIdx) return;
@@ -81,6 +90,8 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
 
   const stop = () => { clearLive(); onCancel(); };
   const goNextStep = () => { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); setPhase("prepare"); setSetIdx(0); setShowTips(false); };
+  // Enchaînement direct en phase « set » : RÉSERVÉ au superset (pas de repos entre les deux exos).
+  // Tout autre nouvel exercice passe par goNextStep → écran d'annonce + bouton « Je suis prêt ».
   const goNextExerciseSet = () => { setStepIdx((i) => Math.min(steps.length - 1, i + 1)); setSetIdx(0); setPhase("set"); setShowTips(false); };
   const setReps = (exIdx, delta) => setLog((prev) => prev.map((e, i) => i !== exIdx ? e : { ...e, sets: e.sets.map((s, j) => j !== setIdx ? s : { ...s, repsDone: Math.max(0, (s.repsDone ?? s.repsTarget ?? 0) + delta) }) }));
   const adjustCharge = (exIdx, delta) => setLog((prev) => prev.map((e, i) => {
@@ -159,24 +170,32 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
         const isTime = ex.type === "bodyweight" && ex.repsSeconds;
         const canAdjust = ex.type === "standard" || ex.type === "heavy";
         const curSet = entry.sets[setIdx];
+        // Unilatéral à répétitions : chaque série = côté GAUCHE d'abord, gate, puis côté droit.
+        // (Le gainage/maintien chronométré a son propre flow par côté dans HoldStage.)
+        const perSideReps = !isTime && (ex.perSide || (typeof ex.reps === "string" && ex.reps.includes("/")));
+        const sideWord = perSideReps ? sideWordOf(ex) : null;
+        const singleSide = perSideReps && ex.lastSetSingleSide && setIdx === ex.sets - 1; // série de rattrapage : gauche seul
+        const sideName = side === 1 || singleSide ? "gauche" : rightOf(sideWord);
 
         if (phase === "prepare") {
           const chargeLine = entry.charge != null ? `${entry.charge} kg${entry.loadLabel ? ` · ${entry.loadLabel}` : ""}${canAdjust ? ` · ${getDiscPlan(entry.charge)}` : ""}` : (ex.type === "bodyweight" ? "Poids du corps" : "");
           return <PrepareExercise ss={ss} panel={panel} ex={ex} entry={entry} chargeLine={chargeLine} last={last} isTime={isTime} exIdx={exIdx} total={exs.length} onReady={() => { setSetIdx(0); setPhase(isTime ? "set" : "countdown"); }} />;
         }
         if (phase === "countdown") {
-          return <CountdownStage ss={ss} seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}`} sound={sound} onDone={() => setPhase("set")} />;
+          return <CountdownStage ss={ss} seconds={PREP_SECONDS} what={`${ex.name} · Série ${setIdx + 1}/${ex.sets}${perSideReps ? ` · ${sideWord} gauche d'abord` : ""}`} sound={sound} onDone={() => setPhase("set")} />;
         }
         if (phase === "rest") {
           return <RestStage ss={ss} seconds={ex.rest} sound={sound} nextLabel={`Série ${setIdx + 2}/${ex.sets}${entry.charge != null ? ` · ${entry.charge} kg${entry.loadLabel ? ` · ${entry.loadLabel}` : ""}` : ""}`} onReady={() => { setSetIdx((i) => i + 1); setPhase("set"); }} />;
         }
         if (phase === "restNext") {
+          // Repos après le DERNIER set d'un exercice → à 0 (ou skip) on retombe sur l'écran
+          // d'annonce du prochain exo (« Je suis prêt ») : JAMAIS d'enchaînement direct sur un timer.
           const nx = exs[exIdx + 1];
           const nxEntry = log[exIdx + 1];
           const nxIsTime = nx.type === "bodyweight" && nx.repsSeconds;
           const nxCharge = nxEntry.charge != null ? `${nxEntry.charge} kg${nxEntry.loadLabel ? ` · ${nxEntry.loadLabel}` : ""}` : (nx.type === "bodyweight" ? "Poids du corps" : "");
-          const nxReps = nxIsTime ? nx.reps : (typeof nx.reps === "string" ? nx.reps : `${nxEntry.sets[0].repsTarget ?? nx.reps} reps`);
-          return <RestStage ss={ss} seconds={ex.rest} sound={sound} next={{ name: nx.name, target: `${nx.sets} × ${nxReps}`, charge: nxCharge, tech: nx.tech }} onReady={goNextExerciseSet} />;
+          const nxReps = nxIsTime ? nx.reps : (typeof nx.reps === "string" ? nx.reps : `${nxEntry.sets[0].repsTarget ?? nx.reps} reps${nx.perSide ? `/${nx.sideWord || "côté"}` : ""}`);
+          return <RestStage ss={ss} seconds={ex.rest} sound={sound} end="done" next={{ name: nx.name, target: `${nx.sets} × ${nxReps}`, charge: nxCharge, tech: nx.tech }} onReady={goNextStep} />;
         }
         // phase === "set"
         // Gainage / maintien → flow dédié plein écran (5s prépa → tenue → côté 2 → …).
@@ -187,12 +206,17 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
               <div className="min-w-0">
                 <p className="truncate text-lg font-extrabold leading-tight" style={{ color: ss.ink, fontFamily: FONT }}>{ex.name}</p>
                 <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: ss.accent }}>Série {setIdx + 1}/{ex.sets}</span>
+                {perSideReps && (
+                  <span className="mt-1.5 flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide" style={{ backgroundColor: `${ss.warm}1f`, color: ss.warm }}>
+                    <ArrowLeftRight size={12} /> {sideWord} {sideName}{singleSide ? " · rattrapage" : ` · ${side}/2`}
+                  </span>
+                )}
               </div>
               <button onClick={() => setShowTips((v) => !v)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: showTips ? `${ss.accent}1a` : ss.panel, color: showTips ? ss.accent : ss.sub }}><Info size={13} /> Technique</button>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: ss.muted }}>Répétitions</p>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: ss.muted }}>Répétitions{perSideReps ? ` · ${sideWord} ${sideName}` : ""}</p>
               <NumberFlow value={curSet.repsDone ?? curSet.repsTarget ?? 0} size={116} color={ss.ink} />
               <div className="mt-1 flex items-center gap-4">
                 <button onClick={() => setReps(exIdx, -1)} className="flex h-12 w-12 items-center justify-center rounded-full active:scale-90" style={{ backgroundColor: ss.panel, color: ss.sub }}><Minus size={22} /></button>
@@ -218,17 +242,33 @@ export function ForceWorkout({ session, week, workouts, sound = true, onCancel, 
               )}
             </div>
 
-            <div>
-              <p className="mb-2 text-center text-xs font-semibold" style={{ color: ss.sub }}>C'était comment ?</p>
-              <div className="flex gap-2">
-                {DIFFS.map((o) => { const { col, Ic } = diffMeta(ss, o.hint); return (
-                  <button key={o.v} onClick={() => rate(exIdx, o.v)} className="flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-3 active:scale-95" style={{ backgroundColor: `${col}1a`, border: `1px solid ${col}3a` }}>
-                    <Ic size={18} style={{ color: col }} />
-                    <span className="text-xs font-bold" style={{ color: col }}>{o.l}</span>
-                  </button>
-                ); })}
+            {perSideReps && !singleSide && side === 1 ? (
+              // Côté gauche en cours : pas de notation tant que le droit n'est pas fait.
+              <div>
+                <p className="mb-2 text-center text-xs font-semibold" style={{ color: ss.sub }}>Fais tes {curSet.repsTarget ?? ""} reps du {sideWord} gauche, puis enchaîne.</p>
+                <button onClick={() => setSide(2)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold active:scale-95" style={{ backgroundColor: ss.accent, color: isGym ? ss.onAccent : "#fff" }}>
+                  <ArrowLeftRight size={18} /> {cap(sideWord)} gauche fait → {sideWord} {rightOf(sideWord)}
+                </button>
               </div>
-            </div>
+            ) : (
+              // Notation : « Parfait » (le cas ultra-majoritaire) = GRAND bouton isolé en bas,
+              // trop lourd / trop facile = petits boutons au-dessus, bien séparés — fini les
+              // trois cibles identiques collées où le pouce se trompe en pleine séance.
+              <div>
+                <p className="mb-2 text-center text-xs font-semibold" style={{ color: ss.sub }}>C'était comment ?</p>
+                <div className="mb-2.5 flex gap-3">
+                  {DIFFS.filter((o) => o.v !== "parfait").map((o) => { const { col, Ic } = diffMeta(ss, o.hint); return (
+                    <button key={o.v} onClick={() => rate(exIdx, o.v)} className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 active:scale-95" style={{ backgroundColor: `${col}1a`, border: `1px solid ${col}3a` }}>
+                      <Ic size={15} style={{ color: col }} />
+                      <span className="text-xs font-bold" style={{ color: col }}>{o.l}</span>
+                    </button>
+                  ); })}
+                </div>
+                <button onClick={() => rate(exIdx, "parfait")} className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-extrabold active:scale-95" style={{ backgroundColor: isGym ? "#fff" : ss.ink, color: isGym ? ss.onAccent : ss.surface }}>
+                  <Check size={19} /> Parfait
+                </button>
+              </div>
+            )}
           </Stage>
         );
       })()}

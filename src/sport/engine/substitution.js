@@ -5,6 +5,7 @@
 import { ALTS, DEFAULT_EQUIPMENT } from "../config/alternatives.js";
 
 function exNeed(ex) {
+  if (ex.equipment === "disques") return "barre"; // petits disques = kit barre, pas les kettlebells
   if (ex.type === "standard" || ex.type === "heavy") return "barre";
   if (ex.type === "fixed") return "kettlebells";
   return null; // poids du corps : toujours faisable
