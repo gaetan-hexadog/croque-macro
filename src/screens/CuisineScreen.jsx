@@ -116,9 +116,24 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
       {/* Recherche pleine largeur — scan & « + » vivent dans la zone d'actions du header d'app. */}
       <div className="relative">
         <Search size={16} style={{ color: C.muted, position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une recette, un aliment…" className="w-full rounded-2xl py-3 pl-9 pr-9 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une recette, un aliment, dans le frigo…" className="w-full rounded-2xl py-3 pl-9 pr-9 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
         {q && <button onClick={() => setQ("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: C.muted }}><X size={16} /></button>}
       </div>
+
+      {/* La recherche couvre AUSSI le frigo : plus besoin d'ouvrir le frigo et de fouiller
+          pour savoir si tu as un produit (et s'il est dispo ou en rupture). */}
+      {nq && pantry.some((x) => x && deburr(x.name).includes(nq)) && (
+        <div className="rounded-2xl p-3" style={cardStyle()}>
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.weight }}><Refrigerator size={12} /> Dans ton frigo</p>
+          <div className="flex flex-wrap gap-1.5">
+            {pantry.filter((x) => x && deburr(x.name).includes(nq)).slice(0, 12).map((x) => (
+              <button key={x.id} onClick={onOpenFrigo} className="rounded-full px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={x.out ? { backgroundColor: `${C.over}12`, border: `1px solid ${C.over}44`, color: C.over } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>
+                {x.name}{x.out ? " · en rupture" : x.qty ? ` · ${x.qty} ${x.unit || "g"}` : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Frigo → Cuisine : UN seul bloc (fini les 3 cartes empilées). Hero anti-gaspi
           « cuisinable maintenant » + accès direct au frigo. Le coach passe dans la barre
@@ -215,7 +230,7 @@ export function CuisineScreen({ meals = [], usage = {}, onUse, onDelete, onAddRe
       {importOpen && (
         <Sheet open onClose={() => setImportOpen(false)} title="Importer une recette" subtitle="Depuis une URL" icon={<Globe size={18} />} iconColor={C.protein}>
           <p className="mb-3 text-xs leading-relaxed" style={{ color: C.sub }}>Colle l'URL d'une recette trouvée sur le web — j'en extrais les ingrédients et j'estime les kcal/protéines par portion. Tu pourras tout ajuster avant d'enregistrer.</p>
-          <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") doImport(); }} inputMode="url" autoCapitalize="none" placeholder="https://…" className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+          <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); doImport(); } }} inputMode="url" autoCapitalize="none" placeholder="https://…" className="mb-2 w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
           {importErr && <p className="mb-2 text-xs" style={{ color: C.over }}>{importErr}</p>}
           <button onClick={doImport} disabled={importBusy || !url.trim()} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: url.trim() ? C.protein : C.line }}>
             {importBusy ? <><Loader2 size={16} className="animate-spin" /> Lecture de la page…</> : <><Globe size={16} /> Importer</>}

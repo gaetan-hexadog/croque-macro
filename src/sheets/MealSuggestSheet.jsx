@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2, Refrigerator, AlertCircle, ChevronDown, Pin, X } from "lucide-react";
-import { C, buildAssistantPrompt, correctMacros, dietaryWarnings, expiryMeta } from "../core.js";
+import { C, buildAssistantPrompt, correctMacros, dietaryWarnings, expiryMeta, wishSignals } from "../core.js";
 import { askAssistant, AssistantError } from "../lib/assistant.js";
 import { Sheet } from "../components/Sheet.jsx";
 import MealCard from "../components/MealCard.jsx";
@@ -16,6 +16,7 @@ const WISH_CHIPS = [
   { k: "leger", l: "🪶 Léger", phrase: "plutôt léger" },
   { k: "proteine", l: "💪 Protéiné", phrase: "le plus protéiné possible" },
   { k: "sucre", l: "🍰 Sucré", phrase: "j'ai envie de sucré, un petit plaisir raisonnable" },
+  { k: "menu", l: "🍱 Menu complet", phrase: "un repas complet : entrée + plat + dessert" },
 ];
 const deburr = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const SWEET = /skyr|fruit|pancake|banane|chocolat|avoine|porridge|miel|compote|crepe|gaufre|vanille|cookie|datte|yaourt|granola/;
@@ -101,13 +102,20 @@ export function MealSuggestSheet({
     try {
       const dining = ov.dining ?? chips.has("resto");
       const noCook = ov.noCook ?? (chips.has("rapide") || NOCOOK.test(deburr(wish)));
-      const sweet = ov.sweet ?? (chips.has("sucre") || /dessert|go[uû]ter|sucr|gourmand|p[aâ]tiss|g[aâ]teau|cr[eê]pe|glace|biscuit|cookie|gaufre|donut|beignet/.test(deburr(wish)));
       const useSoon = ov.useSoon ?? (priority || []);
       const userWish = [...WISH_CHIPS.filter((c) => c.phrase && chips.has(c.k)).map((c) => c.phrase), wish.trim(), ov.wishText || ""].filter(Boolean).join(" · ");
+      // Contraintes dures de la demande texte : « que mon frigo » verrouille le mode strict
+      // (et allume le toggle 🔒 pour que ce soit visible), « <=450 kcal » filtre les résultats.
+      const sig = wishSignals(userWish);
+      // « plat + dessert » = un MENU, pas une envie de sucré : le mot « dessert » ne bascule
+      // en mode 100 % dessert QUE s'il n'y a pas de menu multi-services demandé.
+      const sweet = ov.sweet ?? ((chips.has("sucre") || /dessert|go[uû]ter|sucr|gourmand|p[aâ]tiss|g[aâ]teau|cr[eê]pe|glace|biscuit|cookie|gaufre|donut|beignet/.test(deburr(wish))) && !sig.menu);
+      const strictAsked = dining ? false : (ov.fridgeStrict ?? (fridgeStrict || sig.fridgeOnly));
+      if (strictAsked && !fridgeStrict && !dining) setFridgeStrict(true);
       const { system, prompt, mode } = buildAssistantPrompt({
         mode: "meal", slot, remKcal: budK, remP: budP, targetKcal, targetP, training, workout, trend, favorites, knownFoods, userWish, dining, weekBalance, indulge, sweet, useSoon, reserveKcal: indulge ? 0 : reserveKcal, dayContext, recentMeals, overused, directives,
-        // frigo = BONUS par défaut (invention libre) ; strict seulement si Bob l'active (jamais au resto).
-        fridgeOnly: dining ? false : (ov.fridgeStrict ?? fridgeStrict), noCook,
+        // frigo = BONUS par défaut (invention libre) ; strict si Bob l'active OU le demande en texte (jamais au resto).
+        fridgeOnly: strictAsked, noCook,
         have: dining ? [] : pantry.filter((x) => !x.out).map((x) => ({ name: x.name, qty: x.qty, unit: x.unit, kcal100: x.kcal100, p100: x.p100 })),
         avoid: [...pantry.filter((x) => x.out).map((x) => x.name), ...excludeTerms],
         excludeTitles: seenTitles.current, // ne repropose pas ce qu'on a déjà vu → « Régénérer » varie
@@ -119,7 +127,12 @@ export function MealSuggestSheet({
       // l'écran : si le filtre retire tout, on garde les repas bruts (le prompt durci les rend rares).
       const cleaned = meals.map((m) => correctMacros(m, knownFoods, pantry));
       const safe = cleaned.filter((m) => dietaryWarnings(m).length === 0);
-      const finalMeals = safe.length ? safe : cleaned;
+      let finalMeals = safe.length ? safe : cleaned;
+      // Plafond kcal explicite (« <=450 kcal ») : aucune option au-dessus n'est affichée
+      // (5 % de tolérance d'arrondi). Si tout dépasse → message « aucune idée conforme » + Régénérer.
+      if (sig.capKcal) finalMeals = finalMeals.filter((m) => (Number(m.kcal) || 0) <= sig.capKcal * 1.05);
+      // « Max de protéines » : l'option la plus protéinée d'abord.
+      if (sig.maxProtein) finalMeals = [...finalMeals].sort((a, b) => (b.protein || 0) - (a.protein || 0));
       setResults(finalMeals);
       const newTitles = finalMeals.map((m) => m.title).filter(Boolean);
       if (newTitles.length) seenTitles.current = [...newTitles, ...seenTitles.current].slice(0, 24);
@@ -136,11 +149,15 @@ export function MealSuggestSheet({
   const dispoN = pantry.filter((x) => !x.out).length;
   const expiring = pantry.filter((x) => !x.out && expiryMeta(x.exp)?.urgent).map((x) => x.name);
   // Carte d'action (R3) : lance l'assistant direct avec une intention.
+  // Layout HORIZONTAL (emoji à gauche, texte à droite) — l'icône seule sur sa ligne
+  // gaspillait de la hauteur pour rien.
   const ActionCard = ({ e, t, d, c, onClick }) => (
-    <button onClick={onClick} disabled={busy} className="rounded-2xl p-3 text-left active:scale-95 disabled:opacity-50" style={{ backgroundColor: `${c}12`, border: `1px solid ${c}33` }}>
-      <span className="text-2xl">{e}</span>
-      <p className="mt-1 text-sm font-bold" style={{ color: C.ink }}>{t}</p>
-      <p className="text-[11px]" style={{ color: C.muted }}>{d}</p>
+    <button onClick={onClick} disabled={busy} className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left active:scale-95 disabled:opacity-50" style={{ backgroundColor: `${c}12`, border: `1px solid ${c}33` }}>
+      <span className="shrink-0 text-xl">{e}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-bold" style={{ color: C.ink }}>{t}</span>
+        <span className="block truncate text-[11px]" style={{ color: C.muted }}>{d}</span>
+      </span>
     </button>
   );
   const Tog = ({ on, onClick, children }) => <button onClick={onClick} className="rounded-full px-2.5 py-1.5 text-xs font-bold active:scale-95" style={on ? { backgroundColor: C.accent, color: "#fff" } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{children}</button>;
@@ -149,7 +166,7 @@ export function MealSuggestSheet({
   const composer = (
     <>
       <div className="flex items-center gap-2 rounded-full py-1 pl-4 pr-1" style={{ backgroundColor: C.bg, border: `1px solid ${C.line}` }}>
-        <input value={wish} onChange={(e) => setWish(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(); }} placeholder="Dis tout : « frais, sans cuisson, <650 kcal, max protéines »" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none" style={{ color: C.ink }} />
+        <input value={wish} onChange={(e) => setWish(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); ask(); } }} placeholder="Dis tout : « que mon frigo, ≤450 kcal, max protéines »" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none" style={{ color: C.ink }} />
         <button onClick={ask} disabled={busy} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:scale-95 disabled:opacity-60" style={{ background: `linear-gradient(150deg, ${C.protein}, ${C.accent})`, color: "#fff" }} aria-label="Demander à l'assistant">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         </button>
@@ -207,7 +224,7 @@ export function MealSuggestSheet({
 
       {/* Actions-first (R3) : 4 cartes qui lancent l'assistant direct */}
       <div className="mb-2 grid grid-cols-2 gap-2">
-        <ActionCard e="🧊" t="Avec mon frigo" d={expiring.length ? "finis ce qui périme" : "ce que j'ai"} c={C.green} onClick={() => ask({ useSoon: expiring })} />
+        <ActionCard e="🧊" t="Avec mon frigo" d={expiring.length ? "que ce que j'ai · finis ce qui périme" : "uniquement ce que j'ai"} c={C.green} onClick={() => ask({ fridgeStrict: true, useSoon: expiring })} />
         <ActionCard e="🍰" t="Un truc sucré" d="dessert / goûter" c={C.accent} onClick={() => ask({ sweet: true })} />
         <ActionCard e="⚡" t="Rapide" d="sans cuisson" c={C.weight} onClick={() => ask({ noCook: true })} />
         <ActionCard e="🎲" t="Surprends-moi" d="varie mes habitudes" c={C.protein} onClick={() => ask({ wishText: "surprends-moi, quelque chose qui change franchement de mes habitudes" })} />

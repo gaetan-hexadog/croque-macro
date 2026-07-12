@@ -730,6 +730,48 @@ function correctMacros(meal, knownFoods = [], pantry = []) {
   return { ...meal, ingredients: fixed, kcal, protein };
 }
 
+// ── Décompte automatique du frigo ────────────────────────────────────────────
+// Quand un repas est MANGÉ, retranche du stock les quantités des ingrédients (g/ml)
+// qui matchent un aliment DISPO du frigo. Matching prudent : même mot de tête +
+// l'un des deux noms entièrement inclus dans l'autre (« tofu » consomme « Tofu
+// nature » ; « tofu fumé » ne touche PAS « Tofu nature »). Stock à 0 → passe en
+// rupture : la liste « à racheter » se remplit toute seule.
+function foodWords(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).map((w) => w.replace(/s$/, "")).filter((w) => w.length >= 3); }
+// Ingrédient consommable : objet {qty, unit, name} ou string « 150 g de skyr » — g/ml uniquement.
+function parseConsumable(i) {
+  if (i && typeof i === "object") {
+    const u = String(i.unit || "").toLowerCase(), q = Number(i.qty) || 0;
+    return (u === "g" || u === "ml") && q > 0 && i.name ? { qty: q, unit: u, name: i.name } : null;
+  }
+  const m = String(i || "").match(/^(\d+(?:[.,]\d+)?)\s*(g|ml)\s+(?:de\s+|d')?(.+)$/i);
+  return m ? { qty: parseFloat(m[1].replace(",", ".")), unit: m[2].toLowerCase(), name: m[3] } : null;
+}
+// → { pantry, consumed:[{id,name,used,unit,left,emptied}] }. factor = multiplicateur de portions.
+function consumePantry(pantry = [], ingredients = [], factor = 1) {
+  const f = Number(factor) > 0 ? Number(factor) : 1;
+  const wants = (ingredients || []).map(parseConsumable).filter(Boolean);
+  if (!wants.length || !(pantry || []).length) return { pantry, consumed: [] };
+  const consumed = [];
+  const next = pantry.map((it) => {
+    if (!it || it.out || !(Number(it.qty) > 0)) return it;
+    const iu = it.unit === "ml" ? "ml" : it.unit === "pièce" ? null : "g";
+    if (!iu) return it;
+    const iw = foodWords(it.name);
+    if (!iw.length) return it;
+    const hit = wants.find((w) => {
+      if (w.unit !== iu) return false;
+      const ww = foodWords(w.name);
+      return ww.length && iw[0] === ww[0] && (iw.every((x) => ww.includes(x)) || ww.every((x) => iw.includes(x)));
+    });
+    if (!hit) return it;
+    const used = Math.round(hit.qty * f * 10) / 10;
+    const left = Math.max(0, Math.round(((Number(it.qty) || 0) - used) * 10) / 10);
+    consumed.push({ id: it.id, name: it.name, used, unit: iu, left, emptied: left <= 0 });
+    return { ...it, qty: left, out: left <= 0 ? true : it.out };
+  });
+  return consumed.length ? { pantry: next, consumed } : { pantry, consumed: [] };
+}
+
 // ── Frigo : catégories + stock ───────────────────────────────────────────────
 // Range un aliment dans une catégorie par mots-clés. « lait d'amande » → boissons
 // (testé AVANT laitiers : Bob ne boit pas de lait de vache), « amandes » → placard.
@@ -835,6 +877,42 @@ function varietyProfile(days = {}, refISO = TODAY, n = 10) {
   return Object.entries(counts).filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([name, c]) => ({ name, n: c }));
 }
 
+// ── Signaux d'intention dans la demande libre ────────────────────────────────
+// Analyse la demande texte de Bob (« que des aliments de mon frigo, <=450 kcal,
+// max de protéines, entrée + plat + dessert ») et en extrait des CONTRAINTES DURES.
+// buildAssistantPrompt les transforme en règles non négociables du prompt, et l'UI
+// les applique aussi côté client (verrou frigo visible, filtre kcal sur les résultats,
+// tri par protéines). C'est CE qui garantit que la demande texte fait loi.
+function wishSignals(text) {
+  const s = String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const out = { fridgeOnly: false, capKcal: null, maxProtein: false, menu: false, courses: null };
+  if (!s.trim()) return out;
+  // Frigo strict : « que / uniquement / seulement … frigo|placard|ce que j'ai », « avec ce que j'ai »
+  out.fridgeOnly = /(?:\bque\b|\bqu'?\s?avec\b|uniquement|seulement|exclusivement|rien que)[^.;!?]{0,60}(?:frigo|placard|ce que j.?ai|mes aliments|ce qu.?il y a)|avec (?:ce que j.?ai|mon frigo|le frigo)|(?:frigo|placard)[^.;!?]{0,20}(?:uniquement|seulement|strict)/.test(s);
+  // Plafond kcal : « <=450 kcal », « ≤450 », « max 450 kcal », « 450 kcal max », « moins de 450 kcal »
+  const cap = s.match(/(?:<\s*=?\s*|≤\s*|max(?:i(?:mum)?)?\.?\s*(?:de\s*)?|moins de\s*|pas plus de\s*|plafond(?:\s*(?:de|a))?\s*|sous (?:les\s*)?)(\d{3,4})\s*k?cal/)
+    || s.match(/(\d{3,4})\s*k?cal\s*(?:max(?:i(?:mum)?)?|grand max|tout au plus)/)
+    || s.match(/(?:<\s*=?|≤)\s*(\d{3,4})\b/);
+  if (cap) { const n = parseInt(cap[1], 10); if (n >= 150 && n <= 2500) out.capKcal = n; }
+  // Max protéines : « max de protéines », « le plus protéiné possible », « maximise les protéines »…
+  out.maxProtein = /max(?:imum|imise\w*)?\s+(?:de\s+|la\s+|les\s+)?prot|prot(?:eines?)?\s*(?:au\s+)?max|le plus (?:de\s+)?prot|beaucoup de proteines?|riches? en proteines?|un max de prot/.test(s);
+  // Services demandés (composition LIBRE) : « entrée + plat + dessert », « plat dessert »,
+  // « entrée et plat », « juste une entrée »… On retire d'abord les négations (« sans dessert »,
+  // « pas d'entrée ») pour ne pas compter un service explicitement exclu.
+  const s2 = s.replace(/(?:sans|pas d'|pas de|ni d'|ni de)\s+(?:entrees?|plats?|desserts?)/g, " ");
+  if (/repas complet|menu complet|(?:trois|3)\s+services/.test(s2)) out.courses = ["entree", "plat", "dessert"];
+  else {
+    const c = [];
+    if (/\bentrees?\b/.test(s2)) c.push("entree");
+    if (/\bplats?\b/.test(s2)) c.push("plat");
+    if (/\bdesserts?\b/.test(s2)) c.push("dessert");
+    out.courses = c.length ? c : null;
+  }
+  // menu = plusieurs services à composer ensemble (un « plat » seul = comportement normal).
+  out.menu = !!(out.courses && out.courses.length >= 2);
+  return out;
+}
+
 function buildAssistantPrompt({
   mode = "meal",            // "meal" | "day" | "week"
   slot,                      // créneau visé (mode meal)
@@ -867,6 +945,12 @@ function buildAssistantPrompt({
   directives = [],          // consignes actives de Bob (épinglées du bilan / saisies) → à respecter en priorité
   refISO = TODAY,           // date de référence → produits de saison injectés
 } = {}) {
+  // La demande texte de Bob fait LOI : on en extrait les contraintes dures AVANT de
+  // bâtir le prompt, pour qu'aucun bloc générique (« frigo = bonus », « repère indicatif »)
+  // ne vienne les contredire. « que des aliments de mon frigo » → mode frigo strict.
+  const sig = wishSignals(userWish);
+  if (sig.fridgeOnly && !dining) fridgeOnly = true;
+  const capKcal = mode === "meal" ? sig.capKcal : null;
   const sys = [
     "Tu es l'assistant nutrition personnel de Bob. Tu proposes des repas végétariens, simples et réalistes. Réponds en français.",
     "Règles diététiques STRICTES, non négociables :",
@@ -968,15 +1052,29 @@ function buildAssistantPrompt({
     const slotTxt = SLOT_LABELS[slot] || "repas";
     if (sweet) {
       // Envie de sucré / dessert / goûter → on IGNORE le cadrage « plat du créneau » : c'est une gourmandise.
-      L.push(budget
+      L.push(capKcal
+        ? `Je veux un DESSERT / une gourmandise SUCRÉE (frais et simple), PAS un plat salé ni un repas complet. Propose-moi ${n} idées de dessert ou d'en-cas SUCRÉ d'AU MAXIMUM ${r0(capKcal)} kcal chacune (plafond STRICT, voir plus bas).`
+        : budget
         ? `Je veux un DESSERT / une gourmandise SUCRÉE (frais et simple), PAS un plat salé ni un repas complet. Propose-moi ${n} idées de dessert ou d'en-cas SUCRÉ qui rentrent dans mon budget restant${dateLabel ? ` (${dateLabel})` : ""} : ${r0(Math.max(0, remKcal))} kcal et ${r0(Math.max(0, remP))} g de protéines.`
         : `Je veux un DESSERT / une gourmandise SUCRÉE (frais et simple), PAS un plat salé ni un repas complet. Propose-moi ${n} idées de dessert ou d'en-cas SUCRÉ.`);
       L.push("C'est une GOURMANDISE sucrée : mise sur des bases plaisir raisonnables (fruits, skyr/fromage blanc, yaourt, chocolat noir, compote, oléagineux, miel, avoine…). La protéine peut être plus BASSE que pour un repas — ne force PAS un « dessert protéiné » façon plat ; garde-le simple, gourmand et net côté budget.");
     } else {
-      L.push(budget
+      L.push(capKcal
+        ? `Propose-moi ${n} options de ${slotTxt}${dateLabel ? ` (${dateLabel})` : ""}, équilibrées et protéinées, d'AU MAXIMUM ${r0(capKcal)} kcal chacune (plafond STRICT, voir plus bas). Vise au moins ~${Math.round(capKcal / 12)} g de protéines par option — plus si possible.`
+        : budget
         ? `Propose-moi ${n} options de ${slotTxt}${dateLabel ? ` (${dateLabel})` : ""}, équilibrées et protéinées. REPÈRE de budget restant (indicatif, pas un plafond dur) : ~${r0(Math.max(0, remKcal))} kcal et vise au moins ${r0(Math.max(0, remP))} g de protéines. Vise autour de ce repère ; si ma demande texte impose une autre limite chiffrée, c'est ELLE qui prime.`
         : `Propose-moi ${n} options de ${slotTxt}, équilibrées et protéinées.`);
-      if (slot === "snack") L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
+      if (slot === "snack" && !sig.menu) L.push("Un EN-CAS = simple et rapide, SANS cuisson ni recette élaborée (yaourt/fromage blanc, fruit, oléagineux, fromage, compote, barre ou shake protéiné…).");
+    }
+    // ── Contraintes DURES extraites de la demande texte (elles PRIMENT sur tout repère) ──
+    if (capKcal) L.push(`PLAFOND CALORIQUE STRICT — ${r0(capKcal)} kcal MAXIMUM par option (total du repas${sig.menu ? ", TOUS les services du menu compris" : ""}). AVANT de répondre, VÉRIFIE la somme des kcal des ingrédients de CHAQUE option ; si elle dépasse ${r0(capKcal)}, réduis les quantités ou change d'ingrédients jusqu'à passer SOUS le plafond. Une option au-dessus de ${r0(capKcal)} kcal est une réponse FAUSSE — n'en renvoie aucune.`);
+    if (sig.maxProtein) L.push(`MAXIMISE LES PROTÉINES — c'est le critère n°1 de cette demande. Compose chaque option pour le ratio protéines/kcal le plus HAUT possible${capKcal ? ` dans le plafond de ${r0(capKcal)} kcal` : ""} : privilégie les aliments très protéinés et maigres (skyr, fromage blanc 0 %, tofu ferme/nature/aromatisé, seitan, œufs et blancs d'œufs, tempeh, légumineuses), limite les kcal « vides » qui ne portent pas de protéines (huiles en excès, gros féculents, sucres). Entre deux options, choisis TOUJOURS la plus protéinée.`);
+    if (sig.menu && !sweet) {
+      const LBL = { entree: "ENTRÉE", plat: "PLAT", dessert: "DESSERT" };
+      const list = sig.courses.map((c) => LBL[c]).join(" + ");
+      L.push(`MENU DEMANDÉ — chaque option = un vrai MENU composé EXACTEMENT de ces services : ${list} (ni plus, ni moins — n'ajoute PAS un service que je n'ai pas demandé${sig.courses.includes("dessert") ? " ; le dessert reste léger" : ""}). Le \`title\` annonce les services (ex. « Menu : carottes râpées citron · dahl de lentilles${sig.courses.includes("dessert") ? " · fromage blanc aux fruits" : ""} »), les \`ingredients\` couvrent TOUT le menu (chaque ingrédient chiffré), les \`steps\` sont regroupées par service (« Entrée — … », « Plat — … », « Dessert — … » selon les services demandés), et \`kcal\`/\`protein\` = le TOTAL du menu entier. Dans la \`note\`, donne la répartition kcal par service.`);
+    } else if (!sweet && sig.courses && sig.courses.length === 1 && sig.courses[0] === "entree") {
+      L.push("ENTRÉE demandée — propose des ENTRÉES (portion d'entrée, légère, à partager ou en ouverture de repas), PAS des plats principaux complets.");
     }
     if (dining) L.push("CONTEXTE : je mange AU RESTAURANT (pas de cuisine maison) — IGNORE mon frigo. Propose des PLATS À COMMANDER réalistes (pas de recette à cuisiner) ; `ingredients` = composantes principales du plat. Estime les macros de façon CONSERVATRICE (portions resto généreuses, arrondis kcal vers le haut). Dans `note`, glisse 1 conseil de commande (ex. sauce à part, doubler la protéine, pain en moins).");
     if (useSoon && useSoon.length) L.push(`PRIORITÉ ANTI-GASPI : ces aliments PÉRIMENT bientôt — ${useSoon.slice(0, 8).join(", ")}. Construis les options AUTOUR d'eux (utilise-en le plus possible, en premier), sans dépasser le budget ni enfreindre les règles diététiques.`);
@@ -1104,6 +1202,7 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
     have.length ? `Frigo/placard dispo : ${have.join(", ")}.` : "Frigo : (vide ou non renseigné).",
     recNames.length ? `Recettes enregistrées de Bob : ${recNames.join(", ")}.` : "",
     "Quand tu proposes un repas/une recette, respecte les règles et le budget restant, et privilégie ce qu'il a au frigo. Pour les macros, additionne ingrédient par ingrédient depuis les valeurs connues ; si une valeur manque, estime de façon conservatrice et dis-le. Évite d'empiler sel (transformés/condiments) et grosses charges de fibres/légumineuses (rétention d'eau).",
+    "CONTRAINTES EXPLICITES DE BOB = RÈGLES DURES (juste après les règles diététiques) : une limite chiffrée (« ≤ 450 kcal », « max 600 kcal ») est un plafond STRICT — vérifie la somme des ingrédients et ne le dépasse JAMAIS. « Que des aliments de mon frigo » / « avec ce que j'ai » = compose UNIQUEMENT avec les aliments de sa liste frigo ci-dessus (+ assaisonnements de base : sel, poivre, épices, huile, vinaigre, citron, moutarde) — n'invente JAMAIS un produit absent ni une VARIANTE absente (s'il a « tofu nature », ne propose pas « tofu fumé » ; utilise SES produits tels que nommés). « Max de protéines » = maximise réellement le ratio protéines/kcal. Une composition de repas demandée (« repas complet », « entrée + plat », « plat + dessert », « juste une entrée »…) = propose EXACTEMENT ces services-là (ni plus, ni moins) et leur TOTAL tient dans la limite. Si les contraintes sont trop serrées, propose le meilleur compromis et dis-le en une phrase — ne les ignore jamais en silence.",
     "Bob peut t'envoyer une PHOTO (assiette/plat, ou emballage/étiquette d'un produit). Décris brièvement ce que tu vois, estime les macros (conservateur, dis quand tu estimes), et déclenche l'action utile : un repas qu'il vient de manger → log_meal ; un produit intéressant → add_to_pantry (reprends les valeurs /100 g de l'étiquette si lisibles) avec un avis « feu vert / orange / rouge » selon le ratio protéines÷kcal et le gras. Si l'image est illisible ou ambiguë, dis-le et demande une précision.",
     "Tu peux DÉCLENCHER des actions via tes outils : save_recipe (enregistrer une recette), log_meal (logger un repas du jour), add_to_pantry (ajouter au frigo), update_recipe (modifier une recette existante). RÈGLE ABSOLUE : dès qu'une action est pertinente, APPELLE l'outil IMMÉDIATEMENT dans CE message — ne demande JAMAIS la permission avant. C'est l'app qui affiche un bouton de confirmation que Bob valide d'un tap ; toi, ton rôle est juste de déclencher l'outil. Ceci vaut pour TOUTES les actions, y compris MODIFIER : si tu repères qu'une recette existante gagnerait à être mise à jour, appelle update_recipe TOUT DE SUITE — n'écris JAMAIS « je peux la mettre à jour si tu veux », « veux-tu que… », ni aucune question de permission. Accompagne d'un texte court et affirmatif (« Voici une idée de déj : … », « Je mets à jour ta recette X : … »), jamais d'une question. Pour update_recipe, n'utilise que les noms EXACTS de recettes listés ci-dessus.",
   ].filter(Boolean).join("\n");
@@ -1112,5 +1211,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, oneEmoji, dietaryWarnings, correctMacros, catOf, itemCat, catFromLabel, daysUntil, expiryMeta, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, wishSignals, oneEmoji, dietaryWarnings, correctMacros, consumePantry, catOf, itemCat, catFromLabel, daysUntil, expiryMeta, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
 };

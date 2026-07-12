@@ -26,7 +26,7 @@ export function AuthGate() {
         </div>
         <div className="space-y-3 rounded-3xl p-5" style={cardStyle()}>
           <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoCapitalize="none" autoComplete="email" placeholder="Email" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} />
-          <input value={pwd} onChange={(e) => setPwd(e.target.value)} type="password" autoComplete="current-password" placeholder="Mot de passe" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} onKeyDown={(e) => { if (e.key === "Enter") signIn(); }} />
+          <input value={pwd} onChange={(e) => setPwd(e.target.value)} type="password" autoComplete="current-password" placeholder="Mot de passe" className="w-full rounded-xl px-3.5 py-3 text-sm outline-none" style={field} onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); signIn(); } }} />
           <div className="flex gap-2">
             <button onClick={signIn} disabled={busy} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}>{busy ? <Loader2 size={16} className="animate-spin" /> : "Se connecter"}</button>
             <button onClick={signUp} disabled={busy} className="flex-1 rounded-xl py-3 text-sm font-semibold active:scale-95" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.ink }}>Créer un compte</button>

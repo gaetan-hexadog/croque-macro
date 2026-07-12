@@ -7,8 +7,8 @@ import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
 import { fetchProductByBarcode } from "../lib/openfoodfacts.js";
 import { estimateFoodMacros } from "../lib/assistant.js";
 import { formatPantryText, shareOrCopy } from "../lib/share.js";
-import { ProteinFlag } from "../components/ProteinFlag.jsx";
 import { AssistantBar } from "../components/AssistantBar.jsx";
+import { PantryList } from "../components/PantryList.jsx";
 
 const deburr = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -50,6 +50,21 @@ function PantryFields({ v, on, onFill, onSubmit }) {
         {v.exp && <button onClick={() => setExp("")} className="rounded-xl px-2 text-xs font-bold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }}><X size={13} /></button>}
       </div>
     </>
+  );
+}
+
+// Stepper de stock à pas adaptatif : pièce → ±1 ; sinon ±10 (<100), ±25 (<500), ±50 au-delà.
+function StockStepper({ it, onSet }) {
+  const v = Number(it.qty) || 0;
+  const u = it.unit === "ml" ? "ml" : it.unit === "pièce" ? "pièce" : "g";
+  const inc = u === "pièce" ? 1 : v < 100 ? 10 : v < 500 ? 25 : 50;
+  const dec = u === "pièce" ? 1 : v <= 100 ? 10 : v <= 500 ? 25 : 50;
+  return (
+    <div className="inline-flex items-center rounded-lg p-0.5" style={{ border: `1px solid ${C.line}`, backgroundColor: C.card }}>
+      <button onClick={() => onSet(Math.max(0, Math.round((v - dec) * 10) / 10))} className="flex h-8 w-8 items-center justify-center rounded text-lg font-bold active:scale-90" style={{ color: v > 0 ? C.ink : C.line }}>−</button>
+      <span className="text-center text-sm font-bold tabular-nums" style={{ color: C.ink, minWidth: "4.2rem" }}>{String(v).replace(".", ",")} <span className="text-[10px] font-medium" style={{ color: C.muted }}>{u}</span></span>
+      <button onClick={() => onSet(Math.round((v + inc) * 10) / 10)} className="flex h-8 w-8 items-center justify-center rounded text-lg font-bold active:scale-90" style={{ color: C.green }}>+</button>
+    </div>
   );
 }
 
@@ -112,12 +127,7 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
   const dispo = pantry.filter((x) => !x.out), rupture = pantry.filter((x) => x.out);
   const urgent = dispo.filter((x) => expiryMeta(x.exp)?.urgent).sort((a, b) => (daysUntil(a.exp) ?? 9999) - (daysUntil(b.exp) ?? 9999));
   const nq = deburr(q);
-  const catsPresent = CAT_ORDER.filter((k) => dispo.some((x) => itemCat(x) === k));
-  const filtered = dispo
-    .filter((x) => (!nq || deburr(x.name).includes(nq)))
-    .sort((a, b) => ((daysUntil(a.exp) ?? 9999) - (daysUntil(b.exp) ?? 9999)) || a.name.localeCompare(b.name));
-  // Stock GROUPÉ par catégorie (direction F) — plus de filtre-chips : chaque rayon a sa section.
-  const groups = CAT_ORDER.map((k) => ({ k, meta: catMeta(k), items: filtered.filter((x) => itemCat(x) === k) })).filter((g) => g.items.length);
+  const filtered = dispo.filter((x) => (!nq || deburr(x.name).includes(nq)));
 
   return (
     <>
@@ -167,11 +177,14 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
                 </div>
               </div>
               {rupture.length > 0 && (
-                <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
-                  {rupture.map((it) => (
-                    <button key={it.id} onClick={() => setAction(it)} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}>{it.name}<RotateCcw size={10} style={{ color: C.green }} /></button>
-                  ))}
-                </div>
+                <>
+                  <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
+                    {rupture.map((it) => (
+                      <button key={it.id} onClick={() => onToggle(it.id)} title="De retour au frigo" className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }}><RotateCcw size={10} style={{ color: C.green }} /> {it.name}</button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px]" style={{ color: C.muted }}>Racheté ? Tape le produit : il revient en stock (pense à ajuster sa quantité).</p>
+                </>
               )}
               {shared && <p className="mt-1.5 text-[11px] font-semibold" style={{ color: C.green }}>{shared} ✓</p>}
             </div>
@@ -179,38 +192,17 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
 
           {pantry.length === 0 ? (
             <p className="py-8 text-center text-sm" style={{ color: C.muted }}>Aucun aliment pour l'instant — scanne ou ajoute ce que tu as.</p>
-          ) : filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm" style={{ color: C.muted }}>{nq ? "Rien ne correspond." : "Aucun aliment dispo."}</p>
           ) : (
-            <div className="space-y-4">
-              {/* Rayons : une section par catégorie */}
-              {groups.map((g) => (
-                <div key={g.k}>
-                  <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>
-                    <span>{g.meta.emoji}</span> {g.meta.label} <span style={{ color: C.line }}>·</span> <span style={{ color: g.meta.color }}>{g.items.length}</span>
-                  </p>
-                  <div className="space-y-1.5">
-                    {g.items.map((it) => { const b = expiryMeta(it.exp); return (
-                      <div key={it.id} onClick={() => setAction(it)} className="flex cursor-pointer items-center gap-2.5 rounded-2xl px-3 py-2.5" style={cardStyle()}>
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base" style={{ backgroundColor: `${g.meta.color}18` }}>{g.meta.emoji}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold" style={{ color: C.ink }}>{it.name}</span>
-                          <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                            {dens(it) && <span className="text-[11px] tabular-nums" style={{ color: C.muted }}>{dens(it)}</span>}
-                            <ProteinFlag kcal={it.kcal100} p={it.p100} />
-                          </span>
-                        </span>
-                        {b && b.txt && <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${b.col}1a`, color: b.col }}>{b.txt}</span>}
-                        <button onClick={(ev) => { ev.stopPropagation(); onToggle(it.id); }} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }} aria-label="Passer en rupture">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.green }} /> Dispo
-                        </button>
-                      </div>
-                    ); })}
-                  </div>
-                </div>
-              ))}
-              <p className="px-1 text-[11px] leading-relaxed" style={{ color: C.muted }}>Tape un <b style={{ color: C.ink }}>aliment</b> pour le modifier, le ranger ou lui donner une date. Le chip <b style={{ color: C.green }}>Dispo</b> le passe en rupture.</p>
-            </div>
+            <>
+              {/* LE rendu frigo unique (partagé avec la pioche) : rayons, péremption, tri urgent. */}
+              <PantryList items={dispo} query={q} onTap={setAction} emptyText={nq ? "Rien ne correspond." : "Aucun aliment dispo."}
+                right={(it) => (
+                  <button onClick={(ev) => { ev.stopPropagation(); onToggle(it.id); showFlash(`${it.name} → à racheter (tape-le en haut pour annuler)`); }} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }} aria-label="Plus en stock ? Passe en rupture">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.green }} /> En stock
+                  </button>
+                )} />
+              {filtered.length > 0 && <p className="px-1 text-[11px] leading-relaxed" style={{ color: C.muted }}>Tape un <b style={{ color: C.ink }}>aliment</b> pour ajuster son stock, le ranger ou lui donner une date. Le chip <b style={{ color: C.green }}>En stock</b> le passe en rupture (« à racheter »).</p>}
+            </>
           )}
         </div>
         {/* Barre assistant persistante (direction F) */}
@@ -245,6 +237,11 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
             </>
           ) : (
             <div className="space-y-2">
+              {/* Stock direct : ± sans passer par « Modifier » (2 taps au lieu de 4). */}
+              <div className="flex items-center justify-between rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                <span className="text-xs font-semibold" style={{ color: C.muted }}>Stock restant</span>
+                <StockStepper it={action} onSet={(v) => { onUpdate && onUpdate(action.id, { qty: v, out: v > 0 ? false : action.out }); setAction((a) => (a ? { ...a, qty: v, out: v > 0 ? false : a.out } : a)); }} />
+              </div>
               <div className="rounded-2xl px-3.5 py-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
                 <p className="mb-2 text-xs font-semibold" style={{ color: C.muted }}>Ranger dans…</p>
                 <div className="flex flex-wrap gap-1.5">

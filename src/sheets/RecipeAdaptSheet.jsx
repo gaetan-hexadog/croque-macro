@@ -45,7 +45,7 @@ export function RecipeAdaptSheet({ recipe, favorites = [], knownFoods = [], pant
   return (
     <Sheet open onClose={onClose} title="Adapter la recette" subtitle={recipe?.name} icon={<Wand2 size={18} />} iconColor={C.weight} z={z}>
       <p className="mb-2 text-xs" style={{ color: C.sub }}>Que veux-tu changer ? (ingrédient manquant, en retirer un, compléter, alléger…)</p>
-      <input value={instruction} onChange={(e) => setInstruction(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ask(); }} placeholder="Ex. remplace le tofu, je n'ai pas de fromage blanc…" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+      <input value={instruction} onChange={(e) => setInstruction(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); ask(); } }} placeholder="Ex. remplace le tofu, je n'ai pas de fromage blanc…" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
       <div className="mb-3 flex flex-wrap gap-1.5">
         {QUICK.map((q) => (
           <button key={q} onClick={() => setInstruction(q)} className="rounded-full px-2.5 py-1 text-[11px] font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>{q}</button>

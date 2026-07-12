@@ -25,6 +25,9 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
   const closeNav = () => (navBack ? navBack() : null);
   const openAdd = (slot) => onPick(slot);
   const openRecipe = (m, slot, index) => { nav(() => setViewRecipe(null)); setViewRecipe({ m, slot, index }); };
+  // « Ajuster avec l'assistant » depuis N'IMPORTE QUELLE ligne de repas (recette ou simple
+  // aliment) : ouvre l'adaptation IA, le résultat remplace l'item en place.
+  const openAdaptItem = (m, slot, index) => { nav(() => setAdapting(null)); setAdapting({ m, slot, index, pushed: true }); };
   const openTpl = () => { nav(() => setShowTpl(false)); setShowTpl(true); };
   const over = remKcal < 0;
   const isToday = activeDate === TODAY;
@@ -198,10 +201,10 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       )}
 
       <div className="space-y-3">
-        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
-        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => onIdea("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onViewRecipe={openRecipe} />
+        <DayRow slotKey="pdj" meals={picks.pdj} skipped={skipBreakfast} target={slotTarget("pdj")} onAdd={() => openAdd("pdj")} onIdea={() => onIdea("pdj")} onConfirm={onConfirm ? (i) => onConfirm("pdj", i) : undefined} onReplace={(i) => onPick("pdj", i)} onClear={(i) => onClear("pdj", i)} onQty={(i, d) => onQty("pdj", i, d)} onEdit={(i, patch) => onEditItem("pdj", i, patch)} onAdaptItem={openAdaptItem} onSkip={onSkip} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <DayRow slotKey="dej" meals={picks.dej} target={slotTarget("dej")} onAdd={() => openAdd("dej")} onIdea={() => onIdea("dej")} onConfirm={onConfirm ? (i) => onConfirm("dej", i) : undefined} onReplace={(i) => onPick("dej", i)} onClear={(i) => onClear("dej", i)} onQty={(i, d) => onQty("dej", i, d)} onEdit={(i, patch) => onEditItem("dej", i, patch)} onAdaptItem={openAdaptItem} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <DayRow slotKey="diner" meals={picks.diner} target={slotTarget("diner")} onAdd={() => openAdd("diner")} onIdea={() => onIdea("diner")} onConfirm={onConfirm ? (i) => onConfirm("diner", i) : undefined} onReplace={(i) => onPick("diner", i)} onClear={(i) => onClear("diner", i)} onQty={(i, d) => onQty("diner", i, d)} onEdit={(i, patch) => onEditItem("diner", i, patch)} onAdaptItem={openAdaptItem} onSaveCombo={onSaveCombo} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
+        <SideSection snacks={picks.snacks} extras={picks.extras || []} onAdd={() => openAdd("snack")} onIdea={() => onIdea("snack")} onConfirm={onConfirm} onClear={onClear} onQty={onQty} onEdit={onEditItem} onAdaptItem={openAdaptItem} onViewRecipe={openRecipe} pushNav={pushNav} navBack={navBack} />
       </div>
 
       {/* Modèles & copie de journée — actions secondaires, en pilules lisibles */}
@@ -242,7 +245,8 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
       {adapting && (
         <RecipeAdaptSheet recipe={adapting.m} favorites={favorites} knownFoods={knownFoods} pantry={pantry} z={50}
           onReplace={(r) => { onEditItem(adapting.slot, adapting.index, { name: r.name, kcal: r.kcal, p: r.p, ingredients: r.ingredients, steps: r.steps, emoji: r.emoji }); setAdapting(null); closeNav(); }}
-          onSaveNew={(r) => onAddRecipe(r)} onClose={() => setAdapting(null)} />
+          onSaveNew={(r) => onAddRecipe(r)}
+          onClose={() => { const pushed = adapting.pushed; setAdapting(null); if (pushed) closeNav(); }} />
       )}
 
       {showTpl && (
@@ -272,7 +276,7 @@ export function DayScreen({ activeDate, setActiveDate, settings, totals, planned
 }
 
 
-function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onSkip, onSaveCombo, onViewRecipe, pushNav, navBack }) {
+function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm, onReplace, onClear, onQty, onEdit, onAdaptItem, onSkip, onSaveCombo, onViewRecipe, pushNav, navBack }) {
   const ui = SLOT_UI[slotKey];
   const [naming, setNaming] = useState(false);
   const [comboName, setComboName] = useState("");
@@ -308,7 +312,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
         <>
           <ul className="mt-1.5">
             {meals.map((m, i) => (
-              <MealItemRow key={m.id || i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe ? (mm) => onViewRecipe(mm, slotKey, i) : undefined} />
+              <MealItemRow key={m.id || i} m={m} accent={ui.color} first={i === 0} onQty={(nv) => onQty(i, nv)} onReplace={() => onReplace(i)} onRemove={() => onClear(i)} onEdit={onEdit ? (patch) => onEdit(i, patch) : undefined} onAdapt={onAdaptItem ? () => onAdaptItem(m, slotKey, i) : undefined} onConfirm={onConfirm ? () => onConfirm(i) : undefined} onViewRecipe={onViewRecipe ? (mm) => onViewRecipe(mm, slotKey, i) : undefined} pushNav={pushNav} navBack={navBack} />
             ))}
           </ul>
           {onSaveCombo && (
@@ -330,7 +334,7 @@ function DayRow({ slotKey, meals = [], skipped, target, onAdd, onIdea, onConfirm
 
 // « À-côtés » : fusion En-cas + Plaisirs en une section. Les items « plaisir »
 // (ex-extras) portent un tag. Routage par slot ("snack" | "extras").
-function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onConfirm, onViewRecipe }) {
+function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, onEdit, onAdaptItem, onConfirm, onViewRecipe, pushNav, navBack }) {
   const color = SLOT_UI.snack.color;
   const items = [
     ...snacks.map((m, i) => ({ m, slot: "snack", i, plaisir: false })),
@@ -361,8 +365,10 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
               onQty={onQty ? (nv) => onQty(slot, i, nv) : undefined}
               onRemove={() => onClear(slot, i)}
               onEdit={onEdit ? (patch) => onEdit(slot, i, patch) : undefined}
+              onAdapt={onAdaptItem ? () => onAdaptItem(m, slot, i) : undefined}
               onConfirm={onConfirm ? () => onConfirm(slot, i) : undefined}
-              onViewRecipe={onViewRecipe ? (mm) => onViewRecipe(mm, slot, i) : undefined} />
+              onViewRecipe={onViewRecipe ? (mm) => onViewRecipe(mm, slot, i) : undefined}
+              pushNav={pushNav} navBack={navBack} />
           ))}
         </ul>
       )}
@@ -370,72 +376,98 @@ function SideSection({ snacks = [], extras = [], onAdd, onIdea, onQty, onClear, 
   );
 }
 
-function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, onViewRecipe, plaisir, first }) {
+// Une ligne d'aliment loggé. Tap n'importe où → SHEET D'ACTIONS complète (fini l'accordéon
+// étroit) : quantité au pouce (stepper + raccourcis ½/1/1½/2), édition nom/kcal/prot.,
+// « Ajuster avec l'assistant » sur CHAQUE item, remplacer, planifié, retirer.
+function MealItemRow({ m, accent, onQty, onReplace, onRemove, onEdit, onConfirm, onAdapt, onViewRecipe, plaisir, first, pushNav, navBack }) {
   const q = m.qty || 1;
   const hasRecipe = !!(m.ingredients?.length || m.steps?.length);
   const planned = !!m.planned;
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const [name, setName] = useState(m.name);
   const [kcal, setKcal] = useState(String(m.kcal));
   const [p, setP] = useState(String(m.p));
   useEffect(() => { setName(m.name); setKcal(String(m.kcal)); setP(String(m.p)); }, [m.name, m.kcal, m.p]);
-  const save = () => {
+  const dirty = name !== m.name || kcal !== String(m.kcal) || p !== String(m.p);
+  const saveVals = () => {
     const k = parseFloat(String(kcal).replace(",", ".")), pp = parseFloat(String(p).replace(",", "."));
     onEdit({ name: name.trim() || m.name, kcal: isFinite(k) && k >= 0 ? k : m.kcal, p: isFinite(pp) && pp >= 0 ? pp : m.p });
-    setEditing(false);
   };
-  const cancel = () => { setName(m.name); setKcal(String(m.kcal)); setP(String(m.p)); setEditing(false); };
+  const openSheet = () => { if (pushNav) pushNav(() => setSheet(false)); setSheet(true); };
+  const closeSheet = () => (navBack ? navBack() : setSheet(false));
   const fld = { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink };
   const topBorder = first ? "none" : `1px solid ${C.line}`;
+  const QTY_QUICK = [0.5, 1, 1.5, 2];
+  const ActBtn = ({ icon: I, label, color = C.sub, bg, onClick }) => (
+    <button onClick={onClick} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold active:scale-95" style={{ backgroundColor: bg || C.card, border: `1px solid ${C.line}`, color }}>
+      <I size={15} style={{ flexShrink: 0 }} /> <span className="min-w-0 truncate">{label}</span>
+    </button>
+  );
 
   return (
     <li style={{ borderTop: topBorder }}>
-      {editing && (
-        <Sheet open onClose={cancel} title="Modifier l'aliment" subtitle="Nom, kcal, protéines" icon={<Pencil size={18} />} iconColor={accent}>
-          <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Nom" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-          <div className="mb-3 flex gap-2">
-            <input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="decimal" placeholder="kcal" className="w-full min-w-0 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-            <input value={p} onChange={(e) => setP(e.target.value)} inputMode="decimal" placeholder="prot. (g)" className="w-full min-w-0 rounded-xl px-3 py-2.5 text-sm outline-none" style={fld} />
-          </div>
-          {q !== 1 && <p className="mb-2 text-xs" style={{ color: C.muted }}>Valeurs par portion · quantité ×{fmtQty(q)} appliquée à part.</p>}
-          <button onClick={save} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: accent }}><Check size={16} /> Enregistrer</button>
-        </Sheet>
-      )}
       <div className="flex items-center gap-2.5 py-2.5">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: plaisir ? C.extra : accent, opacity: planned ? 0.5 : 1 }} />
-        <button onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left active:opacity-70">
+        <button onClick={openSheet} className="flex min-w-0 flex-1 items-center gap-1.5 text-left active:opacity-70">
           {plaisir && <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: `${C.extra}26`, color: C.extra }}>PLAISIR</span>}
           <span className="truncate text-sm font-semibold" style={{ color: C.ink }}>{m.name}{q !== 1 && <span style={{ color: accent }}> ×{fmtQty(q)}</span>}</span>
         </button>
         {hasRecipe && <button onClick={() => onViewRecipe && onViewRecipe(m)} className="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1 text-[9px] font-bold active:scale-95" style={{ backgroundColor: `${C.weight}22`, color: C.weight }} aria-label="Voir la recette"><BookOpen size={9} /> RECETTE</button>}
         <span className="shrink-0 text-[11px] tabular-nums" style={{ color: C.muted }}>{r0(m.kcal * q)} · {r0(m.p * q)} g</span>
-        <button onClick={() => setOpen((o) => !o)} className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg active:scale-90" style={{ color: C.muted }} aria-label="Actions"><ChevronRight size={16} style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .2s" }} /></button>
+        <button onClick={openSheet} className="-mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg active:scale-90" style={{ color: C.muted }} aria-label="Actions"><ChevronRight size={16} /></button>
       </div>
-
-      {open && (
-        <div className="space-y-2 pb-2.5 pl-4">
-          <div className="flex items-center justify-between gap-2">
-            <QtyStepper value={q} onChange={onQty} accent={accent} />
-            <div className="flex gap-1.5">
-              {onEdit && <button onClick={() => setEditing(true)} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Modifier"><Pencil size={14} /></button>}
-              {onReplace && <button onClick={onReplace} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }} aria-label="Remplacer"><Shuffle size={14} /></button>}
-              <button onClick={onRemove} className="rounded-lg p-2 active:scale-90" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.muted }} aria-label="Supprimer"><Trash2 size={14} /></button>
-            </div>
-          </div>
-          {/* Flag planifié : ce que je PRÉVOIS de manger vs ce que je viens de manger. */}
-          {onEdit && (
-            <button onClick={() => onEdit({ planned: !planned })} className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold active:scale-95" style={planned ? { backgroundColor: `${accent}1f`, color: accent, border: `1px solid ${accent}55` } : { backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>
-              <CalendarClock size={13} /> {planned ? "Planifié — pas encore mangé" : "Marquer comme planifié"}
-            </button>
-          )}
-        </div>
-      )}
 
       {planned && onConfirm && (
         <button onClick={onConfirm} className="mb-2 ml-4 flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }}>
           <Check size={13} /> J'ai bien mangé ça
         </button>
+      )}
+
+      {sheet && (
+        <Sheet open onClose={closeSheet} title={m.name} subtitle={`${r0(m.kcal)} kcal · ${r0(m.p)} g par portion${q !== 1 ? ` · ×${fmtQty(q)} = ${r0(m.kcal * q)} kcal · ${r0(m.p * q)} g` : ""}`} icon={<Pencil size={18} />} iconColor={plaisir ? C.extra : accent}>
+          {planned && onConfirm && (
+            <button onClick={() => { onConfirm(); closeSheet(); }} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}>
+              <Check size={16} /> J'ai bien mangé ça
+            </button>
+          )}
+
+          {/* Quantité — direct, sans sous-menu */}
+          <div className="mb-3 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: C.muted }}>Quantité</span>
+              <QtyStepper value={q} onChange={onQty} accent={accent} />
+            </div>
+            <div className="mt-2 flex gap-1.5">
+              {QTY_QUICK.map((v) => (
+                <button key={v} onClick={() => onQty(v)} className="flex-1 rounded-lg py-1.5 text-xs font-bold active:scale-95" style={v === q ? { backgroundColor: accent, color: "#fff" } : { backgroundColor: C.paper, border: `1px solid ${C.line}`, color: C.sub }}>{fmtQty(v)}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Valeurs — éditables en place, « Enregistrer » n'apparaît que si modifiées */}
+          {onEdit && (
+            <div className="mb-3 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: C.muted }}>Nom & macros (par portion)</p>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" className="mb-2 w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ ...fld, backgroundColor: C.paper }} />
+              <div className="flex gap-2">
+                <label className="min-w-0 flex-1"><span className="mb-0.5 block text-[10px] font-semibold" style={{ color: C.muted }}>kcal</span><input value={kcal} onChange={(e) => setKcal(e.target.value)} inputMode="decimal" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ ...fld, backgroundColor: C.paper }} /></label>
+                <label className="min-w-0 flex-1"><span className="mb-0.5 block text-[10px] font-semibold" style={{ color: C.muted }}>prot. (g)</span><input value={p} onChange={(e) => setP(e.target.value)} inputMode="decimal" className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ ...fld, backgroundColor: C.paper }} /></label>
+              </div>
+              {dirty && <button onClick={saveVals} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: accent }}><Check size={14} /> Enregistrer les valeurs</button>}
+            </div>
+          )}
+
+          {/* Actions — l'assistant en premier : ajuster CE repas en langage naturel */}
+          <div className="grid grid-cols-2 gap-2">
+            {onAdapt && <ActBtn icon={Wand2} label="Ajuster avec l'assistant" color="#fff" bg={C.accent} onClick={() => onAdapt()} />}
+            {onReplace && <ActBtn icon={Shuffle} label="Remplacer" onClick={() => { closeSheet(); onReplace(); }} />}
+            {hasRecipe && onViewRecipe && <ActBtn icon={BookOpen} label="Voir la recette" onClick={() => { closeSheet(); onViewRecipe(m); }} />}
+            {onEdit && <ActBtn icon={CalendarClock} label={planned ? "Planifié ✓" : "Marquer planifié"} color={planned ? accent : C.sub} onClick={() => onEdit({ planned: !planned })} />}
+          </div>
+          <button onClick={() => { closeSheet(); onRemove(); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: `${C.over}14`, border: `1px solid ${C.over}33`, color: C.over }}>
+            <Trash2 size={14} /> Retirer de la journée
+          </button>
+        </Sheet>
       )}
     </li>
   );

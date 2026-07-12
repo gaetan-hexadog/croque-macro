@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, UtensilsCrossed, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie, Camera, Wand2, RotateCcw } from "lucide-react";
-import { SLOTS, C, SLOT_UI, newId, scoreProduct } from "../core.js";
+import { ArrowLeft, Search, X, Plus, Trash2, GlassWater, ClipboardPaste, Loader2, ScanLine, Pencil, ChevronDown, ChevronRight, Sparkles, Clock, Flame, Soup, Refrigerator, Cookie, Camera, Wand2, RotateCcw } from "lucide-react";
+import { SLOTS, C, SLOT_UI, newId, scoreProduct, itemCat } from "../core.js";
+import { importRecipeFromText, AssistantError } from "../lib/assistant.js";
 
 // Petites prefs UI locales du shake (dernière prépa, dernier shake) — sync, non synchronisé.
 const lsGet = (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } };
@@ -145,6 +146,25 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
   const [servingFor, setServingFor] = useState(null);
   const [creatingRecipe, setCreatingRecipe] = useState(false);
   const [recipeQ, setRecipeQ] = useState("");
+  // « Coller un repas » : texte libre → macros extraites → ajouté à CE repas, SANS passer
+  // par l'enregistrement en recette (l'enregistrement reste proposé en option).
+  const [pasteText, setPasteText] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteErr, setPasteErr] = useState("");
+  const [pasteMeal, setPasteMeal] = useState(null);
+  const doPaste = async () => {
+    if (pasteText.trim().length < 15) { setPasteErr("Colle un repas ou une recette (au moins quelques lignes)."); return; }
+    setPasteBusy(true); setPasteErr(""); setPasteMeal(null);
+    try {
+      const r = await importRecipeFromText(pasteText.trim());
+      setPasteMeal({
+        name: r.name || "Repas collé", emoji: r.emoji || "", kcal: Math.round(r.kcal || 0), p: Math.round(r.protein || 0),
+        ingredients: (r.ingredients || []).map((i) => (typeof i === "string" ? i : `${i.qty ? `${i.qty} ` : ""}${i.unit ? `${i.unit} ` : ""}${i.name}`.trim())).filter(Boolean),
+        steps: r.steps || [],
+      });
+    } catch (e) { setPasteErr(e instanceof AssistantError ? e.message : "Extraction impossible — réessaie."); }
+    finally { setPasteBusy(false); }
+  };
   const slotRecipes = useMemo(() => recipes.filter((r) => (Array.isArray(r.slots) && r.slots.includes(slotKey)) || r.cat === slotKey), [recipes, slotKey]);
   // Recherche dans le panneau Recettes : vide → recettes du créneau ; sinon → TOUTES mes
   // recettes (nom ou ingrédients), pour retrouver un plat même tagué sur un autre créneau.
@@ -194,7 +214,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
     <>
     <Sheet open onClose={onClose}
       icon={React.createElement(SLOTS[slotKey].icon, { size: 18 })} iconColor={ui.color}
-      title={panel === "main" ? `Ajouter · ${SLOTS[slotKey].label}` : ({ shake: "Composer un shake", recipes: "Recettes", combos: "Mes repas", off: "Scanner un produit", frigo: "Mon frigo", plaisirs: "Petits plaisirs" }[panel] || "Ajouter")}
+      title={panel === "main" ? `Ajouter · ${SLOTS[slotKey].label}` : ({ shake: "Composer un shake", recipes: "Recettes & repas", paste: "Coller un repas", off: "Scanner un produit", frigo: "Mon frigo", plaisirs: "Petits plaisirs" }[panel] || "Ajouter")}
       subtitle={panel === "main" ? ui.time : undefined}
       onBack={panel !== "main" ? () => setPanel("main") : undefined}>
         <div>
@@ -257,7 +277,7 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 {onPhotoLog && <MethodBtn icon={Camera} color={C.accent} label="Photo" onClick={onPhotoLog} />}
                 <MethodBtn icon={ScanLine} color={C.weight} label="Scanner" onClick={() => setPanel("off")} />
                 <MethodBtn icon={Soup} color={C.green} label="Recettes" onClick={() => setPanel("recipes")} />
-                <MethodBtn icon={UtensilsCrossed} color={ui.color} label="Repas" onClick={() => setPanel("combos")} />
+                <MethodBtn icon={ClipboardPaste} color={ui.color} label="Coller" onClick={() => setPanel("paste")} />
                 <MethodBtn icon={Refrigerator} color={C.weight} label="Frigo" onClick={() => setPanel("frigo")} />
                 <MethodBtn icon={GlassWater} color={C.protein} label="Shake" onClick={() => setPanel("shake")} />
                 {slotKey === "snack" && onAddExtra ? <MethodBtn icon={Cookie} color={C.extra} label="Plaisirs" onClick={() => setPanel("plaisirs")} /> : null}
@@ -302,6 +322,27 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
                 {recipeQ && <button onClick={() => setRecipeQ("")} className="shrink-0 active:scale-90" style={{ color: C.muted }} aria-label="Effacer"><X size={15} /></button>}
               </div>
               <button onClick={() => setCreatingRecipe(true)} className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: C.green }}><Plus size={16} /> Créer une recette</button>
+              {/* Mes repas enregistrés (ex-panneau « Repas ») : fusionnés ici — plus de bouton vide. */}
+              {!recipeQ.trim() && slotCombos.length > 0 && (
+                <div className="mb-3">
+                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Mes repas enregistrés · {slotCombos.length}</p>
+                  <div className="space-y-2">
+                    {slotCombos.map((c) => {
+                      const tot = c.items.reduce((a, m) => ({ k: a.k + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { k: 0, p: 0 });
+                      return (
+                        <div key={c.id} className="flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                          <button onClick={() => onApplyCombo(c)} className="min-w-0 flex-1 text-left active:scale-95">
+                            <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{c.name}</p>
+                            <p className="text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{c.items.length} aliment{c.items.length > 1 ? "s" : ""} · {Math.round(tot.k)} kcal · {Math.round(tot.p)} g</p>
+                          </button>
+                          <button onClick={() => onDeleteCombo(c.id)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ color: C.muted }} aria-label="Supprimer"><Trash2 size={14} /></button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="mb-1.5 mt-3 text-[11px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Recettes</p>
+                </div>
+              )}
               {recipeResults.length === 0 ? (
                 <p className="py-6 text-center text-sm leading-relaxed" style={{ color: C.muted }}>{recipeQ.trim() ? "Aucune recette ne correspond à ta recherche." : <>Aucune recette pour ce créneau.<br />Crée-en une — elle s'enregistre dans Ma cuisine et s'ajoute à ce repas.</>}</p>
               ) : (
@@ -320,24 +361,31 @@ export function Deck({ slotKey, rankFor, fitOf, slotTarget, pool = [], usage = {
             </div>
           )}
 
-          {panel === "combos" && (
+          {panel === "paste" && (
             <div>
-              {slotCombos.length === 0 ? (
-                <p className="py-8 text-center text-sm leading-relaxed" style={{ color: C.muted }}>Aucun repas réutilisable pour ce créneau.<br />Crée-en un depuis un repas du jour, avec « Enregistrer comme repas réutilisable ».</p>
-              ) : (
-                <div className="space-y-2">
-                  {slotCombos.map((c) => {
-                    const tot = c.items.reduce((a, m) => ({ k: a.k + m.kcal * (m.qty || 1), p: a.p + m.p * (m.qty || 1) }), { k: 0, p: 0 });
-                    return (
-                      <div key={c.id} className="flex items-center gap-2 rounded-2xl px-3 py-2.5" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
-                        <button onClick={() => onApplyCombo(c)} className="min-w-0 flex-1 text-left active:scale-95">
-                          <p className="truncate text-sm font-semibold" style={{ color: C.ink }}>{c.name}</p>
-                          <p className="text-xs" style={{ color: C.muted, fontVariantNumeric: "tabular-nums" }}>{c.items.length} aliment{c.items.length > 1 ? "s" : ""} · {Math.round(tot.k)} kcal · {Math.round(tot.p)} g</p>
-                        </button>
-                        <button onClick={() => onDeleteCombo(c.id)} className="shrink-0 rounded-lg p-2 active:scale-90" style={{ color: C.muted }} aria-label="Supprimer"><Trash2 size={14} /></button>
-                      </div>
-                    );
-                  })}
+              <p className="mb-3 text-xs leading-relaxed" style={{ color: C.muted }}>Colle un repas ou une recette (texte libre : nom, ingrédients, quantités…). J'en extrais les macros et je l'ajoute à <b style={{ color: C.sub }}>ce repas</b> — sans l'enregistrer dans tes recettes (ça reste possible en option).</p>
+              <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={6} autoFocus placeholder={"Ex.\nWrap protéiné\n- 1 tortilla complète\n- 100 g de tofu nature\n- crudités, sauce yaourt"} className="mb-2 w-full resize-none rounded-xl px-3.5 py-3 text-sm outline-none" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.ink }} />
+              {pasteErr && <p className="mb-2 text-xs" style={{ color: C.over }}>{pasteErr}</p>}
+              <button onClick={doPaste} disabled={pasteBusy || pasteText.trim().length < 15} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95 disabled:opacity-50" style={{ backgroundColor: ui.color }}>
+                {pasteBusy ? <><Loader2 size={16} className="animate-spin" /> Extraction…</> : <><ClipboardPaste size={16} /> Extraire les macros</>}
+              </button>
+              {pasteMeal && (
+                <div className="mt-3 rounded-2xl p-3" style={{ backgroundColor: C.card, border: `1px solid ${C.line}` }}>
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-2xl leading-none">{pasteMeal.emoji || "🍽️"}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold leading-tight" style={{ color: C.ink }}>{pasteMeal.name}</p>
+                      <p className="mt-0.5 text-xs" style={{ color: C.sub }}><b style={{ color: C.ink }}>{pasteMeal.kcal}</b> kcal · <b style={{ color: C.protein }}>{pasteMeal.p} g</b> prot.{pasteMeal.ingredients.length ? ` · ${pasteMeal.ingredients.length} ingrédients` : ""}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => onChoose({ name: pasteMeal.name, kcal: pasteMeal.kcal, p: pasteMeal.p, ingredients: pasteMeal.ingredients, steps: pasteMeal.steps, emoji: pasteMeal.emoji })} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold text-white active:scale-95" style={{ backgroundColor: ui.color }}>
+                    <Plus size={16} /> Ajouter à ce repas
+                  </button>
+                  {onAddRecipe && (
+                    <button onClick={() => { onAddRecipe({ cat: slotKey, slots: [slotKey], name: pasteMeal.name, emoji: pasteMeal.emoji, kcal: pasteMeal.kcal, p: pasteMeal.p, ingredients: pasteMeal.ingredients, steps: pasteMeal.steps }); onChoose({ name: pasteMeal.name, kcal: pasteMeal.kcal, p: pasteMeal.p, ingredients: pasteMeal.ingredients, steps: pasteMeal.steps, emoji: pasteMeal.emoji }); }} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-bold active:scale-95" style={{ backgroundColor: "transparent", border: `1px solid ${C.line}`, color: C.sub }}>
+                      <Soup size={14} /> Ajouter ET enregistrer en recette
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -402,21 +450,24 @@ function recipeToPick(r) {
   return it;
 }
 
-function ShakeRow({ label, options, sel, onSel, onAdd, onDel }) {
+function ShakeRow({ label, options, sel, onSel, onAdd, onDel, onHide }) {
   const [adding, setAdding] = useState(false);
   const [n, setN] = useState(""); const [k, setK] = useState(""); const [p, setP] = useState("");
   const save = () => { const kc = parseInt(k, 10); if (!n.trim() || isNaN(kc)) return; onAdd({ name: n.trim(), kcal: kc, p: parseInt(p, 10) || 0 }); setN(""); setK(""); setP(""); setAdding(false); };
   return (
     <div>
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>{label}</p>
-      {/* Une seule ligne, scroll horizontal → hauteur fixe quels que soient les noms. */}
+      {/* Une seule ligne, scroll horizontal → hauteur fixe quels que soient les noms.
+          🧊 = vient de MON frigo (macros réelles). × sur un chip perso = supprimer ;
+          × sur un chip du catalogue = le masquer (je n'ai pas/plus ce produit). */}
       <div className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5" style={{ scrollbarWidth: "none" }}>
         {options.map((o, i) => {
           const on = i === sel;
+          const removable = (o.custom && onDel) || (o.cat && onHide);
           return (
-            <span key={o.id || o.name} className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full" style={{ backgroundColor: on ? C.protein : C.paper, border: `1px solid ${on ? C.protein : C.line}` }}>
-              <button onClick={() => onSel(i)} className={`py-1.5 text-xs font-semibold active:scale-95 ${o.id ? "pl-3 pr-1" : "px-3"}`} style={{ color: on ? "#fff" : C.sub }}>{o.name}</button>
-              {o.id && onDel && <button onClick={() => onDel(o.id)} className="py-1.5 pl-0.5 pr-2 active:scale-90" style={{ color: on ? "#fff" : C.muted }}><X size={11} /></button>}
+            <span key={o.key || o.id || o.name} className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full" style={{ backgroundColor: on ? C.protein : C.paper, border: `1px solid ${on ? C.protein : o.pan ? `${C.weight}88` : C.line}` }}>
+              <button onClick={() => onSel(i)} className={`py-1.5 text-xs font-semibold active:scale-95 ${removable ? "pl-3 pr-1" : "px-3"}`} style={{ color: on ? "#fff" : C.sub }}>{o.pan ? "🧊 " : ""}{o.name}</button>
+              {removable && <button onClick={() => (o.custom ? onDel(o.id) : onHide(o.name))} className="py-1.5 pl-0.5 pr-2 active:scale-90" style={{ color: on ? "#fff" : C.muted }} aria-label={o.custom ? "Supprimer" : "Masquer (je n'ai pas ce produit)"}><X size={11} /></button>}
             </span>
           );
         })}
@@ -452,50 +503,11 @@ function MiniStepper({ value, onChange, step = 1, min = 0, suffix }) {
 const qLabel = (o) => (o === 0.5 ? "½" : o === 1.5 ? "1½" : String(o));
 const GLASS_ML = 250; // verre standard (le détail technique sort de l'UI)
 
-// Importer une protéine du frigo comme base de shake : on part de ses VRAIES valeurs /100 g
-// et on précise le poids d'une dose/scoop → macros exactes par dose. Varier marque/goût = juste
-// ajouter le produit au frigo. Crée une base custom (onAddBase) réutilisable ensuite.
-function PantryBaseImport({ items, onAddBase, accent }) {
-  const [open, setOpen] = useState(false);
-  const [sel, setSel] = useState(null);
-  const [g, setG] = useState(30);
-  if (!open) {
-    return <button onClick={() => setOpen(true)} className="mt-2 flex items-center gap-1 text-[11px] font-semibold active:scale-95" style={{ color: C.weight }}><Refrigerator size={12} /> Base depuis le frigo</button>;
-  }
-  if (sel) {
-    const kcal = Math.round((sel.kcal100 || 0) * g / 100), p = Math.round((sel.p100 || 0) * g / 100);
-    return (
-      <div className="mt-2 space-y-2 rounded-xl p-2.5" style={{ border: `1px solid ${C.line}`, backgroundColor: C.paper }}>
-        <p className="truncate text-xs font-bold" style={{ color: C.ink }}>{sel.name}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: C.sub }}>Poids d'une dose</span>
-          <MiniStepper value={g} onChange={(v) => setG(Math.max(1, Math.round(v)))} step={5} min={1} suffix="g" />
-        </div>
-        <p className="text-[11px]" style={{ color: C.muted }}>→ <b style={{ color: C.protein }}>{p} g prot.</b> · {kcal} kcal par dose</p>
-        <div className="flex gap-1.5">
-          <button onClick={() => setSel(null)} className="rounded-lg px-3 py-1.5 text-xs font-semibold active:scale-95" style={{ backgroundColor: C.card, border: `1px solid ${C.line}`, color: C.sub }}>Retour</button>
-          <button onClick={() => { onAddBase({ name: sel.name, kcal, p }); setOpen(false); setSel(null); }} className="flex-1 rounded-lg py-1.5 text-xs font-bold text-white active:scale-95" style={{ backgroundColor: accent || C.protein }}>Ajouter comme base</button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-2 space-y-1 rounded-xl p-2" style={{ border: `1px solid ${C.line}`, backgroundColor: C.paper }}>
-      <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: C.muted }}>Protéines de mon frigo</p>
-      {items.map((it) => (
-        <button key={it.id} onClick={() => { setSel(it); setG(30); }} className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left active:scale-95" style={{ backgroundColor: C.card }}>
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold" style={{ color: C.ink }}>{it.name}</span>
-          <span className="shrink-0 text-[10px]" style={{ color: C.muted }}>{it.kcal100 ?? "?"}k · {it.p100 ?? "?"}p /100{it.unit || "g"}</span>
-        </button>
-      ))}
-      <button onClick={() => setOpen(false)} className="px-1 pt-1 text-[11px] font-semibold" style={{ color: C.muted }}>Fermer</button>
-    </div>
-  );
-}
+// Poudre protéinée « source de shake » dans le frigo : nom évocateur + densité protéinée.
+const POWDER_RE = /prot[e]?ine|whey|case?ine|isolate|all.?in.?one|\bclear\b|poudre|spiruline/;
 
 function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], customBases = [], customLiquids = [], onAddBase, onDelBase, onAddLiquid, onDelLiquid, embedded = false, pantry = [] }) {
   const prep0 = lsGet("cm:shakePrep") || {};
-  const pantryProteins = pantry.filter((x) => !x.out && (x.p100 || 0) > 0);
   const [open, setOpen] = useState(embedded);
   const [bi, setBi] = useState(0); const [li, setLi] = useState(1);
   const [qty, setQty] = useState(1);
@@ -504,8 +516,27 @@ function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], c
   const [vol, setVol] = useState(prep0.vol || 750);      // volume total préparé (ml)
   const [glasses, setGlasses] = useState(1);             // verres bus
   const [last, setLast] = useState(() => lsGet("cm:lastShake"));
-  const bases = [...catBases, ...customBases];
-  const liquids = [...catLiquids, ...customLiquids];
+  // Poids d'une dose par poudre du frigo (persisté) + chips catalogue masqués (« je n'ai pas ça »).
+  const [doseMap, setDoseMap] = useState(() => lsGet("cm:shakeDoseG") || {});
+  const [hidden, setHidden] = useState(() => lsGet("cm:hiddenShakeOpts") || []);
+  const setDose = (id, g) => setDoseMap((m) => { const n = { ...m, [id]: g }; lsSet("cm:shakeDoseG", n); return n; });
+  const hide = (name) => setHidden((h) => { const n = [...h, name]; lsSet("cm:hiddenShakeOpts", n); return n; });
+  const unhideAll = () => { setHidden([]); lsSet("cm:hiddenShakeOpts", []); };
+  // MES poudres (frigo, dispo) → bases automatiques avec macros RÉELLES par dose. Plus
+  // besoin d'aller fouiller le frigo ni d'importer : elles sont là, en premier.
+  const pantryBases = useMemo(() => pantry
+    .filter((x) => x && !x.out && (x.p100 || 0) >= 20 && POWDER_RE.test(deburr(x.name)))
+    .map((x) => { const g = doseMap[x.id] || 30; return { key: `pb-${x.id}`, panId: x.id, name: x.name, kcal: Math.round((x.kcal100 || 0) * g / 100), p: Math.round((x.p100 || 0) * g / 100), pan: true, doseG: g }; }), [pantry, doseMap]);
+  // MES boissons du frigo → liquides automatiques (macros réelles par verre de 250 ml).
+  const pantryLiquids = useMemo(() => pantry
+    .filter((x) => x && !x.out && itemCat(x) === "boisson" && (x.kcal100 != null || x.p100 != null))
+    .map((x) => ({ key: `pl-${x.id}`, name: x.name, kcal: Math.round((x.kcal100 || 0) * GLASS_ML / 100), p: Math.round((x.p100 || 0) * GLASS_ML / 100), pan: true })), [pantry]);
+  // Ordre : frigo d'abord (ce que j'AI), puis mes ajouts perso, puis le catalogue
+  // (dédupliqué contre le frigo/perso, chips masqués retirés).
+  const seenB = new Set([...pantryBases, ...customBases].map((b) => deburr(b.name)));
+  const bases = [...pantryBases, ...customBases.map((b) => ({ ...b, custom: true })), ...catBases.filter((b) => !hidden.includes(b.name) && !seenB.has(deburr(b.name))).map((b) => ({ ...b, cat: true }))];
+  const seenL = new Set([...pantryLiquids, ...customLiquids].map((l) => deburr(l.name)));
+  const liquids = [...pantryLiquids, ...customLiquids.map((l) => ({ ...l, custom: true })), ...catLiquids.filter((l) => !hidden.includes(l.name) && !seenL.has(deburr(l.name))).map((l) => ({ ...l, cat: true }))];
   const sb = Math.min(bi, bases.length - 1), sl = Math.min(li, liquids.length - 1);
   const EMPTY = { name: "—", kcal: 0, p: 0 };
   const base = bases[sb] || bases[0] || EMPTY, liq = liquids[sl] || liquids[0] || EMPTY; // jamais undefined → pas de crash
@@ -546,10 +577,17 @@ function ShakeBuilder({ onAdd, bases: catBases = [], liquids: catLiquids = [], c
       {/* Carte composition : base / liquide / quantité séparés par des filets */}
       <div className="overflow-hidden rounded-2xl" style={{ border: `1px solid ${C.line}`, backgroundColor: C.card }}>
         <div className="p-3">
-          <ShakeRow label="Base · protéine" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} />
-          {onAddBase && pantryProteins.length > 0 && <PantryBaseImport items={pantryProteins} onAddBase={onAddBase} accent={C.protein} />}
+          <ShakeRow label="Base · protéine" options={bases} sel={sb} onSel={setBi} onAdd={onAddBase} onDel={onDelBase} onHide={hide} />
+          {/* Poudre du frigo sélectionnée → poids d'une dose réglable (macros réelles recalculées) */}
+          {base.pan && (
+            <div className="mt-2 flex items-center justify-between rounded-xl px-2.5 py-2" style={{ backgroundColor: C.paper, border: `1px solid ${C.line}` }}>
+              <span className="text-xs font-semibold" style={{ color: C.sub }}>Poids d'une dose</span>
+              <MiniStepper value={base.doseG} onChange={(v) => setDose(base.panId, Math.max(5, Math.round(v)))} step={5} min={5} suffix="g" />
+            </div>
+          )}
+          {hidden.length > 0 && <button onClick={unhideAll} className="mt-1.5 text-[11px] font-semibold active:scale-95" style={{ color: C.muted }}>Réafficher {hidden.length} produit{hidden.length > 1 ? "s" : ""} masqué{hidden.length > 1 ? "s" : ""}</button>}
         </div>
-        <div className="p-3" style={{ borderTop: `1px solid ${C.line}` }}><ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} /></div>
+        <div className="p-3" style={{ borderTop: `1px solid ${C.line}` }}><ShakeRow label="Liquide" options={liquids} sel={sl} onSel={setLi} onAdd={onAddLiquid} onDel={onDelLiquid} onHide={hide} /></div>
         <div className="p-3" style={{ borderTop: `1px solid ${C.line}` }}>
           <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Quantité</p>
           {isDose ? (

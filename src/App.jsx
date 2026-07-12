@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles, Sprout } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
+  SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, consumePantry, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, getActiveProgram, programStateOf, doneWorkoutId, recompSignal, buildSportCoachSystem, sportCoachOpening } from "./lib/sport.js";
 import { sportTokens } from "./sport/theme.js";
@@ -489,6 +489,23 @@ export default function PiocheRepas() {
   // mutateurs (sur le jour actif) — chaque créneau est une liste
   const CAP = { pdj: 8, dej: 8, diner: 8, snack: 4 };
   const bumpUsage = (name) => { if (!name) return; setUsage((u) => ({ ...u, [name]: { count: (u[name]?.count || 0) + 1, last: Date.now() } })); };
+  // Décompte AUTOMATIQUE du frigo : ce que je mange sort du stock (ingrédients g/ml,
+  // matching prudent). Stock à 0 → rupture (« à racheter » se remplit tout seul).
+  // Renvoie le libellé pour le toast (« −150 g skyr nature ») ou "".
+  const consumeFromPantry = (ingredients, factor = 1) => {
+    if (settings.autoPantry === false || !ingredients || !ingredients.length) return "";
+    const r = consumePantry(pantry, ingredients, factor);
+    if (!r.consumed.length) return "";
+    setPantry(r.pantry);
+    const emptied = r.consumed.filter((c) => c.emptied).map((c) => c.name);
+    return r.consumed.map((c) => `−${String(c.used).replace(".", ",")} ${c.unit} ${c.name}`).join(", ") + (emptied.length ? ` (à racheter)` : "");
+  };
+  // Un aliment piocher « Nom (150 g) » (portion du calculateur / frigo) est aussi décompté.
+  const consumablesOf = (meal) => {
+    if (meal?.ingredients?.length) return meal.ingredients;
+    const m = String(meal?.name || "").match(/\((\d+(?:[.,]\d+)?)\s*(g|ml)\)\s*$/);
+    return m ? [`${m[1]} ${m[2]} ${String(meal.name).replace(/\s*\([^)]*\)\s*$/, "")}`] : [];
+  };
   const choose = (meal) => {
     if (!picker) return;
     const raw = picker.slot, key = picksKey(raw);
@@ -499,7 +516,11 @@ export default function PiocheRepas() {
       return { ...d, picks: { ...d.picks, [key]: arr.slice(0, CAP[raw] || 8) } };
     });
     bumpUsage(meal.name);
-    if (picker.index == null) toastAdd(meal.name, meal.kcal, meal.p);
+    // Remplacement (index ≠ null) : pas de re-décompte (l'ancien item a déjà été décompté).
+    if (picker.index == null) {
+      const eaten = consumeFromPantry(consumablesOf(meal));
+      toastAdd(meal.name + (eaten ? ` · 🧊 ${eaten}` : ""), meal.kcal, meal.p);
+    }
     navBack();
   };
   const applyCombo = (combo) => {
@@ -616,7 +637,8 @@ export default function PiocheRepas() {
     if (Array.isArray(m.variants) && m.variants.length) { item.variants = m.variants; item.base = m.base || { name: m.name, kcal: m.kcal, p: m.p }; }
     setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), item].slice(0, 8) } }));
     bumpUsage(m.name);
-    toastAdd(m.name, m.kcal, m.p);
+    const eaten = m.kind === "recette" ? consumeFromPantry(m.ingredients || []) : "";
+    toastAdd(m.name + (eaten ? ` · 🧊 ${eaten}` : ""), m.kcal, m.p);
   };
   const useIdea = (idea) => {
     const slot = idea.cat, key = picksKey(slot);
@@ -634,7 +656,8 @@ export default function PiocheRepas() {
     if (m.emoji) item.emoji = m.emoji;
     setDay((d) => ({ ...d, picks: { ...d.picks, [key]: [...(d.picks[key] || []), item].slice(0, CAP[s] || 8) } }));
     bumpUsage(m.title);
-    toastAdd(m.title, m.kcal, m.protein);
+    const eaten = consumeFromPantry(m.ingredients || []);
+    toastAdd(m.title + (eaten ? ` · 🧊 ${eaten}` : ""), m.kcal, m.protein);
   };
   const saveSuggestion = (m) => addRecipe({
     cat: m.slot || "dej", name: m.title, emoji: m.emoji || "",
@@ -654,11 +677,14 @@ export default function PiocheRepas() {
       return { ...prev, [iso]: { ...d, picks } };
     });
   };
-  // « J'ai mangé » : un repas planifié devient réellement consommé.
+  // « J'ai mangé » : un repas planifié devient réellement consommé (et sort du frigo).
   const confirmMeal = (slot, index) => {
     const it = (day.picks?.[picksKey(slot)] || [])[index];
     setDay((d) => { const key = picksKey(slot); return { ...d, picks: { ...d.picks, [key]: (d.picks[key] || []).map((m, i) => i === index ? { ...m, planned: false } : m) } }; });
-    if (it) toastAdd(`${it.name} validé`, (it.kcal || 0) * (it.qty || 1), (it.p || 0) * (it.qty || 1));
+    if (it) {
+      const eaten = consumeFromPantry(it.ingredients || [], it.qty || 1);
+      toastAdd(`${it.name} validé${eaten ? ` · 🧊 ${eaten}` : ""}`, (it.kcal || 0) * (it.qty || 1), (it.p || 0) * (it.qty || 1));
+    }
   };
   // Rééquilibrage : un repas planifié ne rentre plus (après un plaisir) → on retire
   // SES items planifiés (avec undo) puis on ouvre l'assistant sur ce créneau (budget

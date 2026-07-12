@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros, catOf, protStock, varietyProfile, mergePantryStore } from "./core.js";
+import { dayTotals, computeTargets, smoothedWeight, weekStats, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, scoreProduct, addDays, TODAY, EMPTY_DAY, streakCount, correctMacros, consumePantry, catOf, protStock, varietyProfile, mergePantryStore, wishSignals, buildAssistantPrompt } from "./core.js";
 import { mergeAppState } from "./lib/sync.js";
 
 const PROFILE = { sex: "h", age: 35, height: 178, weight: 78, activity: 1.45, deficit: 0.18 };
@@ -282,5 +282,133 @@ describe("mergeAppState", () => {
     const m = mergeAppState({ combos: [{ id: "a", name: "old" }] }, { combos: [{ id: "a", name: "new" }] });
     expect(m.combos).toHaveLength(1);
     expect(m.combos[0].name).toBe("new");
+  });
+});
+
+describe("wishSignals — la demande texte fait loi", () => {
+  it("extrait frigo strict + plafond kcal + max protéines (la demande type de Bob)", () => {
+    const s = wishSignals("que des aliments de mon frigo, <=450 kcal, max de protéines, carottes à manger ce soir");
+    expect(s.fridgeOnly).toBe(true);
+    expect(s.capKcal).toBe(450);
+    expect(s.maxProtein).toBe(true);
+    expect(s.menu).toBe(false);
+  });
+  it("plafond kcal : formes variées", () => {
+    expect(wishSignals("moins de 600 kcal").capKcal).toBe(600);
+    expect(wishSignals("600 kcal max").capKcal).toBe(600);
+    expect(wishSignals("≤ 500 kcal").capKcal).toBe(500);
+    expect(wishSignals("max 450 kcal").capKcal).toBe(450);
+    expect(wishSignals("<450").capKcal).toBe(450);
+    expect(wishSignals("un plat léger").capKcal).toBe(null);
+  });
+  it("frigo strict : formulations naturelles, sans faux positif", () => {
+    expect(wishSignals("avec ce que j'ai").fridgeOnly).toBe(true);
+    expect(wishSignals("uniquement des trucs du placard").fridgeOnly).toBe(true);
+    expect(wishSignals("seulement ce qu'il y a dans le frigo").fridgeOnly).toBe(true);
+    expect(wishSignals("un bon dahl de lentilles").fridgeOnly).toBe(false);
+  });
+  it("menu : composition LIBRE des services (toutes combinaisons)", () => {
+    expect(wishSignals("entrée + plat + dessert").courses).toEqual(["entree", "plat", "dessert"]);
+    expect(wishSignals("un repas complet").courses).toEqual(["entree", "plat", "dessert"]);
+    expect(wishSignals("un plat avec un dessert").courses).toEqual(["plat", "dessert"]);
+    expect(wishSignals("une entrée et un plat").courses).toEqual(["entree", "plat"]);
+    expect(wishSignals("juste une entrée").courses).toEqual(["entree"]);
+    expect(wishSignals("entrée + plat + dessert").menu).toBe(true);
+    expect(wishSignals("juste une entrée").menu).toBe(false); // 1 service ≠ menu multi
+    expect(wishSignals("un plat rapide").menu).toBe(false);
+  });
+  it("menu : les négations excluent le service (« sans dessert »)", () => {
+    expect(wishSignals("entrée et plat, sans dessert").courses).toEqual(["entree", "plat"]);
+    expect(wishSignals("un plat, pas de dessert").courses).toEqual(["plat"]);
+  });
+  it("max protéines : chips et texte libre", () => {
+    expect(wishSignals("le plus protéiné possible").maxProtein).toBe(true);
+    expect(wishSignals("maximise les protéines").maxProtein).toBe(true);
+    expect(wishSignals("un truc sucré").maxProtein).toBe(false);
+  });
+  it("vide → aucun signal", () => {
+    expect(wishSignals("")).toEqual({ fridgeOnly: false, capKcal: null, maxProtein: false, menu: false, courses: null });
+  });
+});
+
+describe("buildAssistantPrompt — contraintes dures depuis la demande texte", () => {
+  const HAVE = [{ name: "tofu nature", qty: 200, unit: "g", kcal100: 120, p100: 12 }, { name: "carottes", qty: 500, unit: "g", kcal100: 41, p100: 0.9 }];
+  it("« que mon frigo, <=450 kcal, max protéines » → frigo STRICT + plafond + maximise", () => {
+    const { prompt } = buildAssistantPrompt({ mode: "meal", slot: "diner", remKcal: 900, remP: 80, userWish: "que des aliments de mon frigo, <=450 kcal, max de protéines", have: HAVE });
+    expect(prompt).toContain("CONTRAINTE FRIGO STRICTE");
+    expect(prompt).not.toContain("FRIGO = BONUS");
+    expect(prompt).toContain("PLAFOND CALORIQUE STRICT");
+    expect(prompt).toContain("450 kcal MAXIMUM");
+    expect(prompt).toContain("MAXIMISE LES PROTÉINES");
+    expect(prompt).not.toContain("indicatif, pas un plafond dur");
+  });
+  it("menu complet demandé → chaque option = entrée + plat + dessert", () => {
+    const { prompt } = buildAssistantPrompt({ mode: "meal", slot: "diner", userWish: "un repas complet : entrée + plat + dessert" });
+    expect(prompt).toContain("MENU DEMANDÉ");
+    expect(prompt).toContain("ENTRÉE + PLAT + DESSERT");
+  });
+  it("« plat + dessert » → menu de CES deux services, sans entrée", () => {
+    const { prompt } = buildAssistantPrompt({ mode: "meal", slot: "diner", userWish: "un plat et un dessert, <=650 kcal" });
+    expect(prompt).toContain("MENU DEMANDÉ");
+    expect(prompt).toContain("PLAT + DESSERT");
+    expect(prompt).not.toContain("ENTRÉE + PLAT");
+    expect(prompt).toContain("TOUS les services du menu compris"); // le plafond couvre le menu entier
+  });
+  it("« juste une entrée » → des entrées, pas des plats", () => {
+    const { prompt } = buildAssistantPrompt({ mode: "meal", slot: "diner", userWish: "juste une entrée légère" });
+    expect(prompt).toContain("ENTRÉE demandée");
+    expect(prompt).not.toContain("MENU DEMANDÉ");
+  });
+  it("sans contrainte texte → comportement historique (repère souple, frigo bonus)", () => {
+    const { prompt } = buildAssistantPrompt({ mode: "meal", slot: "dej", remKcal: 700, remP: 60, have: HAVE });
+    expect(prompt).toContain("REPÈRE de budget restant");
+    expect(prompt).toContain("FRIGO = BONUS");
+    expect(prompt).not.toContain("PLAFOND CALORIQUE STRICT");
+  });
+  it("au restaurant, le frigo strict ne s'applique pas mais le plafond oui", () => {
+    const { prompt } = buildAssistantPrompt({ mode: "meal", slot: "diner", dining: true, userWish: "que des aliments de mon frigo, max 600 kcal" });
+    expect(prompt).not.toContain("CONTRAINTE FRIGO STRICTE");
+    expect(prompt).toContain("PLAFOND CALORIQUE STRICT");
+  });
+});
+
+describe("consumePantry — décompte auto du frigo", () => {
+  const PAN = [
+    { id: "a", name: "Tofu nature", qty: 200, unit: "g", out: false },
+    { id: "b", name: "Carottes", qty: 500, unit: "g", out: false },
+    { id: "c", name: "Lait d'amande non sucré", qty: 1000, unit: "ml", out: false },
+    { id: "d", name: "Œufs", qty: 6, unit: "pièce", out: false },
+  ];
+  it("retranche les ingrédients matchés (objets structurés ET strings « 150 g de … »)", () => {
+    const { pantry, consumed } = consumePantry(PAN, [{ qty: 150, unit: "g", name: "tofu" }, "100 g de carottes"]);
+    expect(pantry.find((x) => x.id === "a").qty).toBe(50);
+    expect(pantry.find((x) => x.id === "b").qty).toBe(400);
+    expect(consumed).toHaveLength(2);
+  });
+  it("stock épuisé → rupture automatique (alimente « à racheter »)", () => {
+    const { pantry, consumed } = consumePantry(PAN, [{ qty: 250, unit: "g", name: "tofu nature" }]);
+    const t = pantry.find((x) => x.id === "a");
+    expect(t.qty).toBe(0);
+    expect(t.out).toBe(true);
+    expect(consumed[0].emptied).toBe(true);
+  });
+  it("multiplicateur de portions (×1,5)", () => {
+    const { pantry } = consumePantry(PAN, ["100 g de carottes"], 1.5);
+    expect(pantry.find((x) => x.id === "b").qty).toBe(350);
+  });
+  it("prudent : autre variante, unité incompatible ou pièce → intouchés", () => {
+    expect(consumePantry(PAN, [{ qty: 100, unit: "g", name: "tofu fumé" }]).consumed).toHaveLength(0);      // variante ≠
+    expect(consumePantry(PAN, [{ qty: 250, unit: "g", name: "lait d'amande non sucré" }]).consumed).toHaveLength(0); // g vs ml
+    expect(consumePantry(PAN, [{ qty: 2, unit: "pièce", name: "œufs" }]).consumed).toHaveLength(0);        // pièce ignorée
+    expect(consumePantry(PAN, ["une poignée de carottes"]).consumed).toHaveLength(0);                       // pas de quantité
+  });
+  it("nom générique → produit précis du frigo (« lait d'amande » consomme « Lait d'amande non sucré »)", () => {
+    const { pantry, consumed } = consumePantry(PAN, ["250 ml de lait d'amande"]);
+    expect(consumed).toHaveLength(1);
+    expect(pantry.find((x) => x.id === "c").qty).toBe(750);
+  });
+  it("un aliment en rupture ou sans stock n'est jamais décompté", () => {
+    const pan = [{ id: "z", name: "Skyr", qty: 0, unit: "g", out: true }];
+    expect(consumePantry(pan, ["150 g de skyr"]).consumed).toHaveLength(0);
   });
 });
