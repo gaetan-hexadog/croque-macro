@@ -94,6 +94,14 @@ export const HISTORY = [
   { date: "2026-07-13T07:40", recetteId: null, gabaritId: "shake", ingredientPrincipal: "poudre-all-in-one" },
 ];
 
+//  Patrons de repas (spec § 2.4) : pièces par type, part indicative du budget.
+export const PATRONS = [
+  { id: "plat_seul", pieces: [{ type: "plat", part: 1, optionnel: false }], contexte: ["dejeuner", "diner"] },
+  { id: "plat_dessert", pieces: [{ type: "plat", part: 0.75, optionnel: false }, { type: "dessert", part: 0.25, optionnel: true }], contexte: ["dejeuner", "diner"] },
+  { id: "entree_plat", pieces: [{ type: "entree", part: 0.2, optionnel: true }, { type: "plat", part: 0.8, optionnel: false }], contexte: ["diner"] },
+  { id: "shake_seul", pieces: [{ type: "plat", part: 1, optionnel: false, gabarits: ["shake"] }], contexte: ["pdj", "snack"] },
+];
+
 export const NOW = "2026-07-13T18:40";
 
 export const TARGETS = { kcal: 1850, protein: 150 };

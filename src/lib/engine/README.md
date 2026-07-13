@@ -88,6 +88,19 @@ selectDiverse(candidats, k, { lambda = 0.7 }) → [candidat]
 // 0.4·ingrédient principal + 0.2·Jaccard pondéré kcal ; contrainte dure relâchée si pool < 2k ;
 // mode dégradé : ne JAMAIS renvoyer vide si des candidats existent (mention d'écart)
 
+// composition.js — couche composition (§ 3.6) : repas complets ou partiels
+assembleMeal({ patrons, gabarits, recettes, referentiel, pantry, budget: Budget,
+  history, prefs, exclusions, now, slot,
+  already = [] })   // pièces déjà loggées/prévues du créneau → mode COMPLÉTER
+  → { pieces: [{ candidat, type_de_piece }], kcal, prot, feasible, patron, gap }
+// - patron choisi selon budget/slot (contexte), écarté si pièces obligatoires non couvrables
+// - le PLAT d'abord (porte le plancher prot, ajusté sur sa part de budget),
+//   compléments ensuite sur budget résiduel + protéines manquantes
+// - anti-myopie : évaluer jusqu'à 3 plats × 3 compléments (pas de glouton strict aveugle)
+// - already non vide → l'état initial compte dans kcal/prot, on ne propose que le complément
+suggestMeals({ …, k = 3 }) → [assemblage]   // diversité MMR au niveau assemblage
+// Patron = { id, pieces: [{ type, part, optionnel, gabarits? }], contexte: [slot] }
+
 // linking.js — liaison pantry → référentiel (§ 3.1, chantier 1)
 matchPantryItem(name, referentiel, aliases) →
   { refId, confidence: 0..1, kind: 'exact'|'alias'|'fuzzy' } | null
