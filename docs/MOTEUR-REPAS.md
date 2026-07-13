@@ -195,6 +195,23 @@ L'assemblage vit **au-dessus** du pipeline pièce (3.1→3.4 inchangés, appliqu
    « j'ai mangé un bout de pizza, complète », et le rééquilibrage du plan vivant.
 5. Anti-répétition par pièce (inchangée) + diversité intra-assemblage (pas deux pièces à
    féculent) + malus léger de patron.
+   4bis. **Restes comme point de départ (exigence Gaétan).** Un reste déclaré au frigo peut
+   être LA pièce initiale d'un assemblage : « j'ai un reste de curry, ~250 g » → le moteur
+   propose un repas qui s'en sert et le complète vers le budget/plancher du créneau.
+   - **Déclaration sans re-saisie** : le reste référence sa recette (`recetteId`) — jamais de
+     nouvelle saisie d'ingrédients. Quantité en **portions** (toujours calculable depuis la
+     recette) ou en **grammes** si la densité est connue : recette liée → poids total cuit
+     estimé = Σ qty×facteur_cuisson des composants (approximation documentée) ; repas validé
+     par le moteur → quantités réelles connues, densité EXACTE. Deux portes : automatique à
+     la validation d'un repas multi-portions (« il reste n portions → au frigo ? ») et
+     manuelle (Frigo → + → « Un reste » → recherche dans ses recettes/historique → quantité).
+   - **Composition** : le reste entre dans `assembleMeal` comme pièce imposée à quantité
+     AJUSTABLE (bornes [0, disponible], densité kcal/prot au gramme) — le solveur peut n'en
+     servir qu'une partie si le budget l'exige ; les compléments comblent les protéines
+     manquantes. Bonus de consommation + exemption d'anti-répétition (§ 3.1) déjà en place.
+   - **Surface** : les restes remontent en tête des propositions du créneau suivant
+     (« Ton reste de curry + skyr — 610 kcal · 46 g »), et un tap depuis la fiche du reste
+     au Frigo ouvre directement « Compléter en repas ».
 6. UX : la carte « Ce soir » affiche les pièces (Plat · Curry — Dessert · Skyr) avec actions
    par pièce (adapter/remplacer/retirer) et globales (« Simplifier », « Compléter »).
 7. Contenu requis : gabarits desserts/entrées/accompagnements (§ 2.2) — sans eux, les patrons
