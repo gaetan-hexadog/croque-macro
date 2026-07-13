@@ -65,6 +65,13 @@ Structures combinatoires à **slots** (catégories acceptées, quantité de base
   (slot poudre + slot liquide + extras — c'est l'actuel `ShakeBuilder`, qui valide le modèle),
   **bol skyr/fromage blanc**, **tartines/petit-déj salé**, **snack froid**, **dessert protéiné**.
   Triviaux pour le solveur (2-3 slots linéaires).
+- **`temperature`** sur chaque gabarit et recette : `chaud` | `froid` | `les_deux`
+  (exigence Gaétan). Préférence de session au runtime (toggle Chaud/Froid/Peu importe) :
+  fort bonus/malus au scoring (± 0,35), **jamais un filtre dur silencieux** — si rien ne
+  matche la préférence, le moteur propose quand même avec mention (« rien de froid de
+  faisable — voilà du chaud »). Transmise aussi à l'IA en escalade (wishSignals).
+- **Toujours du choix** : `suggestMeals` renvoie k ≥ 3 assemblages diversifiés (MMR) par
+  défaut — l'UI n'affiche jamais une proposition unique sans alternatives visibles.
 - **Slot « booster protéique » optionnel** injectable dans la plupart des gabarits (œuf poché,
   fromage râpé, skyr en accompagnement, dose de poudre en dessert) : activé quand le plancher
   est inatteignable, avec message honnête (« ce plat plafonne à 32 g, complète avec X »)
