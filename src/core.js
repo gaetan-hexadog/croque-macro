@@ -42,9 +42,42 @@ const store = {
     } catch (_) { return null; }
   },
   async set(k, v) {
+    // Le payload principal garde toujours sa clé `refAliases` : App.jsx réécrit le
+    // payload en énumérant SES clés à chaque persist — on réinjecte la nôtre ici
+    // pour qu'elle survive à ces réécritures (gérée plus bas, cf. getRefAliases).
+    if (k === STORE_KEY && v && typeof v === "object" && !Array.isArray(v) && v.refAliases === undefined) v = { ...v, refAliases: getRefAliases() };
     try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {}
   },
 };
+
+// ── Alias de liaison pantry → référentiel (moteur de repas, spec § 3.1) ──────
+// Map { nom_normalisé → refId } apprise des confirmations utilisateur (chip
+// « ≈ … ? Lier » du frigo). Vit dans le payload STORE_KEY (clé `refAliases`,
+// défaut {}) comme favs/usage, mais est gérée ICI : cache module + réinjection
+// dans store.set ci-dessus. Les noms sont normalisés par engine/linking.js
+// (normalizeName) — toujours passer par elle pour écrire/lire une entrée.
+let _refAliases = null;
+function getRefAliases() {
+  if (_refAliases) return _refAliases;
+  try {
+    const d = JSON.parse(localStorage.getItem(STORE_KEY));
+    _refAliases = (d && d.refAliases && typeof d.refAliases === "object") ? d.refAliases : {};
+  } catch (_) { _refAliases = {}; }
+  return _refAliases;
+}
+async function learnRefAlias(nameNorm, refId) {
+  if (!nameNorm || !refId) return;
+  return setRefAliases({ ...getRefAliases(), [nameNorm]: refId });
+}
+// Remplace la map entière (sync Supabase : applique le refAliases fusionné par
+// mergeAppState en local — cache module + payload, sinon les alias remote
+// n'existeraient jamais sur cet appareil).
+async function setRefAliases(map) {
+  if (!map || typeof map !== "object" || Array.isArray(map)) return;
+  _refAliases = { ...map };
+  const d = (await store.get(STORE_KEY)) || {};
+  await store.set(STORE_KEY, { ...d, refAliases: _refAliases });
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PIOCHE-REPAS — application multi-écrans
@@ -615,7 +648,7 @@ function mergePantryStore(pantry = [], customMeals = []) {
     if (raw.p100 != null && it.p100 == null) it.p100 = raw.p100;
     if (raw.unit && !it.unit) it.unit = raw.unit;
     if (raw.qty != null && it.qty == null) it.qty = raw.qty;
-    for (const k of ["c", "f", "tags", "desc", "custom", "off", "code"]) if (raw[k] != null && it[k] == null) it[k] = raw[k];
+    for (const k of ["c", "f", "tags", "desc", "custom", "off", "code", "ref_id", "exp", "cat", "etat", "qty_date", "reste"]) if (raw[k] != null && it[k] == null) it[k] = raw[k];
   };
   for (const x of pantry || []) ensure(x, false);       // frigo d'abord (garde out réel + densité)
   for (const x of customMeals || []) ensure(x, true);   // base perso ensuite (complète la portion)
@@ -1211,5 +1244,5 @@ function buildChatSystem({ days = {}, weights = {}, settings = {}, pantry = [], 
 // Idées de plats & recettes — écran dédié. cat: pdj | dej | diner | snack
 
 export {
-  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, wishSignals, oneEmoji, dietaryWarnings, correctMacros, consumePantry, catOf, itemCat, catFromLabel, daysUntil, expiryMeta, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting,
+  SLOTS, TAGS, store, THEMES, SLOT_THEMES, C, SLOT_UI, applyTheme, setThemeColor, cardStyle, STORE_KEY, LEGACY_KEY, ISO, TODAY, parseISO, addDays, fmtShort, fmtFull, r0, EMPTY_DAY, toList, normPicks, normDay, normDays, dayTotals, plannedTotals, hasData, streakCount, picksKey, clampQty, fmtQty, KCAL_FLOOR, weekStats, weekCoach, weightTrendOver, DEFAULT_COMBOS, COMBOS_SEED_VERSION, DEFAULT_PROFILE, computeTargets, smoothedWeight, buildClaudePrompt, buildAssistantPrompt, buildShoppingPrompt, buildWeeklyReviewPrompt, buildWeightExplainPrompt, buildChatSystem, wishSignals, oneEmoji, dietaryWarnings, correctMacros, consumePantry, catOf, itemCat, catFromLabel, daysUntil, expiryMeta, catMeta, CAT_ORDER, protStock, varietyProfile, mifflinBMR, observedTrend, computeAdaptiveTarget, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, newId, scoreProduct, seasonalProduce, seasonNote, coachSignals, coachOpening, coachGreeting, getRefAliases, learnRefAlias, setRefAliases,
 };

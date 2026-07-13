@@ -91,6 +91,8 @@ export function mergeAppState(local = {}, remote) {
     shakeBases: byId(local.shakeBases, remote.shakeBases),
     shakeLiquids: byId(local.shakeLiquids, remote.shakeLiquids),
     usage: { ...(local.usage || {}), ...(remote.usage || {}) },
+    // Alias appris pantry → référentiel (moteur de repas) : union par clé, remote prioritaire.
+    refAliases: { ...(local.refAliases || {}), ...(remote.refAliases || {}) },
     favs: Array.from(new Set([...(local.favs || []), ...(remote.favs || [])])),
     comboSeed: Math.max(local.comboSeed || 0, remote.comboSeed || 0),
     // Config sport : scalaires côté remote, sous-maps fusionnées par clé.

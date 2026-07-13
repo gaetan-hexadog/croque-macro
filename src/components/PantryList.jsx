@@ -8,8 +8,9 @@ const deburr = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[�
 // et le panneau « Frigo » de la pioche (piocher une portion). Même regroupement par
 // rayon, mêmes badges de péremption, même tri (urgent d'abord) partout : le frigo a
 // UN visage dans toute l'app. `right(it)` = l'action propre au contexte (chip stock
-// côté gestion, + côté pioche) ; `sub(it)` = la ligne d'infos (défaut : stock + densité).
-export function PantryList({ items = [], query = "", onTap, right, sub, emptyText = "Aucun aliment." }) {
+// côté gestion, + côté pioche) ; `sub(it)` = la ligne d'infos (défaut : stock + densité) ;
+// `chip(it)` = chip optionnel APPENDU à la ligne d'infos (ex. suggestion de liaison).
+export function PantryList({ items = [], query = "", onTap, right, sub, chip, emptyText = "Aucun aliment." }) {
   const nq = deburr(query);
   const filtered = items
     .filter((x) => x && (!nq || deburr(x.name).includes(nq)))
@@ -43,6 +44,7 @@ export function PantryList({ items = [], query = "", onTap, right, sub, emptyTex
                           <ProteinFlag kcal={it.kcal100} p={it.p100} />
                         </>
                       )}
+                      {chip && chip(it)}
                     </span>
                   </span>
                   {b && b.txt && <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ backgroundColor: `${b.col}1a`, color: b.col }}>{b.txt}</span>}

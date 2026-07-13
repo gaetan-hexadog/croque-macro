@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
 import { Settings2, SlidersHorizontal, CalendarDays, TrendingUp, Sun, BookOpen, CalendarRange, Soup, ScanLine, ChevronLeft, ChevronRight, Plus, Lightbulb, Refrigerator, Dumbbell, Sparkles, Sprout } from "lucide-react";
 import {
-  SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, consumePantry, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce,
+  SLOTS, store, C, applyTheme, setThemeColor, STORE_KEY, LEGACY_KEY, TODAY, addDays, fmtFull, parseISO, EMPTY_DAY, normPicks, normDays, dayTotals, plannedTotals, picksKey, clampQty, DEFAULT_COMBOS, COMBOS_SEED_VERSION, computeTargets, smoothedWeight, buildClaudePrompt, buildChatSystem, oneEmoji, computeAdaptiveTarget, observedTrend, fixClearProteinHistory, dedupeRecipesByName, mergePantryStore, consumePantry, newId, weekStats, weekCoach, varietyProfile, coachOpening, coachSignals, seasonalProduce, getRefAliases, setRefAliases,
 } from "./core.js";
 import { calcCurrentWeekFromStart, SESSION_ORDER, SESSIONS, getCatchUp, getActiveProgram, programStateOf, doneWorkoutId, recompSignal, buildSportCoachSystem, sportCoachOpening } from "./lib/sport.js";
 import { sportTokens } from "./sport/theme.js";
@@ -134,7 +134,7 @@ export default function PiocheRepas() {
   const stateRef = useRef({});
   const lastSynced = useRef({ days: {}, weights: {}, workouts: {}, appState: "" });
   const syncTimer = useRef(null);
-  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes, pantry: s.pantry, directives: s.directives, sport: s.sport }; }, []);
+  const appStateNow = useCallback(() => { const s = stateRef.current; return { settings: s.settings, templates: s.templates, usage: s.usage, combos: s.combos, shakeBases: s.shakeBases, shakeLiquids: s.shakeLiquids, comboSeed: s.comboSeed, favs: s.favs, customRecipes: s.customRecipes, pantry: s.pantry, directives: s.directives, refAliases: getRefAliases(), sport: s.sport }; }, []);
   const [hydrated, setHydrated] = useState(false);
   const [theme, setTheme] = useState("dark");
 
@@ -231,6 +231,10 @@ export default function PiocheRepas() {
       setCustomRecipes(merged.customRecipes);
       setPantry(merged.pantry);
       if (Array.isArray(merged.directives)) setDirectives(merged.directives);
+      // Alias pantry → référentiel : la map fusionnée (local ∪ remote) doit exister
+      // EN LOCAL aussi (cache core.js + payload), sinon les alias d'un autre appareil
+      // ne seraient poussés en base que sans jamais s'appliquer ici.
+      await setRefAliases(merged.refAliases);
       setUsage(merged.usage);
       setCombos(merged.combos);
       setShakeBases(merged.shakeBases);

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Share2, Check, ScanLine, Plus, Pencil, Trash2, RotateCcw, ShoppingCart, Keyboard, Search, Sparkles, Loader2, X, ChefHat, AlertTriangle, CalendarClock } from "lucide-react";
-import { C, cardStyle, itemCat, catMeta, CAT_ORDER, expiryMeta, daysUntil, protStock, addDays, TODAY } from "../core.js";
+import { C, cardStyle, itemCat, catMeta, CAT_ORDER, expiryMeta, daysUntil, protStock, addDays, TODAY, getRefAliases, learnRefAlias } from "../core.js";
 import { Sheet } from "../components/Sheet.jsx";
 import OffSearch from "../components/OffSearch.jsx";
 import { BarcodeScanner } from "../components/BarcodeScanner.jsx";
@@ -9,6 +9,14 @@ import { estimateFoodMacros } from "../lib/assistant.js";
 import { formatPantryText, shareOrCopy } from "../lib/share.js";
 import { AssistantBar } from "../components/AssistantBar.jsx";
 import { PantryList } from "../components/PantryList.jsx";
+import { matchPantryItem, normalizeName } from "../lib/engine/linking.js";
+import { getLibrarySync } from "../lib/library.js";
+
+// Adaptateur LOCAL (pas dans engine/) : la base foods actuelle (pool de library.js)
+// → format référentiel attendu par le moteur ({ slug, nom }). Provisoire, en
+// attendant le vrai référentiel ingrédients (spec § 2.1) — la liaison, elle
+// (ref_id + alias appris), est déjà la définitive.
+const buildReferentiel = () => (getLibrarySync().pool || []).filter((f) => f && f.id && f.name).map((f) => ({ slug: f.id, nom: f.name }));
 
 const deburr = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
@@ -126,6 +134,38 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
 
   const dispo = pantry.filter((x) => !x.out), rupture = pantry.filter((x) => x.out);
   const urgent = dispo.filter((x) => expiryMeta(x.exp)?.urgent).sort((a, b) => (daysUntil(a.exp) ?? 9999) - (daysUntil(b.exp) ?? 9999));
+
+  // ── Liaison pantry → référentiel (spec § 3.1) ──────────────────────────────
+  const referentiel = useMemo(buildReferentiel, []);
+  const refNames = useMemo(() => Object.fromEntries(referentiel.map((r) => [r.slug, r.nom])), [referentiel]);
+  // Liaison SILENCIEUSE au fil de l'eau : exact/alias ≥ 0,9 uniquement — jamais
+  // fuzzy (confirmation requise). Un ref_id existant n'est JAMAIS écrasé (l'édition
+  // le conserve aussi : updatePantry patche sans toucher aux clés absentes).
+  useEffect(() => {
+    if (!onUpdate) return;
+    for (const it of pantry) {
+      if (!it || it.ref_id) continue;
+      const m = matchPantryItem(it.name, referentiel, getRefAliases());
+      if (m && m.kind !== "fuzzy" && m.confidence >= 0.9) onUpdate(it.id, { ref_id: m.refId });
+    }
+  }, [pantry, referentiel, onUpdate]);
+  // Suggestions fuzzy (≥ 0,6) pour les items non reliés → chip « ≈ nom ? Lier ».
+  const fuzzyFor = useMemo(() => {
+    const out = {};
+    for (const it of pantry) {
+      if (!it || it.ref_id || it.out) continue;
+      const m = matchPantryItem(it.name, referentiel, getRefAliases());
+      if (m && m.kind === "fuzzy") out[it.id] = m;
+    }
+    return out;
+  }, [pantry, referentiel]);
+  // Confirmation en 1 tap = liaison + alias appris (la même saisie se liera seule).
+  const confirmLink = (it, m) => {
+    onUpdate && onUpdate(it.id, { ref_id: m.refId });
+    learnRefAlias(normalizeName(it.name), m.refId);
+    showFlash(`« ${it.name} » lié à ${refNames[m.refId] || m.refId} ✓`);
+  };
+  const unlinked = dispo.filter((x) => !x.ref_id).length;
   const nq = deburr(q);
   const filtered = dispo.filter((x) => (!nq || deburr(x.name).includes(nq)));
 
@@ -194,8 +234,13 @@ export function PantrySheet({ pantry = [], onAdd, onToggle, onUpdate, onRemove, 
             <p className="py-8 text-center text-sm" style={{ color: C.muted }}>Aucun aliment pour l'instant — scanne ou ajoute ce que tu as.</p>
           ) : (
             <>
+              {/* Compteur discret de liaison au référentiel (moteur de repas, § 3.1). */}
+              {unlinked > 0 && !nq && <p className="px-1 text-[11px]" style={{ color: C.muted }}>{unlinked} aliment{unlinked > 1 ? "s" : ""} non relié{unlinked > 1 ? "s" : ""}</p>}
               {/* LE rendu frigo unique (partagé avec la pioche) : rayons, péremption, tri urgent. */}
               <PantryList items={dispo} query={q} onTap={setAction} emptyText={nq ? "Rien ne correspond." : "Aucun aliment dispo."}
+                chip={(it) => { const m = fuzzyFor[it.id]; return m ? (
+                  <button onClick={(ev) => { ev.stopPropagation(); confirmLink(it, m); }} className="rounded-full px-2 py-0.5 text-[10px] font-bold active:scale-95" style={{ backgroundColor: `${C.weight}14`, color: C.weight, border: `1px solid ${C.weight}33` }} aria-label={`Lier à ${refNames[m.refId]}`}>≈ {refNames[m.refId]} ? Lier</button>
+                ) : null; }}
                 right={(it) => (
                   <button onClick={(ev) => { ev.stopPropagation(); onToggle(it.id); showFlash(`${it.name} → à racheter (tape-le en haut pour annuler)`); }} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold active:scale-95" style={{ backgroundColor: `${C.green}1f`, color: C.green }} aria-label="Plus en stock ? Passe en rupture">
                     <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.green }} /> En stock
